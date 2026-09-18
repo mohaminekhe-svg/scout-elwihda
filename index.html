@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>فوج الوحدة الكشفي - الكشافة الإسلامية الجزائرية</title>
+  
+  <!-- مكتبة الأيقونات Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- شريط ثابت علوي -->
+  <div class="header-fixed-wrapper">
+    <!-- شريط الإعلانات -->
+    <div class="announcement-bar">
+      <div class="announcement-badge-wrap hover-lift">
+        <span class="badge-urgent pulse-glow">إعلان هام</span>
+      </div>
+      <div class="marquee-container">
+        <div class="marquee-text">
+          عن قريب سيتم فتح التسجيلات للموسم الكشفي الجديد (2026 - 2027 م / 1448 هـ)
+        </div>
+      </div>
+    </div>
+
+    <!-- الهيدر (Navbar) -->
+    <header class="navbar">
+      <div class="nav-container">
+        
+        <a href="#" onclick="showPage('home-page')" class="brand-logo hover-lift">
+          <img src="./logo sma.png" alt="الكشافة الإسلامية الجزائرية" class="nav-logo">
+          <div class="brand-text">
+            <h1>الكشافة الإسلامية الجزائرية</h1>
+            <p> فوج الوحدة </p>
+          </div>
+          <img src="./logo elwihda.png" alt="فوج الوحدة الكشفي" class="nav-logo">
+        </a>
+
+        <!-- أزرار التنقل الرئيسية -->
+        <ul class="nav-menu" id="navMenu">
+          <li><button onclick="showPage('home-page')" class="nav-btn active hover-lift">الرئيسية</button></li>
+          <li><button onclick="showPage('units-page')" class="nav-btn hover-lift">الوحدات</button></li>
+          <li>
+            <button onclick="showPage('bulletin-page')" class="nav-btn nav-link-bulletin hover-lift">
+              <span class="red-dot pulse-glow"></span> الإعلانات
+            </button>
+          </li>
+          <li><button onclick="showPage('gallery-page')" class="nav-btn hover-lift">المعرض الرقمي</button></li>
+          
+          <!-- أزرار الحساب الخاصة بالهواتف فقط -->
+          <li class="menu-auth-divider mobile-only"></li>
+          <li class="menu-auth-item mobile-only">
+            <button onclick="openModal('loginModal')" class="btn-scout-space border-none-btn hover-lift full-width-btn">
+              <i class="fa-solid fa-right-to-bracket"></i> <span>تسجيل الدخول</span>
+            </button>
+          </li>
+          <li class="menu-auth-item mobile-only">
+            <button onclick="openModal('leaderPortalModal')" class="btn-primary hover-lift border-none-btn full-width-btn">
+              <i class="fa-solid fa-user-gear"></i> <span>بوابة القيادة</span>
+            </button>
+          </li>
+        </ul>
+
+        <!-- أزرار الحساب الخاصة بالحواسيب -->
+        <div class="nav-actions desktop-only">
+          <button onclick="openModal('loginModal')" class="btn-scout-space border-none-btn hover-lift">
+            <i class="fa-solid fa-right-to-bracket"></i> <span>تسجيل الدخول</span>
+          </button>
+          <button onclick="openModal('leaderPortalModal')" class="btn-primary hover-lift border-none-btn">
+            <i class="fa-solid fa-user-gear"></i> <span>بوابة القيادة</span>
+          </button>
+        </div>
+
+        <!-- زر 3 نقاط للهواتف -->
+        <button class="mobile-menu-btn hover-lift" onclick="toggleMobileMenu()" aria-label="القائمة">
+          <i class="fa-solid fa-ellipsis-vertical"></i>
+          <span class="mobile-red-dot pulse-glow"></span>
+        </button>
+
+      </div>
+    </header>
+  </div>
+
+  <!-- حاوية الصفحات المستقلة -->
+  <main class="main-content-viewport">
+
+    <!-- 1. الصفحة الرئيسية -->
+    <div id="home-page" class="site-page active-page">
+      <section class="hero">
+        <div class="hero-overlay"></div>
+        <div class="hero-container-centered">
+          <div class="glass-card hero-content-full hover-lift">
+            <span class="hero-tag hover-lift">
+              <i class="fa-solid fa-campground"></i> تربية - قيادة - مواطنة
+            </span>
+            <h1 class="hero-title">مرحباً بكم في <span class="highlight">فوج الوحدة الكشفي</span></h1>
+            <p class="hero-description">
+              نحن في فوج الوحدة الكشفي نعمل على إعداد أجيال الغد وبناء الشخصية القيادية من خلال المغامرة، التعلم بالعمل، والالتزام بالقيم الكشفية والوطنية. نتيح للشباب والفتية بيئة تربوية ممتعة تزرع فيهم روح التعاون، الانضباط، والخدمة العامة.
+            </p>
+
+            <div class="hero-stats-grid">
+              <div class="stat-item hover-lift">
+                <span class="stat-number">+150</span>
+                <span class="stat-label">كشاف ومشارك</span>
+              </div>
+              <div class="stat-item hover-lift">
+                <span class="stat-number">+20</span>
+                <span class="stat-label">مخيم ونشاط ميداني</span>
+              </div>
+              <div class="stat-item hover-lift">
+                <span class="stat-number">1993</span>
+                <span class="stat-label">سنة التأسيس</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="about-overview-section container">
+        <div class="about-overview-card hover-lift">
+          <div class="overview-header">
+            <span class="section-subtitle"><i class="fa-solid fa-shield-halved"></i> أصالة وتاريخ</span>
+            <h2>نبذة عن فوج الوحدة</h2>
+          </div>
+          
+          <div class="overview-content">
+            <p>
+              <strong>فوج الوحدة</strong> هو فوج كشفي تابع لـ <strong>الكشافة الإسلامية الجزائرية – محافظة ولاية الجزائر</strong>، تعود نواته الأولى إلى سنة <strong>1993</strong>، حين أسسه عدد من القادة القدامى في الحركة الكشفية بوادي ميزاب المقيمين بالعاصمة، قبل أن يتوسع نشاطه التربوي سنة <strong>1996</strong> بانضمام الفتية وتشكيل الوحدات الكشفية.
+            </p>
+            <p>
+              وفي <strong>18 أفريل 2004</strong>، اتخذ الفوج مقره الرسمي بـ <strong>مركب المنار – الحميز</strong>، واعتمد اسم فوج الوحدة، مواصلًا منذ ذلك الحين رسالته التربوية والكشفية في تكوين الأجيال، وتنمية المواهب، وخدمة المجتمع، والمشاركة في مختلف المحافل الوطنية والدولية.
+            </p>
+          </div>
+
+          <div class="goals-wrapper">
+            <h3 class="goals-title">🎯 أهدافنا</h3>
+            <ul class="goals-list">
+              <li class="hover-lift">
+                <span class="goal-icon">⚜️</span>
+                <span>غرس الإيمان، الأخلاق، حب الوطن وروح المسؤولية.</span>
+              </li>
+              <li class="hover-lift">
+                <span class="goal-icon">🌱</span>
+                <span>تنمية القدرات الفكرية والبدنية والاجتماعية للفتية.</span>
+              </li>
+              <li class="hover-lift">
+                <span class="goal-icon">🧭</span>
+                <span>اكتشاف المواهب والطاقات وتنمية روح القيادة والعمل الجماعي.</span>
+              </li>
+              <li class="hover-lift">
+                <span class="goal-icon">🇩🇿</span>
+                <span>التعريف بتاريخ الأمة وتراثها وترسيخ الاعتزاز بالهوية الوطنية.</span>
+              </li>
+              <li class="hover-lift">
+                <span class="goal-icon">🤝</span>
+                <span>المساهمة في المبادرات الاجتماعية والبيئية والوطنية.</span>
+              </li>
+              <li class="hover-lift">
+                <span class="goal-icon">🌍</span>
+                <span>المشاركة في المخيمات والمحافل الوطنية والدولية وتعزيز التواصل بين الكشافين.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="home-highlights-section container">
+        <div class="main-home-grid">
+          <div class="home-feature-card hover-lift">
+            <div class="feature-icon hover-lift"><i class="fa-solid fa-hands-holding-child"></i></div>
+            <h3>تربية بالعمل</h3>
+            <p>نعتمد على التعلم العملي والمغامرات الميدانية لبناء ثقة الكشاف بنفسه ومحيطه.</p>
+          </div>
+          <div class="home-feature-card hover-lift">
+            <div class="feature-icon hover-lift"><i class="fa-solid fa-compass-drafting"></i></div>
+            <h3>انضباط وقيادة</h3>
+            <p>تطوير المهارات القيادية وتحمل المسؤولية عبر النظام الطلائعي والأنشطة الجماعية.</p>
+          </div>
+          <div class="home-feature-card hover-lift">
+            <div class="feature-icon hover-lift"><i class="fa-solid fa-tree"></i></div>
+            <h3>حياة الخلاء</h3>
+            <p>استكشاف الطبيعة، إقامة المخيمات الصيفية والشتوية، وتعلم مهارات البقاء والربطات.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 2. صفحة الوحدات الكشفية -->
+    <div id="units-page" class="site-page">
+      <section class="page-section">
+        <div class="section-banner hover-lift">
+          <div class="banner-content">
+            <span class="section-subtitle">المراحل العمرية</span>
+            <h2>الوحدات الكشفية</h2>
+            <p>برامج مخصصة لمختلف الفئات العمرية لتطوير المهارات القيادية والحياتية</p>
+          </div>
+        </div>
+
+        <div class="section-body container">
+          <div class="units-grid">
+            <div class="unit-card hover-lift">
+              <div class="unit-badge amber hover-lift">7 - 11 سنة</div>
+              <h3>وحدة الأشبال والزهرات</h3>
+              <p>مرحلة الاكتشاف والتعلم عبر اللعب وتنمية روح الجماعة والاستكشاف الأول.</p>
+            </div>
+            <div class="unit-card hover-lift">
+              <div class="unit-badge green hover-lift">12 - 15 سنة</div>
+              <h3>وحدة الكشافة والمرشدات</h3>
+              <p>مرحلة المغامرة وتعلّم مهارات الحياة في الطبيعة وبناء روح الاعتماد على النفس.</p>
+            </div>
+            <div class="unit-card hover-lift">
+              <div class="unit-badge red hover-lift">16 - 18 سنة</div>
+              <h3>وحدة الكشاف المتقدم</h3>
+              <p>تنمية الحس القيادي، المشاركة والمشاريع المجتمعية والتخطيط المستقبلي.</p>
+            </div>
+            <div class="unit-card hover-lift">
+              <div class="unit-badge blue hover-lift">19+ سنة</div>
+              <h3>وحدة الجوالة والدليلات</h3>
+              <p>مرحلة الخدمة العامة والمواطنة الفاعلة وإعداد قادة الغد للمجتمع الكشفي.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 3. صفحة الإعلانات الرسمية -->
+    <div id="bulletin-page" class="site-page">
+      <section class="page-section">
+        <div class="section-banner hover-lift">
+          <div class="banner-content">
+            <span class="section-subtitle"><i class="fa-solid fa-bullhorn"></i> المستجدات</span>
+            <h2>لوحة الإعلانات الرسمية</h2>
+            <p>متابعة كافة البلاغات والمنشورات الصادرة عن قيادة الفوج</p>
+          </div>
+        </div>
+
+        <div class="section-body container">
+          <div class="bulletin-card-main hover-lift">
+            <h3>إعلان عن قرب فتح التسجيلات للموسم الكشفي الجديد</h3>
+            
+            <div class="announcement-image-container hover-lift" id="announcementImgBox">
+              <p class="img-placeholder-text"><i class="fa-regular fa-image"></i> مكان الصورة المخصصة للإعلان</p>
+            </div>
+
+            <p class="bulletin-text">
+              يسر قيادة فوج الوحدة الكشفي إعلام جميع الأولياء والأطفال عن اقتراب انطلاق التسجيلات السنوية للموسم الكشفي الجديد. يمكنك الاطلاع على استمارة التسجيل أو تحميلها بالضغط أسفله.
+            </p>
+
+            <div class="bulletin-actions">
+              <button class="btn-primary hero-btn-red border-none-btn hover-lift" onclick="checkRegistrationForm()">
+                <i class="fa-solid fa-file-pdf"></i> استمارة التسجيل
+              </button>
+            </div>
+
+            <div id="formStatusBox" class="form-status-box" style="display: none;">
+              <div id="loadingSpinner" class="spinner-wrap" style="display: none;">
+                <div class="spinner"></div>
+                <p>انتظر ثواني...</p>
+              </div>
+              <div id="formResult" class="form-result"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 4. صفحة المعرض الرقمي -->
+    <div id="gallery-page" class="site-page">
+      <section class="page-section">
+        <div class="section-banner hover-lift">
+          <div class="banner-content">
+            <span class="section-subtitle">الذكريات والمخيمات</span>
+            <h2>المعرض الرقمي</h2>
+            <p>صور وفيديوهات لخصت أجمل اللحظات الكشفية للأنشطة والرحلات</p>
+          </div>
+        </div>
+
+        <div class="section-body container">
+
+          <!-- أزرار تصفية المعرض الرقمي -->
+          <div class="gallery-filters">
+            <button class="gallery-filter-btn active hover-lift" onclick="filterGallery('all', this)">
+              <i class="fa-solid fa-layer-group"></i> الكل
+            </button>
+            <button class="gallery-filter-btn hover-lift" onclick="filterGallery('units', this)">
+              <i class="fa-solid fa-people-group"></i> الوحدات
+            </button>
+            <button class="gallery-filter-btn hover-lift" onclick="filterGallery('gatherings', this)">
+              <i class="fa-solid fa-users"></i> التجمعات
+            </button>
+            <button class="gallery-filter-btn hover-lift" onclick="filterGallery('camps', this)">
+              <i class="fa-solid fa-campground"></i> المخيمات
+            </button>
+          </div>
+
+          <!-- شبكة بطاقات المعرض -->
+          <div class="gallery-grid" id="galleryGrid">
+            <div class="gallery-card hover-lift" data-category="camps">
+              <div class="media-box hover-lift"><i class="fa-solid fa-campground"></i></div>
+              <h3>مخيم الغابة الصيفي</h3>
+              <span class="gallery-tag">المخيمات</span>
+            </div>
+            
+            <div class="gallery-card hover-lift" data-category="gatherings">
+              <div class="media-box hover-lift"><i class="fa-solid fa-fire"></i></div>
+              <h3>سهرة السمر الكشفي</h3>
+              <span class="gallery-tag">التجمعات</span>
+            </div>
+            
+            <div class="gallery-card hover-lift" data-category="units">
+              <div class="media-box hover-lift"><i class="fa-solid fa-kit-medical"></i></div>
+              <h3>ورشة الإسعافات الأولية</h3>
+              <span class="gallery-tag">الوحدات</span>
+            </div>
+          </div>
+
+        </div>
+      </section>
+    </div>
+
+  </main>
+
+  <!-- نافذة تسجيل الدخول -->
+  <div id="loginModal" class="modal-overlay">
+    <div class="scout-card-container hover-lift">
+      <button class="close-btn hover-lift" onclick="closeModal('loginModal')">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="welcome-box">
+        <div class="welcome-overlay hover-lift">
+          <div class="scout-badge-icon hover-lift"><i class="fa-solid fa-shield-halved"></i></div>
+          <h3>فضاء الكشاف</h3>
+          <p>مرحباً بك مجدداً في المنصة الرقمية لفوج الوحدة الكشفي</p>
+        </div>
+      </div>
+      <div class="form-box">
+        <h2>تسجيل الدخول</h2>
+        <p class="step-desc">أدخل بيانات الحساب الخاص بك للوصول إلى فضائك الكشفي</p>
+        <form id="loginForm">
+          <div class="input-box hover-lift">
+            <i class="fa-solid fa-envelope field-icon"></i>
+            <input type="email" id="loginUser" required placeholder=" ">
+            <label>البريد الإلكتروني</label>
+          </div>
+          <div class="input-box hover-lift">
+            <i class="fa-solid fa-lock field-icon"></i>
+            <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
+            <input type="password" id="loginPassword" required placeholder=" ">
+            <label>كلمة المرور</label>
+          </div>
+          <div class="forgot-link-wrap"><a href="#" class="forgot-link hover-lift">نسيت كلمة المرور؟</a></div>
+          <p id="loginError" style="color: #ef4444; font-size: 0.8rem; margin-bottom: 8px;"></p>
+          <button type="submit" class="glow-btn hover-lift">تسجيل الدخول</button>
+          
+          <div class="signup-prompt-wrap" style="text-align: center; margin-top: 15px; font-size: 0.88rem;">
+            <span>ليس لديك حساب؟ </span>
+            <a href="#" style="color: #dc2626; font-weight: bold; text-decoration: none;" onclick="switchModal('loginModal', 'registerModal')">إنشاء حساب جديد</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة إنشاء حساب جديد المعدلة -->
+  <div id="registerModal" class="modal-overlay" style="display: none;">
+    <div class="scout-card-container hover-lift" style="max-height: 90vh; overflow-y: auto;">
+      <button class="close-btn hover-lift" onclick="closeModal('registerModal')">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="welcome-box">
+        <div class="welcome-overlay hover-lift">
+          <div class="scout-badge-icon hover-lift"><i class="fa-solid fa-user-plus"></i></div>
+          <h3>انضم إلينا</h3>
+          <p>أنشئ حسابك الجديد للانضمام إلى العائلة الكشفية</p>
+        </div>
+      </div>
+      <div class="form-box">
+        <h2>إنشاء حساب جديد</h2>
+        <p class="step-desc">يرجى ملء البيانات التالية بدقة لتفعيل حسابك الكشفي</p>
+        <form id="registerForm" novalidate>
+          
+          <!-- الاسم واللقب جنباً إلى جنب -->
+          <div class="input-row">
+            <div class="input-box hover-lift">
+              <i class="fa-solid fa-user field-icon"></i>
+              <input type="text" id="regFirstName" required placeholder=" ">
+              <label>الاسم</label>
+            </div>
+            <div class="input-box hover-lift">
+              <i class="fa-solid fa-id-card field-icon"></i>
+              <input type="text" id="regLastName" required placeholder=" ">
+              <label>اللقب</label>
+            </div>
+          </div>
+
+          <!-- البريد الإلكتروني -->
+          <div class="input-box hover-lift">
+            <i class="fa-solid fa-envelope field-icon"></i>
+            <input type="email" id="regEmail" required placeholder=" ">
+            <label>البريد الإلكتروني</label>
+          </div>
+
+          <!-- رقما الهاتف جنباً إلى جنب مع نظام xxxxxxxx -->
+          <div class="input-row">
+            <div class="input-box hover-lift phone-box">
+              <i class="fa-solid fa-phone-volume field-icon"></i>
+              <input type="tel" id="regParentPhone" required placeholder=" " maxlength="10">
+              <label>هاتف الولي</label>
+              <div class="phone-mask-hint" id="parentPhoneMask"></div>
+            </div>
+            <div class="input-box hover-lift phone-box">
+              <i class="fa-solid fa-mobile-screen-button field-icon"></i>
+              <input type="tel" id="regScoutPhone" required placeholder=" " maxlength="10">
+              <label>هاتف الابن</label>
+              <div class="phone-mask-hint" id="scoutPhoneMask"></div>
+            </div>
+          </div>
+
+          <!-- كلمة المرور مع زر العين -->
+          <div class="input-box hover-lift">
+            <i class="fa-solid fa-lock field-icon"></i>
+            <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
+            <input type="password" id="regPassword" required placeholder=" ">
+            <label>كلمة المرور</label>
+          </div>
+
+          <!-- قائمة التحقق من شروط كلمة المرور -->
+          <div class="password-checks">
+            <div class="check-item invalid" id="checkLen">
+              <i class="fa-solid fa-circle-xmark check-icon"></i>
+              <span>يحتوي على 8 أرقام (أو خانات)</span>
+            </div>
+            <div class="check-item invalid" id="checkNum">
+              <i class="fa-solid fa-circle-xmark check-icon"></i>
+              <span>يحتوي على أرقام</span>
+            </div>
+            <div class="check-item invalid" id="checkSym">
+              <i class="fa-solid fa-circle-xmark check-icon"></i>
+              <span>يحتوي على رموز</span>
+            </div>
+          </div>
+
+          <!-- تأكيد كلمة المرور مع زر العين -->
+          <div class="input-box hover-lift" style="margin-top: 10px;">
+            <i class="fa-solid fa-lock field-icon"></i>
+            <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
+            <input type="password" id="regConfirmPassword" required placeholder=" ">
+            <label>تأكيد كلمة المرور</label>
+          </div>
+
+          <p id="regError" style="color: #ef4444; font-size: 0.82rem; margin-bottom: 8px; font-weight: bold;"></p>
+          <button type="submit" class="glow-btn hover-lift">إنشاء حساب</button>
+
+          <div style="text-align: center; margin-top: 15px; font-size: 0.88rem;">
+            <span>لديك حساب بالفعل؟ </span>
+            <a href="#" style="color: #dc2626; font-weight: bold; text-decoration: none;" onclick="switchModal('registerModal', 'loginModal')">تسجيل الدخول</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة بوابة القيادة -->
+  <div id="leaderPortalModal" class="modal-overlay" style="display: none;">
+    <div class="scout-card-container hover-lift">
+      <button class="close-btn hover-lift" onclick="closeModal('leaderPortalModal')">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="welcome-box">
+        <div class="welcome-overlay hover-lift">
+          <div class="scout-badge-icon hover-lift"><i class="fa-solid fa-user-gear"></i></div>
+          <h3>بوابة القيادة</h3>
+          <p>مساحة خاصة بقادة وقادات فوج الوحدة الكشفي</p>
+        </div>
+      </div>
+      <div class="form-box">
+        <h2>بوابة القيادة</h2>
+        <p class="step-desc">أدخل البريد الإلكتروني وكلمة المرور للوصول إلى نظام إدارة القيادة</p>
+        <form id="leaderPortalForm">
+          <div class="input-box hover-lift">
+            <i class="fa-solid fa-envelope field-icon"></i>
+            <input type="email" id="leaderEmail" required placeholder=" ">
+            <label>البريد الإلكتروني</label>
+          </div>
+          <div class="input-box hover-lift">
+            <i class="fa-solid fa-lock field-icon"></i>
+            <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
+            <input type="password" id="leaderPassword" required placeholder=" ">
+            <label>كلمة المرور</label>
+          </div>
+          <p id="leaderError" style="color: #ef4444; font-size: 0.8rem; margin-bottom: 8px;"></p>
+          <button type="submit" class="glow-btn hover-lift">دخول القيادة</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    const pdfFormUrl = "./registration-form.pdf";
+
+    function showPage(pageId) {
+      const pages = document.querySelectorAll('.site-page');
+      pages.forEach(p => p.classList.remove('active-page'));
+
+      const targetPage = document.getElementById(pageId);
+      if (targetPage) {
+        targetPage.classList.add('active-page');
+      }
+
+      const buttons = document.querySelectorAll('.nav-btn');
+      buttons.forEach(btn => btn.classList.remove('active'));
+
+      const navMenu = document.getElementById('navMenu');
+      if(navMenu) navMenu.classList.remove('active');
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function openModal(id) { 
+      const navMenu = document.getElementById('navMenu');
+      if(navMenu) navMenu.classList.remove('active');
+      
+      document.getElementById(id).style.display = 'flex'; 
+    }
+    
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+    function switchModal(closeId, openId) {
+      closeModal(closeId);
+      openModal(openId);
+    }
+
+    function toggleMobileMenu() {
+      document.getElementById('navMenu').classList.toggle('active');
+    }
+
+    function checkRegistrationForm() {
+      const statusBox = document.getElementById('formStatusBox');
+      const spinner = document.getElementById('loadingSpinner');
+      const result = document.getElementById('formResult');
+
+      statusBox.style.display = 'block';
+      spinner.style.display = 'flex';
+      result.innerHTML = '';
+
+      setTimeout(() => {
+        spinner.style.display = 'none';
+        fetch(pdfFormUrl, { method: 'HEAD' })
+          .then(response => {
+            if (response.ok) {
+              result.innerHTML = `
+                <div class="pdf-success hover-lift">
+                  <i class="fa-solid fa-circle-check"></i>
+                  <span>استمارة التسجيل متاحة للتحميل!</span>
+                  <a href="${pdfFormUrl}" download class="btn-download hover-lift"><i class="fa-solid fa-download"></i> تحميل الاستمارة (PDF)</a>
+                </div>`;
+            } else {
+              result.innerHTML = `
+                <div class="pdf-not-found hover-lift">
+                  <i class="fa-solid fa-circle-exclamation"></i>
+                  <span>لم يتم فتح التسجيلات بعد</span>
+                </div>`;
+            }
+          })
+          .catch(() => {
+            result.innerHTML = `
+              <div class="pdf-not-found hover-lift">
+                <i class="fa-solid fa-circle-exclamation"></i>
+                <span>لم يتم فتح التسجيلات بعد</span>
+              </div>`;
+          });
+      }, 2000);
+    }
+  </script>
+</body>
+</html>
