@@ -11,6 +11,37 @@
 </head>
 <body>
 
+  <!-- شريط جانبي للأدمن (يخرج من اليسار) -->
+  <div id="adminSidebar" class="admin-sidebar">
+    <div class="admin-sidebar-header">
+      <h3><i class="fa-solid fa-user-shield"></i> لوحة الأدمن</h3>
+      <button class="close-sidebar-btn" onclick="toggleAdminSidebar()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    
+    <div class="admin-sidebar-content">
+      <button class="admin-menu-btn hover-lift" onclick="alert('إدارة حسابات القيادة')">
+        <i class="fa-solid fa-user-gear"></i> حسابات القيادة
+      </button>
+      <button class="admin-menu-btn hover-lift" onclick="alert('إدارة حسابات الفتية والأولياء')">
+        <i class="fa-solid fa-users"></i> حسابات الفتية - الأولياء
+      </button>
+      <button class="admin-menu-btn hover-lift" onclick="showPage('bulletin-page'); toggleAdminSidebar();">
+        <i class="fa-solid fa-bullhorn"></i> شريط الإعلانات
+      </button>
+      <button class="admin-menu-btn hover-lift" onclick="showPage('gallery-page'); toggleAdminSidebar();">
+        <i class="fa-solid fa-images"></i> المعرض الرقمي
+      </button>
+    </div>
+
+    <!-- زر تسجيل الخروج في أسفل الشريط الجانبي -->
+    <div class="admin-sidebar-footer">
+      <button class="admin-logout-btn hover-lift" onclick="logoutAdmin()">
+        <i class="fa-solid fa-right-from-bracket"></i> تسجيل خروج الأدمن
+      </button>
+    </div>
+  </div>
+  <div id="sidebarOverlay" class="sidebar-overlay" onclick="toggleAdminSidebar()"></div>
+
   <!-- شريط ثابت علوي -->
   <div class="header-fixed-wrapper">
     <!-- شريط الإعلانات -->
@@ -29,6 +60,11 @@
     <header class="navbar">
       <div class="nav-container">
         
+        <!-- زر 3 خطوط للأدمن على أقصى اليسار للحواسيب (يظهر فقط عند دخول الأدمن) -->
+        <button id="adminDesktopToggleBtn" onclick="toggleAdminSidebar()" class="btn-admin-lines border-none-btn hover-lift" style="display: none;" title="قائمة الأدمن">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+
         <a href="#" onclick="showPage('home-page')" class="brand-logo hover-lift">
           <img src="./logo sma.png" alt="الكشافة الإسلامية الجزائرية" class="nav-logo">
           <div class="brand-text">
@@ -40,6 +76,12 @@
 
         <!-- أزرار التنقل الرئيسية -->
         <ul class="nav-menu" id="navMenu">
+          <!-- زر 3 خطوط للأدمن للهواتف -->
+          <li id="adminMobileToggleLi" style="display: none;">
+            <button onclick="toggleAdminSidebar()" class="nav-btn admin-toggle-btn hover-lift">
+              <i class="fa-solid fa-bars"></i> <span>قائمة الأدمن</span>
+            </button>
+          </li>
           <li><button onclick="showPage('home-page')" class="nav-btn active hover-lift">الرئيسية</button></li>
           <li><button onclick="showPage('units-page')" class="nav-btn hover-lift">الوحدات</button></li>
           <li>
@@ -49,27 +91,35 @@
           </li>
           <li><button onclick="showPage('gallery-page')" class="nav-btn hover-lift">المعرض الرقمي</button></li>
           
-          <!-- أزرار الحساب الخاصة بالهواتف فقط -->
+          <!-- أزرار الحساب الخاصة بالهواتف -->
           <li class="menu-auth-divider mobile-only"></li>
-          <li class="menu-auth-item mobile-only">
+          <li class="menu-auth-item mobile-only auth-guest-btn">
             <button onclick="openModal('loginModal')" class="btn-scout-space border-none-btn hover-lift full-width-btn">
               <i class="fa-solid fa-right-to-bracket"></i> <span>تسجيل الدخول</span>
             </button>
           </li>
-          <li class="menu-auth-item mobile-only">
+          <li class="menu-auth-item mobile-only auth-guest-btn">
             <button onclick="openModal('leaderPortalModal')" class="btn-primary hover-lift border-none-btn full-width-btn">
               <i class="fa-solid fa-user-gear"></i> <span>بوابة القيادة</span>
+            </button>
+          </li>
+          <li class="menu-auth-item mobile-only auth-guest-btn">
+            <button onclick="openModal('adminLoginModal')" class="btn-admin-red hover-lift border-none-btn full-width-btn">
+              <i class="fa-solid fa-user-shield"></i> <span>الأدمن</span>
             </button>
           </li>
         </ul>
 
         <!-- أزرار الحساب الخاصة بالحواسيب -->
         <div class="nav-actions desktop-only">
-          <button onclick="openModal('loginModal')" class="btn-scout-space border-none-btn hover-lift">
+          <button onclick="openModal('loginModal')" class="btn-scout-space border-none-btn hover-lift auth-guest-btn">
             <i class="fa-solid fa-right-to-bracket"></i> <span>تسجيل الدخول</span>
           </button>
-          <button onclick="openModal('leaderPortalModal')" class="btn-primary hover-lift border-none-btn">
+          <button onclick="openModal('leaderPortalModal')" class="btn-primary hover-lift border-none-btn auth-guest-btn">
             <i class="fa-solid fa-user-gear"></i> <span>بوابة القيادة</span>
+          </button>
+          <button onclick="openModal('adminLoginModal')" class="btn-admin-red hover-lift border-none-btn auth-guest-btn">
+            <i class="fa-solid fa-user-shield"></i> <span>الأدمن</span>
           </button>
         </div>
 
@@ -83,7 +133,7 @@
     </header>
   </div>
 
-  <!-- حاوية الصفحات المستقلة -->
+  <!-- حاوية الصفحات -->
   <main class="main-content-viewport">
 
     <!-- 1. الصفحة الرئيسية -->
@@ -201,24 +251,24 @@
         <div class="section-body container">
           <div class="units-grid">
             <div class="unit-card hover-lift">
-              <div class="unit-badge amber hover-lift">7 - 11 سنة</div>
-              <h3>وحدة الأشبال والزهرات</h3>
-              <p>مرحلة الاكتشاف والتعلم عبر اللعب وتنمية روح الجماعة والاستكشاف الأول.</p>
+              <div class="unit-badge amber hover-lift">الأشبال</div>
+              <h3>مرحلة الأشبال والزهرات</h3>
+              <p>سيتم الإعلان عن الفتية والتفاصيل قريباً من طرف الإدارة</p>
             </div>
             <div class="unit-card hover-lift">
-              <div class="unit-badge green hover-lift">12 - 15 سنة</div>
-              <h3>وحدة الكشافة والمرشدات</h3>
-              <p>مرحلة المغامرة وتعلّم مهارات الحياة في الطبيعة وبناء روح الاعتماد على النفس.</p>
+              <div class="unit-badge green hover-lift">الكشاف</div>
+              <h3>مرحلة الفتيان والكشاف</h3>
+              <p>سيتم الإعلان عن الفتية والتفاصيل قريباً من طرف الإدارة</p>
             </div>
             <div class="unit-card hover-lift">
-              <div class="unit-badge red hover-lift">16 - 18 سنة</div>
-              <h3>وحدة الكشاف المتقدم</h3>
-              <p>تنمية الحس القيادي، المشاركة والمشاريع المجتمعية والتخطيط المستقبلي.</p>
+              <div class="unit-badge red hover-lift">المتقدم</div>
+              <h3>مرحلة الكشاف المتقدم</h3>
+              <p>سيتم الإعلان عن الفتية والتفاصيل قريباً من طرف الإدارة</p>
             </div>
             <div class="unit-card hover-lift">
-              <div class="unit-badge blue hover-lift">19+ سنة</div>
-              <h3>وحدة الجوالة والدليلات</h3>
-              <p>مرحلة الخدمة العامة والمواطنة الفاعلة وإعداد قادة الغد للمجتمع الكشفي.</p>
+              <div class="unit-badge blue hover-lift">الجوالة</div>
+              <h3>مرحلة الجوالة والقيادة</h3>
+              <p>سيتم الإعلان عن الفتية والتفاصيل قريباً من طرف الإدارة</p>
             </div>
           </div>
         </div>
@@ -245,12 +295,12 @@
             </div>
 
             <p class="bulletin-text">
-              يسر قيادة فوج الوحدة الكشفي إعلام جميع الأولياء والأطفال عن اقتراب انطلاق التسجيلات السنوية للموسم الكشفي الجديد. يمكنك الاطلاع على استمارة التسجيل أو تحميلها بالضغط أسفله.
+              يسر قيادة فوج الوحدة الكشفي إعلام جميع الأولياء والأطفال عن اقتراب انطلاق التسجيلات السنوية للموسم الكشفي الجديد. يمكنك الاطلاع على استمارة التسجيل لموسم الكشفي الجديد.
             </p>
 
             <div class="bulletin-actions">
               <button class="btn-primary hero-btn-red border-none-btn hover-lift" onclick="checkRegistrationForm()">
-                <i class="fa-solid fa-file-pdf"></i> استمارة التسجيل
+                <i class="fa-solid fa-file-pdf"></i> الانتقال لصفحة التسجيل
               </button>
             </div>
 
@@ -278,8 +328,6 @@
         </div>
 
         <div class="section-body container">
-
-          <!-- أزرار تصفية المعرض الرقمي -->
           <div class="gallery-filters">
             <button class="gallery-filter-btn active hover-lift" onclick="filterGallery('all', this)">
               <i class="fa-solid fa-layer-group"></i> الكل
@@ -295,34 +343,30 @@
             </button>
           </div>
 
-          <!-- شبكة بطاقات المعرض -->
           <div class="gallery-grid" id="galleryGrid">
             <div class="gallery-card hover-lift" data-category="camps">
               <div class="media-box hover-lift"><i class="fa-solid fa-campground"></i></div>
               <h3>مخيم الغابة الصيفي</h3>
               <span class="gallery-tag">المخيمات</span>
             </div>
-            
             <div class="gallery-card hover-lift" data-category="gatherings">
               <div class="media-box hover-lift"><i class="fa-solid fa-fire"></i></div>
               <h3>سهرة السمر الكشفي</h3>
               <span class="gallery-tag">التجمعات</span>
             </div>
-            
             <div class="gallery-card hover-lift" data-category="units">
               <div class="media-box hover-lift"><i class="fa-solid fa-kit-medical"></i></div>
               <h3>ورشة الإسعافات الأولية</h3>
               <span class="gallery-tag">الوحدات</span>
             </div>
           </div>
-
         </div>
       </section>
     </div>
 
   </main>
 
-  <!-- نافذة تسجيل الدخول -->
+  <!-- نافذة تسجيل الدخول (فضاء الكشاف) -->
   <div id="loginModal" class="modal-overlay">
     <div class="scout-card-container hover-lift">
       <button class="close-btn hover-lift" onclick="closeModal('loginModal')">
@@ -351,21 +395,28 @@
             <label>كلمة المرور</label>
           </div>
           <div class="forgot-link-wrap"><a href="#" class="forgot-link hover-lift">نسيت كلمة المرور؟</a></div>
-          <p id="loginError" style="color: #ef4444; font-size: 0.8rem; margin-bottom: 8px;"></p>
-          <button type="submit" class="glow-btn hover-lift">تسجيل الدخول</button>
           
-          <div class="signup-prompt-wrap" style="text-align: center; margin-top: 15px; font-size: 0.88rem;">
+          <!-- مؤشر التحقق المؤقت للكشاف -->
+          <div id="loginCheckingBox" class="spinner-wrap" style="display: none; margin-bottom: 12px;">
+            <div class="spinner"></div>
+            <p style="color: var(--accent-gold); font-weight: bold; margin-top: 6px;">انتظر ثواني... جاري التحقق</p>
+          </div>
+
+          <p id="loginError" class="error-msg"></p>
+          <button type="submit" id="loginSubmitBtn" class="glow-btn hover-lift">تسجيل الدخول</button>
+          
+          <div class="signup-prompt-wrap">
             <span>ليس لديك حساب؟ </span>
-            <a href="#" style="color: #dc2626; font-weight: bold; text-decoration: none;" onclick="switchModal('loginModal', 'registerModal')">إنشاء حساب جديد</a>
+            <a href="#" class="switch-auth-link" onclick="switchModal('loginModal', 'registerModal')">إنشاء حساب جديد</a>
           </div>
         </form>
       </div>
     </div>
   </div>
 
-  <!-- نافذة إنشاء حساب جديد المعدلة -->
+  <!-- نافذة إنشاء حساب جديد -->
   <div id="registerModal" class="modal-overlay" style="display: none;">
-    <div class="scout-card-container hover-lift" style="max-height: 90vh; overflow-y: auto;">
+    <div class="scout-card-container hover-lift modal-scrollable">
       <button class="close-btn hover-lift" onclick="closeModal('registerModal')">
         <i class="fa-solid fa-xmark"></i>
       </button>
@@ -380,8 +431,6 @@
         <h2>إنشاء حساب جديد</h2>
         <p class="step-desc">يرجى ملء البيانات التالية بدقة لتفعيل حسابك الكشفي</p>
         <form id="registerForm" novalidate>
-          
-          <!-- الاسم واللقب جنباً إلى جنب -->
           <div class="input-row">
             <div class="input-box hover-lift">
               <i class="fa-solid fa-user field-icon"></i>
@@ -395,14 +444,12 @@
             </div>
           </div>
 
-          <!-- البريد الإلكتروني -->
           <div class="input-box hover-lift">
             <i class="fa-solid fa-envelope field-icon"></i>
             <input type="email" id="regEmail" required placeholder=" ">
             <label>البريد الإلكتروني</label>
           </div>
 
-          <!-- رقما الهاتف جنباً إلى جنب مع نظام xxxxxxxx -->
           <div class="input-row">
             <div class="input-box hover-lift phone-box">
               <i class="fa-solid fa-phone-volume field-icon"></i>
@@ -418,7 +465,6 @@
             </div>
           </div>
 
-          <!-- كلمة المرور مع زر العين -->
           <div class="input-box hover-lift">
             <i class="fa-solid fa-lock field-icon"></i>
             <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
@@ -426,7 +472,6 @@
             <label>كلمة المرور</label>
           </div>
 
-          <!-- قائمة التحقق من شروط كلمة المرور -->
           <div class="password-checks">
             <div class="check-item invalid" id="checkLen">
               <i class="fa-solid fa-circle-xmark check-icon"></i>
@@ -442,20 +487,25 @@
             </div>
           </div>
 
-          <!-- تأكيد كلمة المرور مع زر العين -->
-          <div class="input-box hover-lift" style="margin-top: 10px;">
+          <div class="input-box hover-lift mt-10">
             <i class="fa-solid fa-lock field-icon"></i>
             <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
             <input type="password" id="regConfirmPassword" required placeholder=" ">
             <label>تأكيد كلمة المرور</label>
           </div>
 
-          <p id="regError" style="color: #ef4444; font-size: 0.82rem; margin-bottom: 8px; font-weight: bold;"></p>
-          <button type="submit" class="glow-btn hover-lift">إنشاء حساب</button>
+          <!-- مؤشر التحقق لإنشاء الحساب -->
+          <div id="regCheckingBox" class="spinner-wrap" style="display: none; margin-bottom: 12px;">
+            <div class="spinner"></div>
+            <p style="color: var(--accent-gold); font-weight: bold; margin-top: 6px;">انتظر ثواني... جاري إنشاء الحساب</p>
+          </div>
 
-          <div style="text-align: center; margin-top: 15px; font-size: 0.88rem;">
+          <p id="regError" class="error-msg bold-text"></p>
+          <button type="submit" id="regSubmitBtn" class="glow-btn hover-lift">إنشاء حساب</button>
+
+          <div class="signup-prompt-wrap">
             <span>لديك حساب بالفعل؟ </span>
-            <a href="#" style="color: #dc2626; font-weight: bold; text-decoration: none;" onclick="switchModal('registerModal', 'loginModal')">تسجيل الدخول</a>
+            <a href="#" class="switch-auth-link" onclick="switchModal('registerModal', 'loginModal')">تسجيل الدخول</a>
           </div>
         </form>
       </div>
@@ -490,12 +540,67 @@
             <input type="password" id="leaderPassword" required placeholder=" ">
             <label>كلمة المرور</label>
           </div>
-          <p id="leaderError" style="color: #ef4444; font-size: 0.8rem; margin-bottom: 8px;"></p>
-          <button type="submit" class="glow-btn hover-lift">دخول القيادة</button>
+
+          <!-- مؤشر التحقق لبوابة القيادة -->
+          <div id="leaderCheckingBox" class="spinner-wrap" style="display: none; margin-bottom: 12px;">
+            <div class="spinner"></div>
+            <p style="color: var(--accent-gold); font-weight: bold; margin-top: 6px;">انتظر ثواني... جاري التحقق من حساب القائد</p>
+          </div>
+
+          <p id="leaderError" class="error-msg"></p>
+          <button type="submit" id="leaderSubmitBtn" class="glow-btn hover-lift">دخول القيادة</button>
         </form>
       </div>
     </div>
   </div>
+
+  <!-- نافذة تسجيل دخول الأدمن -->
+  <div id="adminLoginModal" class="modal-overlay" style="display: none;">
+    <div class="scout-card-container hover-lift">
+      <button class="close-btn hover-lift" onclick="closeModal('adminLoginModal')">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="welcome-box welcome-admin">
+        <div class="welcome-overlay hover-lift">
+          <div class="scout-badge-icon badge-admin hover-lift"><i class="fa-solid fa-user-shield"></i></div>
+          <h3>منطقة المسؤول</h3>
+          <p>لوحة التحكم الرئيسية الخاصة بإدارة موقع فوج الوحدة الكشفي</p>
+        </div>
+      </div>
+      <div class="form-box">
+        <h2>دخول الأدمن</h2>
+        <p class="step-desc">أدخل بيانات المسؤول للوصول إلى صلاحيات التحكم الكاملة</p>
+        
+        <form id="adminLoginForm">
+          <div class="input-box hover-lift">
+            <i class="fa-solid fa-envelope field-icon"></i>
+            <input type="email" id="adminEmail" required placeholder=" ">
+            <label>البريد الإلكتروني للأدمن</label>
+          </div>
+          <div class="input-box hover-lift">
+            <i class="fa-solid fa-lock field-icon"></i>
+            <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
+            <input type="password" id="adminPassword" required placeholder=" ">
+            <label>كلمة المرور</label>
+          </div>
+
+          <!-- مؤشر التحقق للأدمن -->
+          <div id="adminCheckingBox" class="spinner-wrap" style="display: none; margin-bottom: 15px;">
+            <div class="spinner"></div>
+            <p style="color: var(--accent-gold); font-weight: bold; margin-top: 8px;">انتظر ثواني... جاري التحقق من الحساب</p>
+          </div>
+
+          <p id="adminError" class="error-msg"></p>
+          <button type="submit" id="adminSubmitBtn" class="glow-btn btn-admin-submit hover-lift">دخول الأدمن</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- مكتبات Firebase مجانية 100% v9 Web SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
   <script src="script.js"></script>
   <script>
@@ -517,24 +622,6 @@
       if(navMenu) navMenu.classList.remove('active');
 
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    function openModal(id) { 
-      const navMenu = document.getElementById('navMenu');
-      if(navMenu) navMenu.classList.remove('active');
-      
-      document.getElementById(id).style.display = 'flex'; 
-    }
-    
-    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-
-    function switchModal(closeId, openId) {
-      closeModal(closeId);
-      openModal(openId);
-    }
-
-    function toggleMobileMenu() {
-      document.getElementById('navMenu').classList.toggle('active');
     }
 
     function checkRegistrationForm() {

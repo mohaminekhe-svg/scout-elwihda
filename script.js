@@ -1,15 +1,75 @@
+let isAdminLoggedIn = false;
+
+// ------------------------------------
+// إعداد Firebase المجاني (ضع معلومات مشروعك من Firebase Console هنا)
+// ------------------------------------
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "elwihda-scout.firebaseapp.com",
+  projectId: "elwihda-scout",
+  storageBucket: "elwihda-scout.appspot.com",
+  messagingSenderId: "1234567890",
+  appId: "1:1234567890:web:abcdef123456"
+};
+
+// تهيئة الخدمة فقط إذا تم إدخال الإعدادات
+if (typeof firebase !== 'undefined' && firebaseConfig.apiKey !== "YOUR_API_KEY") {
+  firebase.initializeApp(firebaseConfig);
+}
+
 // فتح وإغلاق النوافذ المنبثقة
 function openModal(id) {
-  document.getElementById(id).style.display = 'flex';
+  const navMenu = document.getElementById('navMenu');
+  if (navMenu) navMenu.classList.remove('active');
+  
+  const targetModal = document.getElementById(id);
+  if (targetModal) targetModal.style.display = 'flex';
 }
 
 function closeModal(id) {
-  document.getElementById(id).style.display = 'none';
+  const targetModal = document.getElementById(id);
+  if (targetModal) targetModal.style.display = 'none';
 }
 
 function switchModal(closeId, openId) {
   closeModal(closeId);
   openModal(openId);
+}
+
+function toggleMobileMenu() {
+  const navMenu = document.getElementById('navMenu');
+  if (navMenu) navMenu.classList.toggle('active');
+}
+
+// دالة إظهار/إخفاء الشريط الجانبي للأدمن
+function toggleAdminSidebar() {
+  const sidebar = document.getElementById('adminSidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  if (sidebar && overlay) {
+    sidebar.classList.toggle('active');
+    overlay.classList.toggle('active');
+  }
+}
+
+// دالة تسجيل الخروج للأدمن
+function logoutAdmin() {
+  isAdminLoggedIn = false;
+  
+  // إخفاء زري الـ 3 خطوط
+  const desktopToggle = document.getElementById('adminDesktopToggleBtn');
+  const mobileToggleLi = document.getElementById('adminMobileToggleLi');
+  if (desktopToggle) desktopToggle.style.display = 'none';
+  if (mobileToggleLi) mobileToggleLi.style.display = 'none';
+
+  // إعادة إظهار أزرار الزوار في الهيدر والقائمة الجانبية
+  const guestBtns = document.querySelectorAll('.auth-guest-btn');
+  guestBtns.forEach(btn => btn.style.removeProperty('display'));
+
+  // إغلاق الشريط الجانبي
+  const sidebar = document.getElementById('adminSidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  if (sidebar) sidebar.classList.remove('active');
+  if (overlay) overlay.classList.remove('active');
 }
 
 // دالة إظهار/إخفاء كلمة المرور
@@ -24,10 +84,26 @@ function togglePasswordVisibility(icon) {
   }
 }
 
+// دالة تصفية المعرض الرقمي
+function filterGallery(category, btnElement) {
+  const filterBtns = document.querySelectorAll('.gallery-filter-btn');
+  filterBtns.forEach(btn => btn.classList.remove('active'));
+  btnElement.classList.add('active');
+
+  const galleryCards = document.querySelectorAll('.gallery-card');
+  galleryCards.forEach(card => {
+    if (category === 'all' || card.getAttribute('data-category') === category) {
+      card.style.display = 'block';
+    } else {
+      card.style.display = 'none';
+    }
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
 
   // ------------------------------------
-  // نظام فحص نموذج إنشاء حساب جديد
+  // فحص نموذج إنشاء حساب جديد
   // ------------------------------------
   const regFirstName = document.getElementById('regFirstName');
   const regLastName = document.getElementById('regLastName');
@@ -44,7 +120,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const checkNum = document.getElementById('checkNum');
   const checkSym = document.getElementById('checkSym');
 
-  // دالة تحكم بالحواف الحمراء والخضراء
   function applyStatus(inputEl, isValid) {
     const parentBox = inputEl.parentElement;
     if (inputEl.value.trim() === '') {
@@ -58,7 +133,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // 1. فحص الاسم واللقب (حروف فقط بدون أرقام)
   function validateName(input) {
     const nameRegex = /^[a-zA-Zأ-يإأآؤئءبةتثجحخدذرزسشصضطظعغفقكلمنهويةى\s]+$/;
     const val = input.value.trim();
@@ -70,7 +144,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (regFirstName) regFirstName.addEventListener('input', () => validateName(regFirstName));
   if (regLastName) regLastName.addEventListener('input', () => validateName(regLastName));
 
-  // 2. فحص البريد الإلكتروني
   function validateEmail(input) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const isValid = emailRegex.test(input.value.trim());
@@ -80,7 +153,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (regEmail) regEmail.addEventListener('input', () => validateEmail(regEmail));
 
-  // 3. فحص الهاتف ونظام xxxxxxxx
   function handlePhoneInput(input, maskEl) {
     input.value = input.value.replace(/[^0-9]/g, '');
     let val = input.value;
@@ -98,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
     for (let i = 0; i < remainingX; i++) {
       maskText += 'x';
     }
-    maskEl.textContent = maskText;
+    if (maskEl) maskEl.textContent = maskText;
 
     const isFullValid = val.length === 10 && isValidPrefix;
     applyStatus(input, isFullValid);
@@ -112,7 +184,6 @@ document.addEventListener('DOMContentLoaded', () => {
     regScoutPhone.addEventListener('input', () => handlePhoneInput(regScoutPhone, scoutPhoneMask));
   }
 
-  // 4. فحص كلمة المرور والشروط الثلاثة
   function validatePassword() {
     const val = regPassword.value;
 
@@ -128,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const isAllValid = has8Char && hasNumbers && hasSymbols;
     applyStatus(regPassword, isAllValid);
 
-    if (regConfirmPassword.value !== '') {
+    if (regConfirmPassword && regConfirmPassword.value !== '') {
       validateConfirmPassword();
     }
 
@@ -158,13 +229,16 @@ document.addEventListener('DOMContentLoaded', () => {
   if (regPassword) regPassword.addEventListener('input', validatePassword);
   if (regConfirmPassword) regConfirmPassword.addEventListener('input', validateConfirmPassword);
 
-  // 5. التقديم والتحقق عند الضغط على إنشاء حساب
+  // 1. معالجة إنشاء حساب مع تأثير الانتظار
   const registerForm = document.getElementById('registerForm');
   if (registerForm) {
     registerForm.addEventListener('submit', (e) => {
       e.preventDefault();
       const regError = document.getElementById('regError');
-      regError.textContent = '';
+      const checkingBox = document.getElementById('regCheckingBox');
+      const submitBtn = document.getElementById('regSubmitBtn');
+
+      if (regError) regError.textContent = '';
 
       const isNameOk = validateName(regFirstName) && validateName(regLastName);
       const isEmailOk = validateEmail(regEmail);
@@ -173,56 +247,133 @@ document.addEventListener('DOMContentLoaded', () => {
       const isPassOk = validatePassword();
       const isConfirmOk = validateConfirmPassword();
 
-      if (!isNameOk) {
-        regError.textContent = 'يرجى إدخال اسم ولقب حقيقيين (حروف فقط)';
-        return;
-      }
-      if (!isEmailOk) {
-        regError.textContent = 'يرجى إدخال بريد إلكتروني صحيح';
-        return;
-      }
-      if (!isParentPhoneOk || !isScoutPhoneOk) {
-        regError.textContent = 'يرجى التأكد من أرقام الهواتف (تبدأ بـ 05/06/07 وتتكون من 10 أرقام)';
-        return;
-      }
-      if (!isPassOk) {
-        regError.textContent = 'كلمة المرور لا تستوفي الشروط المطلوب تحققها';
-        return;
-      }
-      if (!isConfirmOk) {
-        regError.textContent = 'كلمتا المرور غير متطابقتين!';
-        return;
-      }
+      // إظهار تأثير الانتظار في كل الأحوال للتأكد من الشروط
+      if (checkingBox) checkingBox.style.display = 'flex';
+      if (submitBtn) submitBtn.style.display = 'none';
 
-      alert('تم إنشاء الحساب بنجاح!');
-      closeModal('registerModal');
-      registerForm.reset();
-      
-      document.querySelectorAll('#registerForm .input-box').forEach(b => b.classList.remove('field-success', 'field-error'));
-      if (parentPhoneMask) parentPhoneMask.textContent = '';
-      if (scoutPhoneMask) scoutPhoneMask.textContent = '';
-      validatePassword();
+      setTimeout(() => {
+        if (checkingBox) checkingBox.style.display = 'none';
+        if (submitBtn) submitBtn.style.display = 'block';
+
+        if (!isNameOk) {
+          if (regError) regError.textContent = 'يرجى إدخال اسم ولقب حقيقيين (حروف فقط)';
+          return;
+        }
+        if (!isEmailOk) {
+          if (regError) regError.textContent = 'يرجى إدخال بريد إلكتروني صحيح';
+          return;
+        }
+        if (!isParentPhoneOk || !isScoutPhoneOk) {
+          if (regError) regError.textContent = 'يرجى التأكد من أرقام الهواتف (تبدأ بـ 05/06/07 وتتكون من 10 أرقام)';
+          return;
+        }
+        if (!isPassOk) {
+          if (regError) regError.textContent = 'كلمة المرور لا تستوفي الشروط المطلوب تحققها';
+          return;
+        }
+        if (!isConfirmOk) {
+          if (regError) regError.textContent = 'كلمتا المرور غير متطابقتين!';
+          return;
+        }
+
+        closeModal('registerModal');
+        registerForm.reset();
+        document.querySelectorAll('#registerForm .input-box').forEach(b => b.classList.remove('field-success', 'field-error'));
+        if (parentPhoneMask) parentPhoneMask.textContent = '';
+        if (scoutPhoneMask) scoutPhoneMask.textContent = '';
+        validatePassword();
+      }, 1500);
     });
   }
 
-  // نماذج تسجيل الدخول والبوابة
+  // 2. معالجة تسجيل دخول الكشاف مع تأثير الانتظار
   const loginForm = document.getElementById('loginForm');
   if (loginForm) {
     loginForm.addEventListener('submit', (e) => {
       e.preventDefault();
-      alert('تم تسجيل الدخول بنجاح!');
-      closeModal('loginModal');
-      loginForm.reset();
+      const loginError = document.getElementById('loginError');
+      const checkingBox = document.getElementById('loginCheckingBox');
+      const submitBtn = document.getElementById('loginSubmitBtn');
+
+      if (loginError) loginError.textContent = '';
+      if (checkingBox) checkingBox.style.display = 'flex';
+      if (submitBtn) submitBtn.style.display = 'none';
+
+      setTimeout(() => {
+        if (checkingBox) checkingBox.style.display = 'none';
+        if (submitBtn) submitBtn.style.display = 'block';
+
+        // مثال للتحقق المؤقت
+        if (loginError) loginError.textContent = 'البريد الإلكتروني أو كلمة المرور غير صحيحة!';
+      }, 1500);
     });
   }
 
+  // 3. معالجة دخول بوابة القيادة مع تأثير الانتظار
   const leaderForm = document.getElementById('leaderPortalForm');
   if (leaderForm) {
     leaderForm.addEventListener('submit', (e) => {
       e.preventDefault();
-      alert('مرحباً بك في بوابة القيادة!');
-      closeModal('leaderPortalModal');
-      leaderForm.reset();
+      const leaderError = document.getElementById('leaderError');
+      const checkingBox = document.getElementById('leaderCheckingBox');
+      const submitBtn = document.getElementById('leaderSubmitBtn');
+
+      if (leaderError) leaderError.textContent = '';
+      if (checkingBox) checkingBox.style.display = 'flex';
+      if (submitBtn) submitBtn.style.display = 'none';
+
+      setTimeout(() => {
+        if (checkingBox) checkingBox.style.display = 'none';
+        if (submitBtn) submitBtn.style.display = 'block';
+
+        // مثال للتحقق المؤقت
+        if (leaderError) leaderError.textContent = 'بيانات دخول القائد غير صحيحة أو الحساب غير مفعل!';
+      }, 1500);
+    });
+  }
+
+  // 4. معالجة تسجيل دخول الأدمن المعزز بالتحقق والتأثير
+  const adminLoginForm = document.getElementById('adminLoginForm');
+  if (adminLoginForm) {
+    adminLoginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const adminEmail = document.getElementById('adminEmail').value.trim();
+      const adminPassword = document.getElementById('adminPassword').value.trim();
+      const adminError = document.getElementById('adminError');
+      const checkingBox = document.getElementById('adminCheckingBox');
+      const submitBtn = document.getElementById('adminSubmitBtn');
+
+      if (adminError) adminError.textContent = '';
+
+      if (checkingBox) checkingBox.style.display = 'flex';
+      if (submitBtn) submitBtn.style.display = 'none';
+
+      setTimeout(() => {
+        if (checkingBox) checkingBox.style.display = 'none';
+        if (submitBtn) submitBtn.style.display = 'block';
+
+        if (adminEmail === 'Kherfi_mohamed@solution4all.dz' && adminPassword === 'Kherfi*2@@9') {
+          isAdminLoggedIn = true;
+
+          closeModal('adminLoginModal');
+          adminLoginForm.reset();
+
+          // إخفاء أزرار الزوار بالكامل (تسجيل الدخول، بوابة القيادة، الأدمن)
+          const guestBtns = document.querySelectorAll('.auth-guest-btn');
+          guestBtns.forEach(btn => btn.style.setProperty('display', 'none', 'important'));
+
+          // إظهار زري الـ 3 خطوط للأدمن (للحواسيب والهواتف)
+          const desktopToggle = document.getElementById('adminDesktopToggleBtn');
+          const mobileToggleLi = document.getElementById('adminMobileToggleLi');
+          if (desktopToggle) desktopToggle.style.display = 'inline-flex';
+          if (mobileToggleLi) mobileToggleLi.style.display = 'block';
+
+          // فتح الشريط الجانبي تلقائياً
+          toggleAdminSidebar();
+        } else {
+          if (adminError) adminError.textContent = 'البريد الإلكتروني أو كلمة المرور الخاصة بالأدمن غير صحيحة!';
+        }
+      }, 1500);
     });
   }
 

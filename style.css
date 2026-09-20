@@ -61,6 +61,9 @@ a { text-decoration: none; color: inherit; }
 .btn-primary, 
 .btn-secondary, 
 .btn-scout-space, 
+.btn-admin-red,
+.btn-admin-lines,
+.admin-menu-btn,
 .input-box, 
 .glow-btn, 
 .nav-btn, 
@@ -80,6 +83,9 @@ a { text-decoration: none; color: inherit; }
 .btn-primary:hover, 
 .btn-secondary:hover, 
 .btn-scout-space:hover, 
+.btn-admin-red:hover,
+.btn-admin-lines:hover,
+.admin-menu-btn:hover,
 .input-box:hover, 
 .glow-btn:hover, 
 .nav-btn:hover, 
@@ -156,12 +162,158 @@ a { text-decoration: none; color: inherit; }
   display: inline-block;
 }
 
-/* أزرار الحساب للحواسيب */
+/* أزرار الحساب للحواسيب والأدمن */
 .nav-actions { display: flex; gap: 10px; align-items: center; }
 .btn-primary { background-color: var(--secondary); color: var(--white); font-weight: 700; padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; }
 .btn-scout-space { background-color: var(--white); color: var(--primary); font-weight: 700; padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; }
 
+/* زر الأدمن الأحمر */
+.btn-admin-red {
+  background-color: #dc2626;
+  color: var(--white);
+  font-weight: 700;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* زر الـ 3 خطوط الخاص بالأدمن */
+.btn-admin-lines {
+  background-color: rgba(241, 207, 121, 0.2);
+  color: var(--accent-gold);
+  border: 1px solid var(--accent-gold) !important;
+  font-weight: 700;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-toggle-btn {
+  background: rgba(220, 38, 38, 0.2) !important;
+  color: #fca5a5 !important;
+  border: 1px solid #dc2626 !important;
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+}
+
 .mobile-menu-btn, .mobile-only { display: none !important; }
+
+/* --- الشريط الجانبي لوحة الأدمن (Sidebar) --- */
+.admin-sidebar {
+  position: fixed;
+  top: 0;
+  right: -300px;
+  width: 280px;
+  height: 100%;
+  background: var(--primary-dark);
+  border-left: 2px solid var(--accent-gold);
+  z-index: 3000;
+  transition: right 0.4s ease;
+  box-shadow: -5px 0 25px rgba(0,0,0,0.6);
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-sidebar.active {
+  right: 0;
+}
+
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 2999;
+}
+
+.sidebar-overlay.active {
+  display: block;
+}
+
+.admin-sidebar-header {
+  padding: 20px;
+  background: var(--primary);
+  border-bottom: 1px solid rgba(241, 207, 121, 0.3);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--accent-gold);
+}
+
+.admin-sidebar-header h3 {
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.close-sidebar-btn {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.admin-sidebar-content {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  flex: 1;
+}
+
+.admin-menu-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(241, 207, 121, 0.25);
+  color: white;
+  padding: 14px 18px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: right;
+  width: 100%;
+}
+
+.admin-menu-btn:hover {
+  background: var(--secondary);
+  border-color: var(--secondary);
+}
+
+.admin-sidebar-footer {
+  padding: 20px;
+  border-top: 1px solid rgba(241, 207, 121, 0.2);
+}
+
+.admin-logout-btn {
+  width: 100%;
+  background: #dc2626;
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 10px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
 
 /* --- تصميم واجهة الهيرو العلوي --- */
 .hero {
@@ -358,6 +510,17 @@ a { text-decoration: none; color: inherit; }
   border: 1px solid rgba(241, 207, 121, 0.3);
 }
 
+.gallery-tag {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 3px 10px;
+  background: rgba(241, 207, 121, 0.2);
+  color: var(--accent-gold);
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
 .unit-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 800; color: white; margin-bottom: 12px; }
 .unit-badge.amber { background: #f59e0b; } .unit-badge.green { background: #10b981; } .unit-badge.red { background: #ef4444; } .unit-badge.blue { background: #3b82f6; }
 
@@ -414,6 +577,11 @@ a { text-decoration: none; color: inherit; }
   box-shadow: 0 15px 35px rgba(0,0,0,0.5);
 }
 
+.modal-scrollable {
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
 .welcome-box { 
   width: 40%; 
   background: rgba(18, 34, 92, 0.85); 
@@ -423,6 +591,19 @@ a { text-decoration: none; color: inherit; }
   padding: 20px; 
   position: relative;
   border-left: 1px solid rgba(241, 207, 121, 0.2);
+}
+
+.welcome-admin {
+  background: rgba(185, 28, 28, 0.85) !important;
+}
+
+.badge-admin {
+  background: #dc2626 !important;
+  color: white !important;
+}
+
+.btn-admin-submit {
+  background: linear-gradient(90deg, #dc2626, #991b1b) !important;
 }
 
 .welcome-overlay { 
@@ -467,10 +648,24 @@ a { text-decoration: none; color: inherit; }
 .forgot-link-wrap { text-align: left; margin-bottom: 12px; }
 .forgot-link { font-size: 0.75rem; color: var(--accent-gold); }
 .glow-btn { width: 100%; height: 40px; background: linear-gradient(90deg, #e63946, #c92a37); border: none; border-radius: 20px; color: white; font-weight: bold; font-size: 0.88rem; cursor: pointer; }
-.switch-link { margin-top: 12px; font-size: 0.78rem; text-align: center; color: #cbd5e1; }
-.switch-link a { color: var(--accent-gold); font-weight: bold; }
 
-/* --- التنسيقات المخصصة لنموذج التسجيل الجديد --- */
+.error-msg { color: #ef4444; font-size: 0.82rem; margin-bottom: 8px; }
+.bold-text { font-weight: bold; }
+.mt-10 { margin-top: 10px; }
+
+.signup-prompt-wrap {
+  text-align: center;
+  margin-top: 15px;
+  font-size: 0.88rem;
+}
+
+.switch-auth-link {
+  color: #dc2626;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+/* --- التنسيقات المخصصة لنموذج التسجيل --- */
 .input-row {
   display: flex;
   gap: 10px;
@@ -480,7 +675,6 @@ a { text-decoration: none; color: inherit; }
   flex: 1;
 }
 
-/* الحواف التفاعلية لخطأ أو صحة البيانات */
 .input-box.field-error {
   border-color: #ef4444 !important;
   box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
@@ -491,7 +685,6 @@ a { text-decoration: none; color: inherit; }
   box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
 }
 
-/* تنسيق نظام القناع للهواتف xxxxxxxx */
 .phone-box {
   position: relative;
 }
@@ -508,7 +701,6 @@ a { text-decoration: none; color: inherit; }
   font-family: monospace;
 }
 
-/* قائمة شروط كلمة المرور */
 .password-checks {
   background: rgba(15, 23, 42, 0.4);
   padding: 8px 12px;
@@ -540,7 +732,47 @@ a { text-decoration: none; color: inherit; }
   font-size: 0.85rem;
 }
 
-/* --- تنسيقات الهواتف والأجهزة الصغيرة --- */
+/* --- المعرض الرقمي --- */
+.gallery-filters {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 30px;
+}
+
+.gallery-filter-btn {
+  background: rgba(18, 34, 92, 0.8);
+  color: var(--text-light);
+  border: 1px solid rgba(241, 207, 121, 0.3);
+  padding: 8px 18px;
+  border-radius: 20px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  backdrop-filter: blur(8px);
+}
+
+.gallery-filter-btn.active, 
+.gallery-filter-btn:hover {
+  background: var(--secondary);
+  color: var(--white);
+  border-color: var(--secondary);
+}
+
+.hero-btn-red {
+  background-color: var(--secondary) !important;
+  color: var(--white) !important;
+  padding: 10px 22px;
+  font-size: 0.95rem;
+  border-radius: 10px;
+}
+
+/* --- التكيف مع الأجهزة والأنظمة الصغيرة --- */
 @media (max-width: 900px) {
   .desktop-only { display: none !important; }
   .mobile-only { display: block !important; }
@@ -645,44 +877,4 @@ a { text-decoration: none; color: inherit; }
   
   .glass-card { padding: 25px 15px; }
   .about-overview-card { padding: 20px 12px; }
-}
-
-/* --- أزرار تصفية المعرض الرقمي --- */
-.gallery-filters {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 30px;
-}
-
-.gallery-filter-btn {
-  background: rgba(18, 34, 92, 0.8);
-  color: var(--text-light);
-  border: 1px solid rgba(241, 207, 121, 0.3);
-  padding: 8px 18px;
-  border-radius: 20px;
-  font-size: 0.88rem;
-  font-weight: 700;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  backdrop-filter: blur(8px);
-}
-
-.gallery-filter-btn.active, 
-.gallery-filter-btn:hover {
-  background: var(--secondary);
-  color: var(--white);
-  border-color: var(--secondary);
-}
-
-.hero-btn-red {
-  background-color: var(--secondary) !important;
-  color: var(--white) !important;
-  padding: 10px 22px;
-  font-size: 0.95rem;
-  border-radius: 10px;
 }
