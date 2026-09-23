@@ -54,6 +54,10 @@
           <i class="fa-solid fa-images"></i>
           <span>المعرض الرقمي</span>
         </button>
+        <button class="admin-nav-btn hover-lift" onclick="switchAdminTab('statistics-tab', this)">
+          <i class="fa-solid fa-chart-simple"></i>
+          <span>الإحصائيات</span>
+        </button>
         <button class="admin-nav-btn hover-lift" onclick="switchAdminTab('settings-tab', this)">
           <i class="fa-solid fa-sliders"></i>
           <span>إعدادات الأدمن</span>
@@ -126,6 +130,14 @@
           <!-- تعديل سريع لشريط الإعلان العاجل (Marquee) -->
           <div class="marquee-quick-edit-box mt-20">
             <label class="field-group-title"><i class="fa-solid fa-scroll"></i> نص شريط الإعلان العاجل (يظهر أعلى الموقع)</label>
+
+            <div class="marquee-level-selector" id="marqueeLevelSelector">
+              <button type="button" class="marquee-level-btn" data-level="critical" onclick="setMarqueeLevelSelection('critical')">🔴 هام جدًا</button>
+              <button type="button" class="marquee-level-btn" data-level="important" onclick="setMarqueeLevelSelection('important')">🟠 هام</button>
+              <button type="button" class="marquee-level-btn" data-level="info" onclick="setMarqueeLevelSelection('info')">🟡 إعلان</button>
+              <button type="button" class="marquee-level-btn" data-level="note" onclick="setMarqueeLevelSelection('note')">🔵 معلومة</button>
+            </div>
+
             <div class="marquee-edit-row">
               <input type="text" id="marqueeQuickEditInput" placeholder="اكتب نص الشريط العاجل هنا...">
               <button type="button" id="marqueeQuickSaveBtn" class="glow-btn btn-green hover-lift" onclick="saveMarqueeText()">
@@ -158,10 +170,24 @@
       </div>
 
       <!-- 6. لوحة إعدادات الأدمن -->
+      <div id="statistics-tab" class="admin-tab-content">
+        <div class="admin-section-card">
+          <h2><i class="fa-solid fa-chart-simple"></i> الإحصائيات</h2>
+          <div class="coming-soon-notice">
+            <i class="fa-solid fa-hourglass-half"></i>
+            <p>قسم الإحصائيات الحقيقية (المبنية فعلياً على بيانات Firestore) ضمن مرحلة قادمة من التطوير. لن يتم عرض أي أرقام غير حقيقية هنا حتى ذلك الحين.</p>
+          </div>
+        </div>
+      </div>
+
       <div id="settings-tab" class="admin-tab-content">
         <div class="admin-section-card">
           <h2><i class="fa-solid fa-sliders"></i> إعدادات لوحة الأدمن</h2>
           <p>تعديل بيانات الحساب، كلمات المرور، وإعدادات النظام.</p>
+          <div class="coming-soon-notice">
+            <i class="fa-solid fa-hourglass-half"></i>
+            <p>هذا القسم قيد التطوير ضمن مرحلة قادمة.</p>
+          </div>
         </div>
       </div>
 
@@ -172,9 +198,9 @@
   <!-- الشريط العلوي الثابت -->
   <div class="header-fixed-wrapper">
     <!-- شريط الإعلانات -->
-    <div class="announcement-bar">
+    <div class="announcement-bar" id="announcementBarContainer">
       <div class="announcement-badge-wrap hover-lift">
-        <span class="badge-urgent pulse-glow">إعلان هام</span>
+        <span class="badge-urgent pulse-glow" id="announcementImportanceLabel">إعلان هام</span>
       </div>
       <div class="marquee-container">
         <div class="marquee-text" id="announcementMarqueeText">
@@ -224,6 +250,12 @@
             </button>
           </li>
           <li class="menu-auth-item mobile-only auth-user-btn" style="display: none;">
+            <div class="user-chip full-width-btn" id="mobileUserChip" onclick="scrollToUserCard()">
+              <span class="user-chip-avatar" id="mobileUserChipAvatar"><i class="fa-solid fa-circle-user"></i></span>
+              <span class="user-chip-name" id="mobileUserChipName">عضو الفوج</span>
+            </div>
+          </li>
+          <li class="menu-auth-item mobile-only auth-user-btn" style="display: none;">
             <button onclick="handleUserLogout()" class="btn-admin-red hover-lift border-none-btn full-width-btn">
               <i class="fa-solid fa-right-from-bracket"></i> <span>تسجيل الخروج</span>
             </button>
@@ -241,6 +273,12 @@
           <button onclick="openModal('adminLoginModal')" class="btn-admin-red hover-lift border-none-btn auth-guest-btn">
             <i class="fa-solid fa-user-shield"></i> <span>دخول الأدمن</span>
           </button>
+
+          <!-- بطاقة المستخدم المصغّرة (تظهر فقط بعد تسجيل الدخول) -->
+          <div class="user-chip auth-user-btn" id="desktopUserChip" style="display: none;" onclick="scrollToUserCard()">
+            <span class="user-chip-avatar" id="desktopUserChipAvatar"><i class="fa-solid fa-circle-user"></i></span>
+            <span class="user-chip-name" id="desktopUserChipName">عضو الفوج</span>
+          </div>
 
           <!-- زر تسجيل الخروج للمستخدم المسجل -->
           <button onclick="handleUserLogout()" class="btn-admin-red hover-lift border-none-btn auth-user-btn" style="display: none;">
@@ -510,7 +548,36 @@
         </div>
       </div>
       <div class="form-box">
-        <h2>من أنت؟</h2>
+        <h2>تسجيل الدخول</h2>
+        <p class="step-desc">إذا كان لديك حساب بالفعل، سجّل دخولك هنا</p>
+
+        <form id="userLoginForm" novalidate>
+          <div class="input-box hover-lift">
+            <i class="fa-solid fa-envelope field-icon"></i>
+            <input type="email" id="userLoginEmail" required placeholder=" ">
+            <label>البريد الإلكتروني</label>
+          </div>
+          <div class="input-box hover-lift">
+            <i class="fa-solid fa-lock field-icon"></i>
+            <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
+            <input type="password" id="userLoginPassword" required placeholder=" ">
+            <label>كلمة المرور</label>
+          </div>
+
+          <p class="forgot-password-link" onclick="handleForgotPassword()">نسيت كلمة المرور؟</p>
+
+          <div id="userLoginCheckingBox" class="spinner-wrap" style="display: none; margin-bottom: 10px;">
+            <div class="spinner"></div>
+            <p style="color: var(--accent-gold); font-weight: bold; margin-top: 6px;">جاري تسجيل الدخول...</p>
+          </div>
+
+          <p id="userLoginError" class="error-msg"></p>
+          <button type="submit" id="userLoginSubmitBtn" class="glow-btn btn-green hover-lift">تسجيل الدخول</button>
+        </form>
+
+        <div class="or-divider"><span>أو</span></div>
+
+        <h2>ليس لديك حساب؟ أنشئه الآن</h2>
         <p class="step-desc">اختر صفك للوصول إلى استمارة التسجيل المناسبة</p>
         
         <div class="role-options-group">
@@ -792,7 +859,7 @@
           <p style="color: #ef4444; font-weight: bold; margin-top: 6px;">جاري حذف الحساب...</p>
         </div>
 
-        <p id="deleteLeaderSuccess" class="success-msg bold-text" style="display: none; color: #22c55e; margin: 10px 0;">تم حذف الحساب بنجاح</p>
+        <p id="deleteLeaderSuccess" class="success-msg bold-text" style="display: none; color: #22c55e; margin: 10px 0;">تم حذف بيانات الحساب من النظام. ملاحظة: حذف حساب الدخول (Firebase Authentication) نفسه يحتاج صلاحية Backend غير متاحة من الواجهة الحالية، لذلك بريد هذا الحساب قد يبقى غير قابل لإعادة الاستخدام حتى تتم إضافته لاحقاً.</p>
 
         <div class="confirm-actions-row mt-20" id="deleteConfirmButtons">
           <button type="button" class="btn-confirm-yes hover-lift" onclick="executeDeleteLeader()">نعم</button>
@@ -1065,6 +1132,7 @@
   <script src="script.js"></script>
   <script>
     const pdfFormUrl = "./registration-form.pdf";
+    const VALID_SITE_PAGES = ['home-page', 'units-page', 'bulletin-page', 'gallery-page'];
 
     function showPage(pageId) {
       const pages = document.querySelectorAll('.site-page');
@@ -1082,7 +1150,25 @@
       if(navMenu) navMenu.classList.remove('active');
 
       window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      // حفظ الصفحة الحالية في الرابط حتى تبقى نفسها بعد Refresh
+      if (VALID_SITE_PAGES.includes(pageId)) {
+        history.replaceState(null, '', '#' + pageId);
+      }
     }
+
+    // استرجاع المكان الصحيح عند تحميل/تحديث الصفحة اعتماداً على الرابط (#hash)
+    (function restoreInitialRouteFromHash() {
+      const hash = window.location.hash.replace('#', '');
+      if (!hash) return;
+
+      if (hash.indexOf('admin-') === 0) {
+        // قسم إداري: يُستعاد فقط بعد التحقق من صلاحية المستخدم الحقيقية (انظر restoreAdminRouteIfAny في script.js)
+        window.__pendingAdminRoute = hash.replace('admin-', '');
+      } else if (VALID_SITE_PAGES.includes(hash)) {
+        showPage(hash);
+      }
+    })();
 
     function checkRegistrationForm() {
       const statusBox = document.getElementById('formStatusBox');

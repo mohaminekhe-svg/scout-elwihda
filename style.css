@@ -624,7 +624,7 @@ a { text-decoration: none; color: inherit; }
 
 .modal-overlay { 
   display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-  background: rgba(8, 12, 20, 0.85); backdrop-filter: blur(8px); z-index: 2000; 
+  background: rgba(8, 12, 20, 0.85); backdrop-filter: blur(8px); z-index: 200000; 
   justify-content: center; align-items: center; padding: 15px; 
 }
 
@@ -956,4 +956,39 @@ a { text-decoration: none; color: inherit; }
   .admin-welcome-card, .admin-section-card { padding: 22px 16px; }
   .admin-welcome-card h1 { font-size: 1.5rem; }
   .public-announcement-card { padding: 18px 14px; }
+}
+
+
+/* =========================================================
+   مرحلة التثبيت: بطاقة المستخدم في القائمة + مستويات الإعلان + حالة "قيد التطوير"
+   ========================================================= */
+
+.user-chip {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  padding: 6px 12px 6px 6px; border-radius: 30px;
+  background: rgba(241, 207, 121, 0.12); border: 1px solid rgba(241, 207, 121, 0.3);
+  color: var(--text-light); font-weight: 700; font-size: 0.85rem;
+}
+.user-chip:hover { background: rgba(241, 207, 121, 0.2); }
+.user-chip-avatar { font-size: 1.6rem; line-height: 1; color: var(--accent-gold); display: flex; }
+.user-chip-avatar img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
+.user-chip-name { white-space: nowrap; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+li.user-chip { width: 100%; justify-content: flex-start; border-radius: 12px; padding: 12px; }
+
+.coming-soon-notice {
+  display: flex; align-items: center; gap: 12px; margin-top: 18px;
+  background: rgba(241, 207, 121, 0.08); border: 1px dashed rgba(241, 207, 121, 0.4);
+  border-radius: 12px; padding: 16px; color: #cbd5e1; font-size: 0.85rem;
+}
+.coming-soon-notice i { color: var(--accent-gold); font-size: 1.3rem; flex-shrink: 0; }
+
+.marquee-level-selector { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 4px; }
+.marquee-level-btn {
+  border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: #cbd5e1;
+  padding: 8px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; cursor: pointer; min-height: 38px;
+}
+.marquee-level-btn.active { background: var(--accent-gold); color: var(--primary-dark); border-color: var(--accent-gold); }
+
+@media (max-width: 900px) {
+  .marquee-level-selector { justify-content: center; }
 }

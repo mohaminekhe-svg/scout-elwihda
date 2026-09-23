@@ -97,6 +97,9 @@ function switchAdminTab(tabId, btnElement) {
     loadAnnouncementsAdmin();
     prefillMarqueeQuickEdit();
   }
+
+  // حفظ التبويب الحالي في الرابط حتى يبقى المستخدم فيه بعد Refresh
+  window.location.hash = 'admin-' + tabId;
 }
 
 /* --- إدارة النوافذ المنبثقة (Modals) --- */
@@ -174,6 +177,35 @@ function proceedToRoleRegistration() {
 }
 
 /* --- مراقبة حالة تسجيل الدخول --- */
+/* =========================================================
+   نظام الصلاحيات المركزي — انعكاس على الواجهة فقط لإظهار/إخفاء الأزرار بذكاء.
+   ⚠️ هذا ليس مصدر الحماية الحقيقي. المصدر الحقيقي هو Firestore/Storage
+   Security Rules (انظر firestore.rules / storage.rules) — أي طلب سيُرفض من
+   طرف Firebase نفسه حتى لو تجاوز هذا الفحص عبر التلاعب بالواجهة أو DevTools.
+   ========================================================= */
+const ADMIN_ONLY_PERMISSIONS = [
+  'roles.manage', 'permissions.manage', 'users.delete', 'users.suspend',
+  'users.reactivate', 'security.manage', 'settings.manage', 'admin.access',
+  'admin.manage', 'system.manage'
+];
+
+let currentUserRole = null;
+let currentUserPermissions = {};
+let currentUserAccountStatus = null;
+
+function can(action) {
+  if (currentUserAccountStatus !== 'active') return false;
+  if (currentUserRole === 'admin') return true;
+  if (ADMIN_ONLY_PERMISSIONS.indexOf(action) !== -1) return false;
+  return currentUserPermissions[action] === true;
+}
+
+function resetCurrentUserPermissionState() {
+  currentUserRole = null;
+  currentUserPermissions = {};
+  currentUserAccountStatus = null;
+}
+
 function listenToAuthStatus() {
   auth.onAuthStateChanged((user) => {
     const guestBtns = document.querySelectorAll('.auth-guest-btn');
@@ -187,26 +219,300 @@ function listenToAuthStatus() {
       db.collection('users').doc(user.uid).get().then((doc) => {
         if (doc.exists) {
           const userData = doc.data();
+          currentUserRole = userData.role || null;
+          currentUserPermissions = userData.permissions || {};
+          currentUserAccountStatus = userData.accountStatus || null;
+
           renderScoutOrLeaderCard(userData);
           if (cardSection) cardSection.style.display = 'block';
+          updateNavUserChip(userData);
+          restoreAdminRouteIfAny(userData);
         }
       });
     } else {
       guestBtns.forEach(b => b.style.display = 'inline-flex');
       userBtns.forEach(b => b.style.display = 'none');
       if (cardSection) cardSection.style.display = 'none';
+      clearNavUserChip();
+      resetCurrentUserPermissionState();
     }
   });
 }
 
+// تحديث بطاقة المستخدم المصغّرة في القائمة (اسم حقيقي + صورة حقيقية أو placeholder)
+function updateNavUserChip(userData) {
+  const fullName = sanitizeInput(userData.fullName || (userData.firstName ? `${userData.firstName} ${userData.lastName || ''}`.trim() : 'عضو الفوج'));
+  const photoURL = userData.photoURL || null;
+
+  ['desktop', 'mobile'].forEach((prefix) => {
+    const nameEl = document.getElementById(`${prefix}UserChipName`);
+    const avatarEl = document.getElementById(`${prefix}UserChipAvatar`);
+    if (nameEl) nameEl.innerText = fullName;
+    if (avatarEl) {
+      avatarEl.innerHTML = photoURL
+        ? `<img src="${photoURL}" alt="${fullName}">`
+        : `<i class="fa-solid fa-circle-user"></i>`;
+    }
+  });
+}
+
+// تفريغ بطاقة المستخدم المصغّرة بالكامل عند تسجيل الخروج (لا تبقي بيانات المستخدم السابق ظاهرة)
+function clearNavUserChip() {
+  ['desktop', 'mobile'].forEach((prefix) => {
+    const nameEl = document.getElementById(`${prefix}UserChipName`);
+    const avatarEl = document.getElementById(`${prefix}UserChipAvatar`);
+    if (nameEl) nameEl.innerText = '';
+    if (avatarEl) avatarEl.innerHTML = `<i class="fa-solid fa-circle-user"></i>`;
+  });
+}
+
+// الضغط على بطاقة المستخدم المصغّرة ينتقل إلى بطاقته الكاملة في الصفحة الرئيسية
+function scrollToUserCard() {
+  showPage('home-page');
+  const cardSection = document.getElementById('userCardDisplaySection');
+  if (cardSection) {
+    setTimeout(() => cardSection.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
+  }
+}
+
+// استعادة قسم لوحة الأدمن من الرابط (#admin-xxx) بعد Refresh — فقط إذا كان المستخدم يملك صلاحية فعلية
+const VALID_ADMIN_TABS = ['welcome-tab', 'leaders-tab', 'scouts-tab', 'announcements-tab', 'gallery-tab', 'statistics-tab', 'settings-tab'];
+
+function restoreAdminRouteIfAny(userData) {
+  const pendingTab = window.__pendingAdminRoute;
+  if (!pendingTab) return;
+  window.__pendingAdminRoute = null;
+
+  if ((userData.role === 'admin' || userData.role === 'leader') && userData.accountStatus === 'active') {
+    const fullBlueScreen = document.getElementById('fullAdminBlueScreen');
+    if (fullBlueScreen) fullBlueScreen.style.display = 'flex';
+
+    const tabId = VALID_ADMIN_TABS.includes(pendingTab) ? pendingTab : 'welcome-tab';
+    const btnElement = document.querySelector(`.admin-nav-btn[onclick*="'${tabId}'"]`);
+    switchAdminTab(tabId, btnElement);
+  } else {
+    // المستخدم لا يملك صلاحية admin/leader — إعادة توجيه آمنة بدل عرض محتوى الأدمن
+    history.replaceState(null, '', window.location.pathname);
+    showPage('home-page');
+  }
+}
+
 function handleUserLogout() {
   auth.signOut().then(() => {
+    closeAllModalsAndOverlays();
+    window.location.hash = '';
     window.location.reload();
   });
 }
 
+/* --- تسجيل دخول المستخدم العادي (كشاف/ولي/قائد صاحب حساب موجود) --- */
+const userLoginForm = document.getElementById('userLoginForm');
+if (userLoginForm) {
+  userLoginForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    const email = document.getElementById('userLoginEmail').value.trim();
+    const password = document.getElementById('userLoginPassword').value;
+    const checkingBox = document.getElementById('userLoginCheckingBox');
+    const errorMsg = document.getElementById('userLoginError');
+    const submitBtn = document.getElementById('userLoginSubmitBtn');
+
+    errorMsg.innerText = '';
+    checkingBox.style.display = 'flex';
+    submitBtn.disabled = true;
+
+    auth.signInWithEmailAndPassword(email, password)
+      .then((userCredential) => db.collection('users').doc(userCredential.user.uid).get())
+      .then((doc) => {
+        const status = doc.exists ? doc.data().accountStatus : null;
+        if (status === 'suspended' || status === 'locked') {
+          auth.signOut();
+          checkingBox.style.display = 'none';
+          submitBtn.disabled = false;
+          errorMsg.innerText = 'تم توقيف هذا الحساب لأغراض أمنية. سيتم مراجعته من طرف الإدارة.';
+          return;
+        }
+        checkingBox.style.display = 'none';
+        submitBtn.disabled = false;
+        userLoginForm.reset();
+        closeModal('roleSelectionModal');
+        showAdminNotification('تم تسجيل الدخول بنجاح!', 'success');
+      })
+      .catch(() => {
+        checkingBox.style.display = 'none';
+        submitBtn.disabled = false;
+        errorMsg.innerText = 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
+      });
+  });
+}
+
+// نسيت كلمة المرور — يستخدم Firebase Auth الأصلي، برسالة عامة لا تكشف عن وجود الحساب من عدمه
+function handleForgotPassword() {
+  const emailInput = document.getElementById('userLoginEmail');
+  const errorMsg = document.getElementById('userLoginError');
+  const email = emailInput ? emailInput.value.trim() : '';
+
+  if (!email) {
+    errorMsg.innerText = 'يرجى كتابة بريدك الإلكتروني في الحقل أعلاه أولاً.';
+    return;
+  }
+
+  errorMsg.innerText = 'جاري الإرسال...';
+  const genericMsg = 'إذا كان هذا البريد مرتبطاً بحساب، فستصلك رسالة تحتوي على خطوات إعادة تعيين كلمة المرور.';
+
+  auth.sendPasswordResetEmail(email)
+    .then(() => { errorMsg.innerText = genericMsg; })
+    .catch(() => { errorMsg.innerText = genericMsg; });
+}
+
 function reloadPageAfterRegister() {
   window.location.reload();
+}
+
+/* =========================================================
+   تسجيل حساب قائد جديد (ذاتي) — الحساب يبقى "قيد المراجعة" حتى يوافق الأدمن
+   ========================================================= */
+const leaderRegisterForm = document.getElementById('leaderRegisterForm');
+if (leaderRegisterForm) {
+  leaderRegisterForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    const fullName = sanitizeInput(document.getElementById('leaderFullName').value.trim());
+    const email = document.getElementById('leaderRegEmail').value.trim();
+    const password = document.getElementById('leaderRegPassword').value;
+    const confirmPassword = document.getElementById('leaderRegConfirmPassword').value;
+
+    const checkingBox = document.getElementById('leaderRegCheckingBox');
+    const errorMsg = document.getElementById('leaderRegError');
+    const successMsg = document.getElementById('leaderRegSuccess');
+    const submitBtn = document.getElementById('leaderRegSubmitBtn');
+
+    errorMsg.innerText = '';
+    successMsg.style.display = 'none';
+
+    if (!fullName || !/^[\u0600-\u06FFa-zA-Z\s]+$/.test(fullName)) {
+      errorMsg.innerText = 'يرجى إدخال اسم صحيح بدون أرقام أو رموز.';
+      return;
+    }
+    if (password !== confirmPassword) {
+      errorMsg.innerText = 'كلمتا المرور غير متطابقتين!';
+      return;
+    }
+    if (password.length < 8 || !/\d/.test(password) || !/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+      errorMsg.innerText = 'كلمة المرور يجب أن تحتوي على 8 أحرف على الأقل مع أرقام ورموز!';
+      return;
+    }
+
+    checkingBox.style.display = 'flex';
+    submitBtn.disabled = true;
+
+    auth.createUserWithEmailAndPassword(email, password)
+      .then((userCredential) => {
+        const uid = userCredential.user.uid;
+        const leaderData = {
+          uid: uid,
+          fullName: fullName,
+          email: email,
+          role: 'leader',
+          accountStatus: 'pending_verification',
+          verificationStatus: 'pending',
+          permissions: {},
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        return Promise.all([
+          db.collection('users').doc(uid).set(leaderData),
+          db.collection('leaders').doc(uid).set(leaderData)
+        ]);
+      })
+      .then(() => {
+        checkingBox.style.display = 'none';
+        submitBtn.style.display = 'none';
+        successMsg.innerText = 'تم إنشاء حسابك بنجاح! حسابك الآن قيد المراجعة من طرف الإدارة قبل تفعيل الصلاحيات الكاملة.';
+        successMsg.style.display = 'block';
+        fetchLeadersList();
+        fetchAllAccountsForDeleteView();
+      })
+      .catch((error) => {
+        checkingBox.style.display = 'none';
+        submitBtn.disabled = false;
+        errorMsg.innerText = 'خطأ في إنشاء الحساب: ' + error.message;
+      });
+  });
+}
+
+/* =========================================================
+   تسجيل حساب كشاف/ولي جديد (ذاتي) — نشط فوراً، لا يحتاج مراجعة
+   ========================================================= */
+const scoutParentRegisterForm = document.getElementById('scoutParentRegisterForm');
+if (scoutParentRegisterForm) {
+  scoutParentRegisterForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    const fullName = sanitizeInput(document.getElementById('scoutParentFullName').value.trim());
+    const parentPhone = document.getElementById('scoutParentPhone').value.trim();
+    const scoutPhone = document.getElementById('scoutSonPhone').value.trim();
+    const email = document.getElementById('scoutParentEmail').value.trim();
+    const password = document.getElementById('scoutParentPassword').value;
+    const confirmPassword = document.getElementById('scoutParentConfirmPassword').value;
+
+    const checkingBox = document.getElementById('scoutParentCheckingBox');
+    const errorMsg = document.getElementById('scoutParentError');
+    const successMsg = document.getElementById('scoutParentSuccess');
+    const submitBtn = document.getElementById('scoutParentSubmitBtn');
+    const doneBtn = document.getElementById('scoutParentDoneReloadBtn');
+
+    errorMsg.innerText = '';
+    successMsg.style.display = 'none';
+
+    if (!fullName || !/^[\u0600-\u06FFa-zA-Z\s]+$/.test(fullName)) {
+      errorMsg.innerText = 'يرجى إدخال اسم صحيح بدون أرقام أو رموز.';
+      return;
+    }
+    if (!/^0[0-9]{9}$/.test(parentPhone) || !/^0[0-9]{9}$/.test(scoutPhone)) {
+      errorMsg.innerText = 'يرجى إدخال رقمي هاتف صحيحين (10 أرقام).';
+      return;
+    }
+    if (password !== confirmPassword) {
+      errorMsg.innerText = 'كلمتا المرور غير متطابقتين!';
+      return;
+    }
+    if (password.length < 8 || !/\d/.test(password) || !/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+      errorMsg.innerText = 'كلمة المرور يجب أن تحتوي على 8 أحرف على الأقل مع أرقام ورموز!';
+      return;
+    }
+
+    checkingBox.style.display = 'flex';
+    submitBtn.disabled = true;
+
+    auth.createUserWithEmailAndPassword(email, password)
+      .then((userCredential) => {
+        const uid = userCredential.user.uid;
+        return db.collection('users').doc(uid).set({
+          uid: uid,
+          fullName: fullName,
+          email: email,
+          parentPhone: parentPhone,
+          scoutPhone: scoutPhone,
+          role: 'scout_parent',
+          accountStatus: 'active',
+          permissions: {},
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      })
+      .then(() => {
+        checkingBox.style.display = 'none';
+        submitBtn.style.display = 'none';
+        successMsg.style.display = 'block';
+        doneBtn.style.display = 'block';
+      })
+      .catch((error) => {
+        checkingBox.style.display = 'none';
+        submitBtn.disabled = false;
+        errorMsg.innerText = 'خطأ في إنشاء الحساب: ' + error.message;
+      });
+  });
 }
 
 /* --- عرض بطاقة الكشاف / بطاقة القائد --- */
@@ -280,13 +586,23 @@ if (mediaPortalForm) {
         return db.collection('users').doc(uid).get();
       })
       .then((doc) => {
-        if (doc.exists && (doc.data().role === 'admin' || doc.data().role === 'leader')) {
-          handleSuccess();
-        } else {
+        if (!doc.exists || (doc.data().role !== 'admin' && doc.data().role !== 'leader')) {
           auth.signOut();
           checkingBox.style.display = 'none';
           submitBtn.disabled = false;
           errorMsg.innerText = 'عذراً، هذا الحساب لا يملك صلاحيات الإعلام والنشر!';
+        } else if (doc.data().accountStatus === 'pending_verification') {
+          auth.signOut();
+          checkingBox.style.display = 'none';
+          submitBtn.disabled = false;
+          errorMsg.innerText = 'حسابك لا يزال قيد المراجعة من طرف الإدارة. سيتم تفعيله بعد الموافقة.';
+        } else if (doc.data().accountStatus !== 'active') {
+          auth.signOut();
+          checkingBox.style.display = 'none';
+          submitBtn.disabled = false;
+          errorMsg.innerText = 'تم توقيف هذا الحساب لأغراض أمنية. سيتم مراجعته من طرف الإدارة.';
+        } else {
+          handleSuccess();
         }
       })
       .catch(() => {
@@ -332,30 +648,54 @@ if (adminLoginForm) {
         return db.collection('users').doc(userCredential.user.uid).get();
       })
       .then((doc) => {
-        if (doc.exists && doc.data().role === 'admin') {
-          handleSuccessfulLogin();
-        } else {
+        if (!doc.exists || doc.data().role !== 'admin') {
           auth.signOut();
           checkingBox.style.display = 'none';
           submitBtn.disabled = false;
           errorMsg.innerText = 'عذراً، هذا الحساب لا يملك صلاحيات الأدمن!';
+        } else if (doc.data().accountStatus !== 'active') {
+          auth.signOut();
+          checkingBox.style.display = 'none';
+          submitBtn.disabled = false;
+          errorMsg.innerText = 'تم توقيف هذا الحساب لأغراض أمنية. سيتم مراجعته من طرف الإدارة.';
+        } else {
+          handleSuccessfulLogin();
         }
       })
-      .catch((error) => {
+      .catch(() => {
         checkingBox.style.display = 'none';
         submitBtn.disabled = false;
-        console.error('[Admin Login - تشخيص مؤقت] code:', error.code, '| message:', error.message);
-        errorMsg.innerText = `[تشخيص مؤقت] ${error.code || 'no-code'}: ${error.message || 'خطأ غير معروف'}`;
+        errorMsg.innerText = 'البريد الإلكتروني أو كلمة المرور غير صحيحة!';
       });
   });
 }
 
+// تنظيف شامل لأي Modal/Overlay/Drawer عالق (يُستخدم كخط دفاع إضافي قبل أي reload)
+function closeAllModalsAndOverlays() {
+  document.querySelectorAll('.modal-overlay').forEach((m) => { m.style.display = 'none'; });
+  document.body.style.overflow = 'auto';
+
+  const sidebar = document.getElementById('adminSidebar');
+  const sidebarOverlay = document.getElementById('adminSidebarOverlay');
+  if (sidebar) sidebar.classList.remove('mobile-open');
+  if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+
+  const navMenu = document.getElementById('navMenu');
+  if (navMenu) navMenu.classList.remove('active');
+
+  const fullBlueScreen = document.getElementById('fullAdminBlueScreen');
+  if (fullBlueScreen) fullBlueScreen.style.display = 'none';
+}
+
 function logoutAdmin() {
   auth.signOut().then(() => {
-    const fullBlueScreen = document.getElementById('fullAdminBlueScreen');
-    if (fullBlueScreen) {
-      fullBlueScreen.style.display = 'none';
-    }
+    closeAllModalsAndOverlays();
+    window.location.hash = '';
+    window.location.reload();
+  }).catch(() => {
+    closeAllModalsAndOverlays();
+    window.location.hash = '';
+    window.location.reload();
   });
 }
 
@@ -554,7 +894,12 @@ if (adminAddLeaderForm) {
           email: email,
           role: 'leader',
           leaderRoleTitle: leaderRoleTitle,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          accountStatus: 'active',
+          verificationStatus: 'verified',
+          permissions: {},
+          createdBy: auth.currentUser ? auth.currentUser.uid : null,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
 
         return Promise.all([
@@ -770,18 +1115,54 @@ function toggleLeaderStatus(leaderId, currentStatus) {
     loadLeadersForAdmin(); // تحديث القائمة
   });
 }
-// جلب الإعلان النشط من قاعدة البيانات
-db.collection('settings').doc('announcements').onSnapshot(doc => {
-  if(doc.exists) {
-    document.getElementById('announcementMarqueeText').innerText = doc.data().urgentText;
+// مستويات أهمية الإعلان — قابلة للتوسع مستقبلاً
+const ANNOUNCEMENT_LEVELS = {
+  critical:  { label: 'هام جدًا', color: '#ef4444' },
+  important: { label: 'هام',      color: '#f97316' },
+  info:      { label: 'إعلان',    color: '#f1cf79' },
+  note:      { label: 'معلومة',   color: '#3b82f6' }
+};
+let selectedMarqueeLevel = 'important';
+
+// جلب الإعلان النشط من قاعدة البيانات (شريط عاجل مستقل تماماً عن قائمة الإعلانات)
+db.collection('settings').doc('announcements').onSnapshot((doc) => {
+  const marqueeEl = document.getElementById('announcementMarqueeText');
+  const labelEl = document.getElementById('announcementImportanceLabel');
+  if (!doc.exists || !marqueeEl) return;
+
+  const data = doc.data();
+  const message = data.message || data.urgentText || '';
+  const levelKey = ANNOUNCEMENT_LEVELS[data.importanceLevel] ? data.importanceLevel : 'important';
+  const levelInfo = ANNOUNCEMENT_LEVELS[levelKey];
+
+  marqueeEl.innerText = message;
+  if (labelEl) {
+    labelEl.innerText = data.importanceLabel || levelInfo.label;
+    labelEl.style.backgroundColor = data.importanceColor || levelInfo.color;
   }
 });
 
-// وظيفة باش الآدمن يبدل النص
-function updateAnnouncementBar(newText) {
+// تحديد مستوى الأهمية المختار في واجهة التعديل السريع
+function setMarqueeLevelSelection(level) {
+  selectedMarqueeLevel = ANNOUNCEMENT_LEVELS[level] ? level : 'important';
+  document.querySelectorAll('.marquee-level-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.level === selectedMarqueeLevel);
+  });
+}
+
+// وظيفة باش الآدمن يبدل نص وشدة الشريط
+function updateAnnouncementBar(message, level) {
+  const levelKey = ANNOUNCEMENT_LEVELS[level] ? level : 'important';
+  const levelInfo = ANNOUNCEMENT_LEVELS[levelKey];
+  const currentUser = auth.currentUser;
+
   return db.collection('settings').doc('announcements').set({
-    urgentText: newText,
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    message: message,
+    importanceLevel: levelKey,
+    importanceLabel: levelInfo.label,
+    importanceColor: levelInfo.color,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedBy: currentUser ? currentUser.uid : null
   }, { merge: true }).then(() => {
     showAdminNotification('تم تحديث شريط الإعلانات!', 'success');
   }).catch((error) => {
@@ -790,13 +1171,18 @@ function updateAnnouncementBar(newText) {
   });
 }
 
-// تعبئة حقل التعديل السريع للشريط بالنص الحالي عند فتح تبويب الإعلانات
+// تعبئة حقل التعديل السريع للشريط بالنص والمستوى الحاليين عند فتح تبويب الإعلانات
 function prefillMarqueeQuickEdit() {
   const input = document.getElementById('marqueeQuickEditInput');
   if (!input) return;
   db.collection('settings').doc('announcements').get().then((doc) => {
-    if (doc.exists && doc.data().urgentText) {
-      input.value = doc.data().urgentText;
+    if (doc.exists) {
+      const data = doc.data();
+      input.value = data.message || data.urgentText || '';
+      const levelKey = ANNOUNCEMENT_LEVELS[data.importanceLevel] ? data.importanceLevel : 'important';
+      setMarqueeLevelSelection(levelKey);
+    } else {
+      setMarqueeLevelSelection('important');
     }
   }).catch(() => { /* تجاهل بصمت، الحقل يبقى فارغاً */ });
 }
@@ -820,7 +1206,7 @@ function saveMarqueeText() {
   const originalHtml = btn.innerHTML;
   btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري الحفظ...';
 
-  updateAnnouncementBar(text)
+  updateAnnouncementBar(text, selectedMarqueeLevel)
     .then(() => {
       btn.innerHTML = originalHtml;
       btn.disabled = false;
@@ -882,6 +1268,53 @@ function openAnnouncementModal(mode, id) {
 }
 
 // إرسال نموذج إنشاء/تعديل الإعلان
+// ضغط الصورة قبل الرفع (Canvas API فقط، بدون مكتبات خارجية)
+function compressImageFile(file, maxDimension, quality) {
+  maxDimension = maxDimension || 1600;
+  quality = quality || 0.8;
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+
+      let { width, height } = img;
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = Math.round(height * (maxDimension / width));
+          width = maxDimension;
+        } else {
+          width = Math.round(width * (maxDimension / height));
+          height = maxDimension;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      canvas.toBlob((blob) => {
+        if (blob) {
+          resolve(blob);
+        } else {
+          resolve(file); // فشل الضغط: نرفع الملف الأصلي بدل إيقاف العملية بالكامل
+        }
+      }, 'image/jpeg', quality);
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(file); // فشل قراءة الصورة للضغط: نرفع الملف الأصلي بدل إيقاف العملية بالكامل
+    };
+
+    img.src = objectUrl;
+  });
+}
+
 const adminAnnouncementForm = document.getElementById('adminAnnouncementForm');
 if (adminAnnouncementForm) {
   adminAnnouncementForm.addEventListener('submit', (e) => {
@@ -920,19 +1353,24 @@ if (adminAnnouncementForm) {
 
     submitBtn.disabled = true;
     checkingBox.style.display = 'flex';
-    checkingText.innerText = imageFile ? 'جاري رفع الصورة وحفظ الإعلان...' : 'جاري حفظ الإعلان...';
+    checkingText.innerText = imageFile ? 'جاري تجهيز الصورة...' : 'جاري حفظ الإعلان...';
 
     const isEditing = !!pendingEditAnnouncementId;
 
     const uploadImageIfNeeded = () => {
       if (!imageFile) return Promise.resolve(null);
-      const safeName = `${Date.now()}_${imageFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
-      const imageRef = firebase.storage().ref().child(`announcements/${safeName}`);
-      return imageRef.put(imageFile).then((snap) => snap.ref.getDownloadURL());
+
+      return compressImageFile(imageFile, 1600, 0.8).then((compressedBlob) => {
+        checkingText.innerText = 'جاري رفع الصورة...';
+        const safeName = `${Date.now()}_${imageFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+        const imageRef = firebase.storage().ref().child(`announcements/${safeName}`);
+        return imageRef.put(compressedBlob).then((snap) => snap.ref.getDownloadURL());
+      });
     };
 
     uploadImageIfNeeded()
       .then((imageUrl) => {
+        checkingText.innerText = 'جاري نشر الإعلان...';
         const data = {
           title: title,
           content: content,
@@ -994,7 +1432,7 @@ function loadAnnouncementsAdmin() {
         const card = document.createElement('div');
         card.className = 'announcement-card-item hover-lift';
         card.innerHTML = `
-          ${data.imageUrl ? `<img src="${data.imageUrl}" class="announcement-card-thumb" alt="">` : ''}
+          ${data.imageUrl ? `<img src="${data.imageUrl}" class="announcement-card-thumb" alt="" loading="lazy">` : ''}
           <div class="announcement-card-info" style="flex:1;">
             <h3>${data.title || 'بدون عنوان'}</h3>
             <p class="announcement-excerpt">${(data.content || '').slice(0, 120)}</p>
@@ -1075,7 +1513,7 @@ function renderPublicAnnouncements() {
         const card = document.createElement('div');
         card.className = 'public-announcement-card hover-lift';
         card.innerHTML = `
-          ${data.imageUrl ? `<img src="${data.imageUrl}" alt="${data.title || ''}">` : ''}
+          ${data.imageUrl ? `<img src="${data.imageUrl}" alt="${data.title || ''}" loading="lazy">` : ''}
           <h3>${data.title || ''}</h3>
           <p class="announcement-date"><i class="fa-solid fa-calendar"></i> ${dateText}</p>
           <p class="announcement-body">${data.content || ''}</p>
