@@ -11,38 +11,165 @@
 </head>
 <body>
 
-  <!-- شريط جانبي للأدمن (يخرج من اليسار) -->
-  <div id="adminSidebar" class="admin-sidebar">
-    <div class="admin-sidebar-header">
-      <h3><i class="fa-solid fa-user-shield"></i> لوحة الأدمن</h3>
-      <button class="close-sidebar-btn" onclick="toggleAdminSidebar()"><i class="fa-solid fa-xmark"></i></button>
-    </div>
+  <!-- الشاشة الزرقاء الداكنة الكاملة الخاصة بالأدمن -->
+  <div id="fullAdminBlueScreen" class="full-admin-blue-screen" style="display: none;">
+
+    <!-- زر فتح/إغلاق القائمة الجانبية على الهاتف فقط -->
+    <button class="admin-mobile-toggle-btn" id="adminMobileToggleBtn" onclick="toggleAdminSidebar()" aria-label="القائمة">
+      <i class="fa-solid fa-bars"></i>
+    </button>
+
+    <!-- طبقة إغلاق عند الضغط خارج القائمة على الهاتف -->
+    <div class="admin-sidebar-overlay" id="adminSidebarOverlay" onclick="toggleAdminSidebar()"></div>
     
-    <div class="admin-sidebar-content">
-      <button class="admin-menu-btn hover-lift" onclick="alert('إدارة حسابات القيادة')">
-        <i class="fa-solid fa-user-gear"></i> حسابات القيادة
-      </button>
-      <button class="admin-menu-btn hover-lift" onclick="alert('إدارة حسابات الفتية والأولياء')">
-        <i class="fa-solid fa-users"></i> حسابات الفتية - الأولياء
-      </button>
-      <button class="admin-menu-btn hover-lift" onclick="showPage('bulletin-page'); toggleAdminSidebar();">
-        <i class="fa-solid fa-bullhorn"></i> شريط الإعلانات
-      </button>
-      <button class="admin-menu-btn hover-lift" onclick="showPage('gallery-page'); toggleAdminSidebar();">
-        <i class="fa-solid fa-images"></i> المعرض الرقمي
-      </button>
-    </div>
+    <!-- الشريط الجانبي الثابت في أقصى اليمين -->
+    <aside class="admin-sidebar" id="adminSidebar">
+      <div class="sidebar-header">
+        <img src="./logo elwihda.png" alt="فوج الوحدة الكشفي" class="sidebar-logo">
+        <div class="sidebar-brand">
+          <h2>واجهة الأدمن</h2>
+          <p>فوج الوحدة الكشفي</p>
+        </div>
+      </div>
 
-    <!-- زر تسجيل الخروج في أسفل الشريط الجانبي -->
-    <div class="admin-sidebar-footer">
-      <button class="admin-logout-btn hover-lift" onclick="logoutAdmin()">
-        <i class="fa-solid fa-right-from-bracket"></i> تسجيل خروج الأدمن
-      </button>
-    </div>
+      <!-- قائمة أزرار التحكم -->
+      <nav class="sidebar-nav">
+        <button class="admin-nav-btn active hover-lift" onclick="switchAdminTab('welcome-tab', this)">
+          <i class="fa-solid fa-house-user"></i>
+          <span>الرئيسية</span>
+        </button>
+        <button class="admin-nav-btn hover-lift" onclick="switchAdminTab('leaders-tab', this)">
+          <i class="fa-solid fa-user-tie"></i>
+          <span>حسابات القادة</span>
+        </button>
+        <button class="admin-nav-btn hover-lift" onclick="switchAdminTab('scouts-tab', this)">
+          <i class="fa-solid fa-users-gear"></i>
+          <span>حسابات الأولياء والكشافين</span>
+        </button>
+        <button class="admin-nav-btn hover-lift" onclick="switchAdminTab('announcements-tab', this)">
+          <i class="fa-solid fa-bullhorn"></i>
+          <span>الإعلانات</span>
+        </button>
+        <button class="admin-nav-btn hover-lift" onclick="switchAdminTab('gallery-tab', this)">
+          <i class="fa-solid fa-images"></i>
+          <span>المعرض الرقمي</span>
+        </button>
+        <button class="admin-nav-btn hover-lift" onclick="switchAdminTab('settings-tab', this)">
+          <i class="fa-solid fa-sliders"></i>
+          <span>إعدادات الأدمن</span>
+        </button>
+      </nav>
+
+      <!-- زر تسجيل الخروج في الأسفل بالأحمر -->
+      <div class="sidebar-footer">
+        <button class="btn-admin-logout hover-lift" onclick="logoutAdmin()">
+          <i class="fa-solid fa-right-from-bracket"></i>
+          <span>تسجيل الخروج من واجهة الأدمن</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- مساحة العرض المركزية لوحة الأدمن -->
+    <main class="admin-main-viewport">
+      
+      <!-- 1. لوحة الترحيب الرئيسية -->
+      <div id="welcome-tab" class="admin-tab-content active-tab">
+        <div class="admin-welcome-card hover-lift">
+          <div class="admin-welcome-icon">
+            <i class="fa-solid fa-user-shield"></i>
+          </div>
+          <h1>مرحبا بك في واجهة الأدمن</h1>
+          <p class="admin-subtitle">من هنا يمكنك إدارة وتحديث كافة أقسام ومحتويات الموقع بكل سهولة ودون الحاجة لتعديل البرمجة في كل مرة.</p>
+        </div>
+      </div>
+
+      <!-- 2. لوحة إدارة حسابات القادة -->
+      <div id="leaders-tab" class="admin-tab-content">
+        <div class="admin-section-card">
+          <h2><i class="fa-solid fa-user-tie"></i> إدارة حسابات القادة</h2>
+          <p>إدارة وإنشاء حسابات القادة المعتمدين والتحكم ببياناتهم وصلاحياتهم.</p>
+          
+          <!-- الأزرار الثلاثة الخاصة بتبويب القادة (أخضر، أصفر، أحمر) -->
+          <div class="leaders-action-toolbar">
+            <button class="btn-action-green hover-lift" onclick="openModal('adminAddLeaderModal')">
+              <i class="fa-solid fa-user-plus"></i> إضافة حساب
+            </button>
+            <button class="btn-action-suspicious hover-lift" onclick="showSuspiciousAccountsNotice()">
+              <i class="fa-solid fa-user-ninja"></i> حسابات مشبوهة
+            </button>
+            <button class="btn-action-red hover-lift" onclick="openModal('deleteAccountsListModal')">
+              <i class="fa-solid fa-user-minus"></i> حذف حساب
+            </button>
+          </div>
+
+          <!-- قائمة عرض كروت القادة -->
+          <div id="leadersListContainer" class="leaders-cards-list">
+            <!-- سيتم تحميل كروت القادة هنا ديناميكياً -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. لوحة إدارة حسابات الأولياء والكشافين -->
+      <div id="scouts-tab" class="admin-tab-content">
+        <div class="admin-section-card">
+          <h2><i class="fa-solid fa-users-gear"></i> إدارة حسابات الأولياء والكشافين</h2>
+          <p>استعراض الفتية المسجلين، أرقام التواصل مع الأولياء، وتفعيل الحسابات.</p>
+        </div>
+      </div>
+
+      <!-- 4. لوحة إدارة الإعلانات -->
+      <div id="announcements-tab" class="admin-tab-content">
+        <div class="admin-section-card">
+          <h2><i class="fa-solid fa-bullhorn"></i> إدارة الإعلانات والنشرات</h2>
+          <p>إضافة ونشر الإعلانات الهامة وشريط الأخبار العاجلة للموقع.</p>
+
+          <!-- تعديل سريع لشريط الإعلان العاجل (Marquee) -->
+          <div class="marquee-quick-edit-box mt-20">
+            <label class="field-group-title"><i class="fa-solid fa-scroll"></i> نص شريط الإعلان العاجل (يظهر أعلى الموقع)</label>
+            <div class="marquee-edit-row">
+              <input type="text" id="marqueeQuickEditInput" placeholder="اكتب نص الشريط العاجل هنا...">
+              <button type="button" id="marqueeQuickSaveBtn" class="glow-btn btn-green hover-lift" onclick="saveMarqueeText()">
+                <i class="fa-solid fa-floppy-disk"></i> حفظ
+              </button>
+            </div>
+            <p id="marqueeQuickMsg" class="error-msg bold-text"></p>
+          </div>
+
+          <!-- الأزرار الخاصة بتبويب الإعلانات -->
+          <div class="leaders-action-toolbar mt-20">
+            <button class="btn-action-green hover-lift" onclick="openAnnouncementModal('create')">
+              <i class="fa-solid fa-circle-plus"></i> إنشاء إعلان جديد
+            </button>
+          </div>
+
+          <!-- قائمة عرض الإعلانات -->
+          <div id="announcementsListContainer" class="leaders-cards-list mt-20">
+            <!-- سيتم تحميل الإعلانات هنا ديناميكياً -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. لوحة إدارة المعرض الرقمي -->
+      <div id="gallery-tab" class="admin-tab-content">
+        <div class="admin-section-card">
+          <h2><i class="fa-solid fa-images"></i> إدارة المعرض الرقمي</h2>
+          <p>رفع وتنظيم صور المخيمات والتجمعات والأنشطة الكشفية.</p>
+        </div>
+      </div>
+
+      <!-- 6. لوحة إعدادات الأدمن -->
+      <div id="settings-tab" class="admin-tab-content">
+        <div class="admin-section-card">
+          <h2><i class="fa-solid fa-sliders"></i> إعدادات لوحة الأدمن</h2>
+          <p>تعديل بيانات الحساب، كلمات المرور، وإعدادات النظام.</p>
+        </div>
+      </div>
+
+    </main>
+
   </div>
-  <div id="sidebarOverlay" class="sidebar-overlay" onclick="toggleAdminSidebar()"></div>
 
-  <!-- شريط ثابت علوي -->
+  <!-- الشريط العلوي الثابت -->
   <div class="header-fixed-wrapper">
     <!-- شريط الإعلانات -->
     <div class="announcement-bar">
@@ -50,7 +177,7 @@
         <span class="badge-urgent pulse-glow">إعلان هام</span>
       </div>
       <div class="marquee-container">
-        <div class="marquee-text">
+        <div class="marquee-text" id="announcementMarqueeText">
           عن قريب سيتم فتح التسجيلات للموسم الكشفي الجديد (2026 - 2027 م / 1448 هـ)
         </div>
       </div>
@@ -59,29 +186,18 @@
     <!-- الهيدر (Navbar) -->
     <header class="navbar">
       <div class="nav-container">
-        
-        <!-- زر 3 خطوط للأدمن على أقصى اليسار للحواسيب (يظهر فقط عند دخول الأدمن) -->
-        <button id="adminDesktopToggleBtn" onclick="toggleAdminSidebar()" class="btn-admin-lines border-none-btn hover-lift" style="display: none;" title="قائمة الأدمن">
-          <i class="fa-solid fa-bars"></i>
-        </button>
 
         <a href="#" onclick="showPage('home-page')" class="brand-logo hover-lift">
           <img src="./logo sma.png" alt="الكشافة الإسلامية الجزائرية" class="nav-logo">
           <div class="brand-text">
             <h1>الكشافة الإسلامية الجزائرية</h1>
-            <p> فوج الوحدة </p>
+            <p>فوج الوحدة</p>
           </div>
           <img src="./logo elwihda.png" alt="فوج الوحدة الكشفي" class="nav-logo">
         </a>
 
         <!-- أزرار التنقل الرئيسية -->
         <ul class="nav-menu" id="navMenu">
-          <!-- زر 3 خطوط للأدمن للهواتف -->
-          <li id="adminMobileToggleLi" style="display: none;">
-            <button onclick="toggleAdminSidebar()" class="nav-btn admin-toggle-btn hover-lift">
-              <i class="fa-solid fa-bars"></i> <span>قائمة الأدمن</span>
-            </button>
-          </li>
           <li><button onclick="showPage('home-page')" class="nav-btn active hover-lift">الرئيسية</button></li>
           <li><button onclick="showPage('units-page')" class="nav-btn hover-lift">الوحدات</button></li>
           <li>
@@ -91,39 +207,47 @@
           </li>
           <li><button onclick="showPage('gallery-page')" class="nav-btn hover-lift">المعرض الرقمي</button></li>
           
-          <!-- أزرار الحساب الخاصة بالهواتف -->
           <li class="menu-auth-divider mobile-only"></li>
           <li class="menu-auth-item mobile-only auth-guest-btn">
-            <button onclick="openModal('loginModal')" class="btn-scout-space border-none-btn hover-lift full-width-btn">
+            <button onclick="openModal('roleSelectionModal')" class="btn-scout-space border-none-btn hover-lift full-width-btn">
               <i class="fa-solid fa-right-to-bracket"></i> <span>تسجيل الدخول</span>
             </button>
           </li>
           <li class="menu-auth-item mobile-only auth-guest-btn">
-            <button onclick="openModal('leaderPortalModal')" class="btn-primary hover-lift border-none-btn full-width-btn">
-              <i class="fa-solid fa-user-gear"></i> <span>بوابة القيادة</span>
+            <button onclick="openModal('mediaPortalModal')" class="btn-primary hover-lift border-none-btn full-width-btn">
+              <i class="fa-solid fa-bullhorn"></i> <span>بوابة الإعلام والنشر</span>
             </button>
           </li>
           <li class="menu-auth-item mobile-only auth-guest-btn">
             <button onclick="openModal('adminLoginModal')" class="btn-admin-red hover-lift border-none-btn full-width-btn">
-              <i class="fa-solid fa-user-shield"></i> <span>الأدمن</span>
+              <i class="fa-solid fa-user-shield"></i> <span>دخول الأدمن</span>
+            </button>
+          </li>
+          <li class="menu-auth-item mobile-only auth-user-btn" style="display: none;">
+            <button onclick="handleUserLogout()" class="btn-admin-red hover-lift border-none-btn full-width-btn">
+              <i class="fa-solid fa-right-from-bracket"></i> <span>تسجيل الخروج</span>
             </button>
           </li>
         </ul>
 
-        <!-- أزرار الحساب الخاصة بالحواسيب -->
+        <!-- أزرار الحساب بالحواسيب -->
         <div class="nav-actions desktop-only">
-          <button onclick="openModal('loginModal')" class="btn-scout-space border-none-btn hover-lift auth-guest-btn">
+          <button onclick="openModal('roleSelectionModal')" class="btn-scout-space border-none-btn hover-lift auth-guest-btn">
             <i class="fa-solid fa-right-to-bracket"></i> <span>تسجيل الدخول</span>
           </button>
-          <button onclick="openModal('leaderPortalModal')" class="btn-primary hover-lift border-none-btn auth-guest-btn">
-            <i class="fa-solid fa-user-gear"></i> <span>بوابة القيادة</span>
+          <button onclick="openModal('mediaPortalModal')" class="btn-primary hover-lift border-none-btn auth-guest-btn">
+            <i class="fa-solid fa-bullhorn"></i> <span>بوابة الإعلام والنشر</span>
           </button>
           <button onclick="openModal('adminLoginModal')" class="btn-admin-red hover-lift border-none-btn auth-guest-btn">
-            <i class="fa-solid fa-user-shield"></i> <span>الأدمن</span>
+            <i class="fa-solid fa-user-shield"></i> <span>دخول الأدمن</span>
+          </button>
+
+          <!-- زر تسجيل الخروج للمستخدم المسجل -->
+          <button onclick="handleUserLogout()" class="btn-admin-red hover-lift border-none-btn auth-user-btn" style="display: none;">
+            <i class="fa-solid fa-right-from-bracket"></i> <span>تسجيل الخروج</span>
           </button>
         </div>
 
-        <!-- زر 3 نقاط للهواتف -->
         <button class="mobile-menu-btn hover-lift" onclick="toggleMobileMenu()" aria-label="القائمة">
           <i class="fa-solid fa-ellipsis-vertical"></i>
           <span class="mobile-red-dot pulse-glow"></span>
@@ -133,11 +257,16 @@
     </header>
   </div>
 
-  <!-- حاوية الصفحات -->
   <main class="main-content-viewport">
 
     <!-- 1. الصفحة الرئيسية -->
     <div id="home-page" class="site-page active-page">
+      
+      <!-- منطقة عرض بطاقة الكشاف / بطاقة القائد فور تسجيل الدخول -->
+      <section id="userCardDisplaySection" class="container" style="display: none; padding-top: 20px;">
+        <div id="userCardContainer"></div>
+      </section>
+
       <section class="hero">
         <div class="hero-overlay"></div>
         <div class="hero-container-centered">
@@ -287,20 +416,21 @@
         </div>
 
         <div class="section-body container">
-          <div class="bulletin-card-main hover-lift">
-            <h3>إعلان عن قرب فتح التسجيلات للموسم الكشفي الجديد</h3>
-            
-            <div class="announcement-image-container hover-lift" id="announcementImgBox">
-              <p class="img-placeholder-text"><i class="fa-regular fa-image"></i> مكان الصورة المخصصة للإعلان</p>
-            </div>
+          <!-- الإعلانات الحقيقية القادمة من Firestore -->
+          <div id="publicAnnouncementsContainer" class="public-announcements-list">
+            <p class="announcements-loading-text"><i class="fa-solid fa-spinner fa-spin"></i> جاري تحميل الإعلانات...</p>
+          </div>
 
+          <!-- بطاقة ثابتة للتحقق من استمارة التسجيل -->
+          <div class="bulletin-card-main hover-lift mt-20">
+            <h3>استمارة التسجيل للموسم الكشفي</h3>
             <p class="bulletin-text">
-              يسر قيادة فوج الوحدة الكشفي إعلام جميع الأولياء والأطفال عن اقتراب انطلاق التسجيلات السنوية للموسم الكشفي الجديد. يمكنك الاطلاع على استمارة التسجيل لموسم الكشفي الجديد.
+              يمكنك التحقق من توفر استمارة التسجيل لهذا الموسم وتحميلها مباشرة من هنا.
             </p>
 
             <div class="bulletin-actions">
               <button class="btn-primary hero-btn-red border-none-btn hover-lift" onclick="checkRegistrationForm()">
-                <i class="fa-solid fa-file-pdf"></i> الانتقال لصفحة التسجيل
+                <i class="fa-solid fa-file-pdf"></i> التحقق من استمارة التسجيل
               </button>
             </div>
 
@@ -343,7 +473,7 @@
             </button>
           </div>
 
-          <div class="gallery-grid" id="galleryGrid">
+          <div class="gallery-grid" id="galleryContainer">
             <div class="gallery-card hover-lift" data-category="camps">
               <div class="media-box hover-lift"><i class="fa-solid fa-campground"></i></div>
               <h3>مخيم الغابة الصيفي</h3>
@@ -366,122 +496,97 @@
 
   </main>
 
-  <!-- نافذة تسجيل الدخول (فضاء الكشاف) -->
-  <div id="loginModal" class="modal-overlay">
+  <!-- 1️⃣ نافذة اختيار الصفة: من أنت؟ -->
+  <div id="roleSelectionModal" class="modal-overlay" style="display: none;">
     <div class="scout-card-container hover-lift">
-      <button class="close-btn hover-lift" onclick="closeModal('loginModal')">
+      <button class="close-btn hover-lift" onclick="closeModal('roleSelectionModal')">
         <i class="fa-solid fa-xmark"></i>
       </button>
       <div class="welcome-box">
         <div class="welcome-overlay hover-lift">
-          <div class="scout-badge-icon hover-lift"><i class="fa-solid fa-shield-halved"></i></div>
-          <h3>فضاء الكشاف</h3>
-          <p>مرحباً بك مجدداً في المنصة الرقمية لفوج الوحدة الكشفي</p>
+          <div class="scout-badge-icon hover-lift"><i class="fa-solid fa-users"></i></div>
+          <h3>مرحباً بك</h3>
+          <p>حدد صفك الكشفي للمتابعة في المنصة</p>
         </div>
       </div>
       <div class="form-box">
-        <h2>تسجيل الدخول</h2>
-        <p class="step-desc">أدخل بيانات الحساب الخاص بك للوصول إلى فضائك الكشفي</p>
-        <form id="loginForm">
-          <div class="input-box hover-lift">
-            <i class="fa-solid fa-envelope field-icon"></i>
-            <input type="email" id="loginUser" required placeholder=" ">
-            <label>البريد الإلكتروني</label>
-          </div>
-          <div class="input-box hover-lift">
-            <i class="fa-solid fa-lock field-icon"></i>
-            <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
-            <input type="password" id="loginPassword" required placeholder=" ">
-            <label>كلمة المرور</label>
-          </div>
-          <div class="forgot-link-wrap"><a href="#" class="forgot-link hover-lift">نسيت كلمة المرور؟</a></div>
-          
-          <!-- مؤشر التحقق المؤقت للكشاف -->
-          <div id="loginCheckingBox" class="spinner-wrap" style="display: none; margin-bottom: 12px;">
-            <div class="spinner"></div>
-            <p style="color: var(--accent-gold); font-weight: bold; margin-top: 6px;">انتظر ثواني... جاري التحقق</p>
-          </div>
+        <h2>من أنت؟</h2>
+        <p class="step-desc">اختر صفك للوصول إلى استمارة التسجيل المناسبة</p>
+        
+        <div class="role-options-group">
+          <label class="role-card-option">
+            <input type="radio" name="userRoleChoice" value="leader" onchange="handleRoleSelectionChange()">
+            <div class="role-card-content hover-lift">
+              <i class="fa-solid fa-user-tie"></i>
+              <span>قائد</span>
+            </div>
+          </label>
 
-          <p id="loginError" class="error-msg"></p>
-          <button type="submit" id="loginSubmitBtn" class="glow-btn hover-lift">تسجيل الدخول</button>
-          
-          <div class="signup-prompt-wrap">
-            <span>ليس لديك حساب؟ </span>
-            <a href="#" class="switch-auth-link" onclick="switchModal('loginModal', 'registerModal')">إنشاء حساب جديد</a>
-          </div>
-        </form>
+          <label class="role-card-option">
+            <input type="radio" name="userRoleChoice" value="scout_parent" onchange="handleRoleSelectionChange()">
+            <div class="role-card-content hover-lift">
+              <i class="fa-solid fa-user-graduate"></i>
+              <span>كشاف - ولي</span>
+            </div>
+          </label>
+        </div>
+
+        <div id="roleSelectionSpinner" class="spinner-wrap" style="display: none; margin: 15px 0;">
+          <div class="spinner"></div>
+          <p style="color: var(--accent-gold); font-weight: bold;">انتظر ثواني...</p>
+        </div>
+
+        <button type="button" id="roleNextBtn" class="glow-btn hover-lift" style="display: none; margin-top: 20px;" onclick="proceedToRoleRegistration()">تم</button>
       </div>
     </div>
   </div>
 
-  <!-- نافذة إنشاء حساب جديد -->
-  <div id="registerModal" class="modal-overlay" style="display: none;">
+  <!-- 2️⃣ نافذة إنشاء حساب قائد عامة -->
+  <div id="leaderRegisterModal" class="modal-overlay" style="display: none;">
     <div class="scout-card-container hover-lift modal-scrollable">
-      <button class="close-btn hover-lift" onclick="closeModal('registerModal')">
+      <button class="close-btn hover-lift" onclick="closeModal('leaderRegisterModal')">
         <i class="fa-solid fa-xmark"></i>
       </button>
       <div class="welcome-box">
         <div class="welcome-overlay hover-lift">
-          <div class="scout-badge-icon hover-lift"><i class="fa-solid fa-user-plus"></i></div>
-          <h3>انضم إلينا</h3>
-          <p>أنشئ حسابك الجديد للانضمام إلى العائلة الكشفية</p>
+          <div class="scout-badge-icon hover-lift"><i class="fa-solid fa-user-tie"></i></div>
+          <h3>فضاء القيادة</h3>
+          <p>إنشاء حساب قائد كشفي جديد</p>
         </div>
       </div>
       <div class="form-box">
-        <h2>إنشاء حساب جديد</h2>
-        <p class="step-desc">يرجى ملء البيانات التالية بدقة لتفعيل حسابك الكشفي</p>
-        <form id="registerForm" novalidate>
-          <div class="input-row">
-            <div class="input-box hover-lift">
-              <i class="fa-solid fa-user field-icon"></i>
-              <input type="text" id="regFirstName" required placeholder=" ">
-              <label>الاسم</label>
-            </div>
-            <div class="input-box hover-lift">
-              <i class="fa-solid fa-id-card field-icon"></i>
-              <input type="text" id="regLastName" required placeholder=" ">
-              <label>اللقب</label>
-            </div>
+        <h2>إنشاء حساب قائد جديد</h2>
+        <p class="step-desc">يرجى إدخال البيانات بدقة لإنشاء حسابك الكشفي القيادي</p>
+        <form id="leaderRegisterForm" novalidate>
+          <div class="input-box hover-lift">
+            <i class="fa-solid fa-user field-icon"></i>
+            <input type="text" id="leaderFullName" required placeholder=" " oninput="validateAlphaOnly(this)">
+            <label>الاسم واللقب كاملين</label>
           </div>
 
           <div class="input-box hover-lift">
             <i class="fa-solid fa-envelope field-icon"></i>
-            <input type="email" id="regEmail" required placeholder=" ">
+            <input type="email" id="leaderRegEmail" required placeholder=" ">
             <label>البريد الإلكتروني</label>
-          </div>
-
-          <div class="input-row">
-            <div class="input-box hover-lift phone-box">
-              <i class="fa-solid fa-phone-volume field-icon"></i>
-              <input type="tel" id="regParentPhone" required placeholder=" " maxlength="10">
-              <label>هاتف الولي</label>
-              <div class="phone-mask-hint" id="parentPhoneMask"></div>
-            </div>
-            <div class="input-box hover-lift phone-box">
-              <i class="fa-solid fa-mobile-screen-button field-icon"></i>
-              <input type="tel" id="regScoutPhone" required placeholder=" " maxlength="10">
-              <label>هاتف الابن</label>
-              <div class="phone-mask-hint" id="scoutPhoneMask"></div>
-            </div>
           </div>
 
           <div class="input-box hover-lift">
             <i class="fa-solid fa-lock field-icon"></i>
             <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
-            <input type="password" id="regPassword" required placeholder=" ">
+            <input type="password" id="leaderRegPassword" required placeholder=" ">
             <label>كلمة المرور</label>
           </div>
 
           <div class="password-checks">
-            <div class="check-item invalid" id="checkLen">
+            <div class="check-item invalid" id="checkLenLeader">
               <i class="fa-solid fa-circle-xmark check-icon"></i>
-              <span>يحتوي على 8 أرقام (أو خانات)</span>
+              <span>يحتوي على 8 خانات على الأقل</span>
             </div>
-            <div class="check-item invalid" id="checkNum">
+            <div class="check-item invalid" id="checkNumLeader">
               <i class="fa-solid fa-circle-xmark check-icon"></i>
               <span>يحتوي على أرقام</span>
             </div>
-            <div class="check-item invalid" id="checkSym">
+            <div class="check-item invalid" id="checkSymLeader">
               <i class="fa-solid fa-circle-xmark check-icon"></i>
               <span>يحتوي على رموز</span>
             </div>
@@ -490,71 +595,427 @@
           <div class="input-box hover-lift mt-10">
             <i class="fa-solid fa-lock field-icon"></i>
             <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
-            <input type="password" id="regConfirmPassword" required placeholder=" ">
+            <input type="password" id="leaderRegConfirmPassword" required placeholder=" ">
             <label>تأكيد كلمة المرور</label>
           </div>
 
-          <!-- مؤشر التحقق لإنشاء الحساب -->
-          <div id="regCheckingBox" class="spinner-wrap" style="display: none; margin-bottom: 12px;">
+          <div id="leaderRegCheckingBox" class="spinner-wrap" style="display: none; margin-bottom: 12px;">
             <div class="spinner"></div>
-            <p style="color: var(--accent-gold); font-weight: bold; margin-top: 6px;">انتظر ثواني... جاري إنشاء الحساب</p>
+            <p style="color: var(--accent-gold); font-weight: bold; margin-top: 6px;">انتظر ثواني... جاري إنشاء حسابك</p>
           </div>
 
-          <p id="regError" class="error-msg bold-text"></p>
-          <button type="submit" id="regSubmitBtn" class="glow-btn hover-lift">إنشاء حساب</button>
-
-          <div class="signup-prompt-wrap">
-            <span>لديك حساب بالفعل؟ </span>
-            <a href="#" class="switch-auth-link" onclick="switchModal('registerModal', 'loginModal')">تسجيل الدخول</a>
-          </div>
+          <p id="leaderRegError" class="error-msg bold-text"></p>
+          <p id="leaderRegSuccess" class="success-msg bold-text" style="display: none; color: #22c55e; font-weight: bold; margin-bottom: 10px;"></p>
+          
+          <button type="submit" id="leaderRegSubmitBtn" class="glow-btn hover-lift">إنشاء حساب جديد</button>
         </form>
       </div>
     </div>
   </div>
 
-  <!-- نافذة بوابة القيادة -->
-  <div id="leaderPortalModal" class="modal-overlay" style="display: none;">
-    <div class="scout-card-container hover-lift">
-      <button class="close-btn hover-lift" onclick="closeModal('leaderPortalModal')">
+  <!-- 2️⃣-أ نافذة إضافة قائد من طرف الأدمن (أضف حساب) -->
+  <div id="adminAddLeaderModal" class="modal-overlay" style="display: none;">
+    <div class="scout-card-container hover-lift modal-scrollable">
+      <button class="close-btn hover-lift" onclick="closeModal('adminAddLeaderModal')">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="welcome-box welcome-admin">
+        <div class="welcome-overlay hover-lift">
+          <div class="scout-badge-icon badge-admin hover-lift"><i class="fa-solid fa-user-plus"></i></div>
+          <h3>إضافة قائد جديد</h3>
+          <p>لوحة التحكم - تسجيل وتفعيل قائد جديد</p>
+        </div>
+      </div>
+      <div class="form-box">
+        <h2>أضف حساب قائد</h2>
+        <p class="step-desc">قم بإدخال بيانات القائد الكاملة مع تحديد صفته ومهامه بالفوج</p>
+        
+        <form id="adminAddLeaderForm" novalidate>
+          <div class="input-box hover-lift">
+            <i class="fa-solid fa-user field-icon"></i>
+            <input type="text" id="adminLeaderFullName" required placeholder=" " oninput="validateAlphaOnly(this)">
+            <label>الاسم واللقب كاملين</label>
+          </div>
+
+          <div class="input-box hover-lift">
+            <i class="fa-solid fa-envelope field-icon"></i>
+            <input type="email" id="adminLeaderEmail" required placeholder=" ">
+            <label>البريد الإلكتروني</label>
+          </div>
+
+          <div class="input-box hover-lift">
+            <i class="fa-solid fa-lock field-icon"></i>
+            <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
+            <input type="password" id="adminLeaderPassword" required placeholder=" ">
+            <label>كلمة المرور</label>
+          </div>
+
+          <div class="password-checks">
+            <div class="check-item invalid" id="checkLenAdminLeader">
+              <i class="fa-solid fa-circle-xmark check-icon"></i>
+              <span>يحتوي على 8 خانات على الأقل</span>
+            </div>
+            <div class="check-item invalid" id="checkNumAdminLeader">
+              <i class="fa-solid fa-circle-xmark check-icon"></i>
+              <span>يحتوي على أرقام</span>
+            </div>
+            <div class="check-item invalid" id="checkSymAdminLeader">
+              <i class="fa-solid fa-circle-xmark check-icon"></i>
+              <span>يحتوي على رموز</span>
+            </div>
+          </div>
+
+          <div class="input-box hover-lift mt-10">
+            <i class="fa-solid fa-lock field-icon"></i>
+            <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
+            <input type="password" id="adminLeaderConfirmPassword" required placeholder=" ">
+            <label>تأكيد كلمة المرور</label>
+          </div>
+
+          <!-- اختيار صفة القائد: من أنت؟ -->
+          <div class="role-question-block mt-10">
+            <label class="field-group-title"><i class="fa-solid fa-user-shield"></i> من أنت؟ (الصفة / المهمة)</label>
+            <div class="leader-role-radios">
+              <label class="radio-chip">
+                <input type="radio" name="adminLeaderRoleType" value="مسؤول الإعلام" checked onchange="toggleCustomLeaderRoleInput()">
+                <span>مسؤول الإعلام</span>
+              </label>
+              <label class="radio-chip">
+                <input type="radio" name="adminLeaderRoleType" value="قائد الفوج" onchange="toggleCustomLeaderRoleInput()">
+                <span>قائد الفوج</span>
+              </label>
+              <label class="radio-chip">
+                <input type="radio" name="adminLeaderRoleType" value="أخرى" onchange="toggleCustomLeaderRoleInput()">
+                <span>أخرى</span>
+              </label>
+            </div>
+
+            <!-- حقل إضافي عند اختيار أخرى -->
+            <div class="input-box hover-lift mt-10" id="customLeaderRoleBox" style="display: none;">
+              <i class="fa-solid fa-pen-to-square field-icon"></i>
+              <input type="text" id="adminLeaderCustomRole" placeholder=" ">
+              <label>اكتب مهام أو صفة هذا القائد (مثال: مسؤول تصوير / مسؤول العتاد)</label>
+            </div>
+          </div>
+
+          <!-- مؤشر التحميل -->
+          <div id="adminLeaderCheckingBox" class="spinner-wrap" style="display: none; margin: 12px 0;">
+            <div class="spinner"></div>
+            <p style="color: var(--accent-gold); font-weight: bold; margin-top: 6px;">جاري إنشاء حساب...</p>
+          </div>
+
+          <p id="adminLeaderError" class="error-msg bold-text"></p>
+          <p id="adminLeaderSuccess" class="success-msg bold-text" style="display: none; color: #22c55e; font-weight: bold; margin-bottom: 10px;">تم إنشاء حساب بنجاح</p>
+
+          <button type="submit" id="adminLeaderSubmitBtn" class="glow-btn btn-green hover-lift mt-10"><i class="fa-solid fa-floppy-disk"></i> حفظ الحساب</button>
+          
+          <button type="button" id="adminLeaderDoneBtn" class="glow-btn btn-green hover-lift mt-10" style="display: none;" onclick="closeModal('adminAddLeaderModal')">تم</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2️⃣-ب نافذة عرض وحذف الحسابات (زر حذف حساب والأصفر للحسابات المشبوهة) -->
+  <div id="deleteAccountsListModal" class="modal-overlay" style="display: none;">
+    <div class="scout-card-container hover-lift modal-scrollable" style="max-width: 900px;">
+      <button class="close-btn hover-lift" onclick="closeModal('deleteAccountsListModal')">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="welcome-box welcome-admin">
+        <div class="welcome-overlay hover-lift">
+          <div class="scout-badge-icon badge-admin hover-lift"><i class="fa-solid fa-user-gear"></i></div>
+          <h3>إدارة وحذف الحسابات</h3>
+          <p>لوحة التحكم بالخصوصية والأمان</p>
+        </div>
+      </div>
+      <div class="form-box">
+        <h2>قائمة الحسابات المنشأة</h2>
+        <p class="step-desc">يمكنك استعراض كافة الحسابات المنشأة، وحذف الحساب نهائياً عند الحاجة</p>
+        
+        <div id="allAccountsListContainer" class="accounts-grid-list mt-20">
+          <!-- يتم جلب الحسابات ديناميكياً هنا داخل مستطيلات بوردر جميل -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة تفاصيل القائد وتحميل الملف -->
+  <div id="leaderDetailsModal" class="modal-overlay" style="display: none;">
+    <div class="scout-card-container hover-lift modal-scrollable">
+      <button class="close-btn hover-lift" onclick="closeModal('leaderDetailsModal')">
         <i class="fa-solid fa-xmark"></i>
       </button>
       <div class="welcome-box">
         <div class="welcome-overlay hover-lift">
-          <div class="scout-badge-icon hover-lift"><i class="fa-solid fa-user-gear"></i></div>
-          <h3>بوابة القيادة</h3>
-          <p>مساحة خاصة بقادة وقادات فوج الوحدة الكشفي</p>
+          <div class="scout-badge-icon hover-lift"><i class="fa-solid fa-id-card"></i></div>
+          <h3>ملف القائد</h3>
+          <p>تفاصيل الحساب والمعلومات الكشفية</p>
+        </div>
+      </div>
+      <div class="form-box" id="printableLeaderProfile">
+        <h2>معلومات القائد الكشفي</h2>
+        <div class="leader-info-details-box mt-10">
+          <div class="info-row"><i class="fa-solid fa-user"></i> <strong>الاسم واللقب:</strong> <span id="viewLeaderName">-</span></div>
+          <div class="info-row"><i class="fa-solid fa-envelope"></i> <strong>البريد الإلكتروني:</strong> <span id="viewLeaderEmail">-</span></div>
+          <div class="info-row"><i class="fa-solid fa-award"></i> <strong>الصفة / المهام:</strong> <span id="viewLeaderRole">-</span></div>
+          <div class="info-row"><i class="fa-solid fa-calendar-check"></i> <strong>تاريخ الإنشاء:</strong> <span id="viewLeaderDate">-</span></div>
+          <div class="info-row"><i class="fa-solid fa-flag"></i> <strong>الفوج:</strong> فوج الوحدة الكشفي</div>
+        </div>
+
+        <div class="details-modal-actions mt-20">
+          <a id="downloadLeaderPdfBtn" href="#" class="glow-btn hover-lift btn-pdf"><i class="fa-solid fa-file-pdf"></i> تحميل نسخة PDF</a>
+          <button type="button" onclick="printLeaderProfileCard()" class="glow-btn hover-lift btn-print"><i class="fa-solid fa-print"></i> طباعة الصورة</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة تأكيد حذف حساب قائد فردي -->
+  <div id="deleteLeaderConfirmModal" class="modal-overlay" style="display: none;">
+    <div class="scout-card-container hover-lift">
+      <button class="close-btn hover-lift" onclick="closeModal('deleteLeaderConfirmModal')">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="welcome-box welcome-admin">
+        <div class="welcome-overlay hover-lift">
+          <div class="scout-badge-icon badge-admin hover-lift"><i class="fa-solid fa-user-xmark"></i></div>
+          <h3>حذف الحساب</h3>
+          <p>إلغاء وتجريد الصلاحيات بشكل دائم</p>
         </div>
       </div>
       <div class="form-box">
-        <h2>بوابة القيادة</h2>
-        <p class="step-desc">أدخل البريد الإلكتروني وكلمة المرور للوصول إلى نظام إدارة القيادة</p>
-        <form id="leaderPortalForm">
+        <h2>حذف الحساب</h2>
+        <p class="confirm-prompt-text bold-text mt-10">هل أنت متأكد من حذف هذا الحساب؟</p>
+        
+        <div id="deleteLeaderCheckingBox" class="spinner-wrap" style="display: none; margin: 15px 0;">
+          <div class="spinner"></div>
+          <p style="color: #ef4444; font-weight: bold; margin-top: 6px;">جاري حذف الحساب...</p>
+        </div>
+
+        <p id="deleteLeaderSuccess" class="success-msg bold-text" style="display: none; color: #22c55e; margin: 10px 0;">تم حذف الحساب بنجاح</p>
+
+        <div class="confirm-actions-row mt-20" id="deleteConfirmButtons">
+          <button type="button" class="btn-confirm-yes hover-lift" onclick="executeDeleteLeader()">نعم</button>
+          <button type="button" class="btn-confirm-no hover-lift" onclick="closeModal('deleteLeaderConfirmModal')">لا</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة إنشاء/تعديل إعلان -->
+  <div id="adminAnnouncementModal" class="modal-overlay" style="display: none;">
+    <div class="scout-card-container hover-lift modal-scrollable">
+      <button class="close-btn hover-lift" onclick="closeModal('adminAnnouncementModal')">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="welcome-box welcome-admin">
+        <div class="welcome-overlay hover-lift">
+          <div class="scout-badge-icon badge-admin hover-lift"><i class="fa-solid fa-bullhorn"></i></div>
+          <h3 id="announcementModalTitle">إنشاء إعلان</h3>
+          <p>سيظهر هذا الإعلان في صفحة الإعلانات العامة للموقع</p>
+        </div>
+      </div>
+      <div class="form-box">
+        <h2 id="announcementModalHeading">إعلان جديد</h2>
+        <p class="step-desc">أدخل عنوان ومحتوى الإعلان، ويمكنك إرفاق صورة اختيارياً</p>
+
+        <form id="adminAnnouncementForm" novalidate>
+          <div class="input-box hover-lift">
+            <i class="fa-solid fa-heading field-icon"></i>
+            <input type="text" id="announcementTitleInput" required placeholder=" ">
+            <label>عنوان الإعلان</label>
+          </div>
+
+          <div class="input-box hover-lift textarea-box">
+            <i class="fa-solid fa-align-right field-icon"></i>
+            <textarea id="announcementContentInput" required rows="5" placeholder=" "></textarea>
+            <label>محتوى الإعلان</label>
+          </div>
+
+          <div class="field-group-title mt-10"><i class="fa-solid fa-image"></i> صورة الإعلان (اختياري)</div>
+          <input type="file" id="announcementImageInput" accept="image/png, image/jpeg, image/webp" class="file-input-styled">
+          <p class="input-hint">الحد الأقصى 3 ميغابايت — jpg / png / webp فقط</p>
+          <div id="announcementImagePreview" class="announcement-image-preview" style="display:none;"></div>
+
+          <div id="announcementCheckingBox" class="spinner-wrap" style="display: none; margin: 12px 0;">
+            <div class="spinner"></div>
+            <p id="announcementCheckingText" style="color: var(--accent-gold); font-weight: bold; margin-top: 6px;">جاري الحفظ...</p>
+          </div>
+
+          <p id="announcementError" class="error-msg bold-text"></p>
+          <p id="announcementSuccess" class="success-msg bold-text" style="display: none; color: #22c55e; font-weight: bold; margin-bottom: 10px;">تم الحفظ بنجاح</p>
+
+          <button type="submit" id="announcementSubmitBtn" class="glow-btn btn-green hover-lift mt-10">
+            <i class="fa-solid fa-floppy-disk"></i> <span id="announcementSubmitBtnText">نشر الإعلان</span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة تأكيد حذف إعلان -->
+  <div id="deleteAnnouncementConfirmModal" class="modal-overlay" style="display: none;">
+    <div class="scout-card-container hover-lift">
+      <button class="close-btn hover-lift" onclick="closeModal('deleteAnnouncementConfirmModal')">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="welcome-box welcome-admin">
+        <div class="welcome-overlay hover-lift">
+          <div class="scout-badge-icon badge-admin hover-lift"><i class="fa-solid fa-trash"></i></div>
+          <h3>حذف الإعلان</h3>
+          <p>سيتم حذف الإعلان نهائياً من الموقع</p>
+        </div>
+      </div>
+      <div class="form-box">
+        <h2>حذف الإعلان</h2>
+        <p class="confirm-prompt-text bold-text mt-10">هل أنت متأكد من حذف هذا الإعلان؟</p>
+
+        <div id="deleteAnnouncementCheckingBox" class="spinner-wrap" style="display: none; margin: 15px 0;">
+          <div class="spinner"></div>
+          <p style="color: #ef4444; font-weight: bold; margin-top: 6px;">جاري الحذف...</p>
+        </div>
+
+        <p id="deleteAnnouncementSuccess" class="success-msg bold-text" style="display: none; color: #22c55e; margin: 10px 0;">تم الحذف بنجاح</p>
+
+        <div class="confirm-actions-row mt-20" id="deleteAnnouncementConfirmButtons">
+          <button type="button" class="btn-confirm-yes hover-lift" onclick="executeDeleteAnnouncement()">نعم</button>
+          <button type="button" class="btn-confirm-no hover-lift" onclick="closeModal('deleteAnnouncementConfirmModal')">لا</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3️⃣ نافذة إنشاء حساب كشاف / ولي -->
+  <div id="scoutParentRegisterModal" class="modal-overlay" style="display: none;">
+    <div class="scout-card-container hover-lift modal-scrollable">
+      <button class="close-btn hover-lift" onclick="closeModal('scoutParentRegisterModal')">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="welcome-box">
+        <div class="welcome-overlay hover-lift">
+          <div class="scout-badge-icon hover-lift"><i class="fa-solid fa-user-graduate"></i></div>
+          <h3>انضم إلينا</h3>
+          <p>أنشئ حساب كشاف أو ولي جديد</p>
+        </div>
+      </div>
+      <div class="form-box">
+        <h2>إنشاء حساب كشاف / ولي</h2>
+        <p class="step-desc">يرجى ملء البيانات التالية بدقة لتفعيل حسابك الكشفي</p>
+        <form id="scoutParentRegisterForm" novalidate>
+          <div class="input-box hover-lift">
+            <i class="fa-solid fa-user field-icon"></i>
+            <input type="text" id="scoutParentFullName" required placeholder=" " oninput="validateAlphaOnly(this)">
+            <label>الاسم واللقب كاملين</label>
+          </div>
+
+          <div class="input-row">
+            <div class="input-box hover-lift phone-box">
+              <i class="fa-solid fa-phone-volume field-icon"></i>
+              <input type="tel" id="scoutParentPhone" required placeholder=" " maxlength="10">
+              <label>رقم هاتف الولي</label>
+              <div class="phone-mask-hint" id="parentPhoneMask"></div>
+            </div>
+            <div class="input-box hover-lift phone-box">
+              <i class="fa-solid fa-mobile-screen-button field-icon"></i>
+              <input type="tel" id="scoutSonPhone" required placeholder=" " maxlength="10">
+              <label>رقم هاتف الابن</label>
+              <div class="phone-mask-hint" id="scoutPhoneMask"></div>
+            </div>
+          </div>
+
           <div class="input-box hover-lift">
             <i class="fa-solid fa-envelope field-icon"></i>
-            <input type="email" id="leaderEmail" required placeholder=" ">
+            <input type="email" id="scoutParentEmail" required placeholder=" ">
+            <label>البريد الإلكتروني</label>
+          </div>
+
+          <div class="input-box hover-lift">
+            <i class="fa-solid fa-lock field-icon"></i>
+            <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
+            <input type="password" id="scoutParentPassword" required placeholder=" ">
+            <label>كلمة المرور</label>
+          </div>
+
+          <div class="password-checks">
+            <div class="check-item invalid" id="checkLenScout">
+              <i class="fa-solid fa-circle-xmark check-icon"></i>
+              <span>يحتوي على 8 خانات على الأقل</span>
+            </div>
+            <div class="check-item invalid" id="checkNumScout">
+              <i class="fa-solid fa-circle-xmark check-icon"></i>
+              <span>يحتوي على أرقام</span>
+            </div>
+            <div class="check-item invalid" id="checkSymScout">
+              <i class="fa-solid fa-circle-xmark check-icon"></i>
+              <span>يحتوي على رموز</span>
+            </div>
+          </div>
+
+          <div class="input-box hover-lift mt-10">
+            <i class="fa-solid fa-lock field-icon"></i>
+            <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
+            <input type="password" id="scoutParentConfirmPassword" required placeholder=" ">
+            <label>تأكيد كلمة المرور</label>
+          </div>
+
+          <div id="scoutParentCheckingBox" class="spinner-wrap" style="display: none; margin-bottom: 12px;">
+            <div class="spinner"></div>
+            <p style="color: var(--accent-gold); font-weight: bold; margin-top: 6px;">انتظر ثواني... جاري إنشاء حسابك</p>
+          </div>
+
+          <p id="scoutParentError" class="error-msg bold-text"></p>
+          <p id="scoutParentSuccess" class="success-msg bold-text" style="display: none; color: #22c55e; font-weight: bold; margin-bottom: 10px;">تم إنشاء حسابك بنجاح</p>
+
+          <button type="submit" id="scoutParentSubmitBtn" class="glow-btn hover-lift">إنشاء حساب جديد</button>
+          
+          <button type="button" id="scoutParentDoneReloadBtn" class="glow-btn hover-lift" style="display: none; background: #22c55e; margin-top: 10px;" onclick="reloadPageAfterRegister()">تم</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4️⃣ نافذة بوابة الإعلام والنشر -->
+  <div id="mediaPortalModal" class="modal-overlay" style="display: none;">
+    <div class="scout-card-container hover-lift">
+      <button class="close-btn hover-lift" onclick="closeModal('mediaPortalModal')">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="welcome-box">
+        <div class="welcome-overlay hover-lift">
+          <div class="scout-badge-icon hover-lift"><i class="fa-solid fa-bullhorn"></i></div>
+          <h3>بوابة الإعلام والنشر</h3>
+          <p>مساحة خاصة بإدارة المحتوى والتحكم للأدمن والقادة</p>
+        </div>
+      </div>
+      <div class="form-box">
+        <h2>بوابة الإعلام والنشر</h2>
+        <p class="step-desc">أدخل البريد الإلكتروني وكلمة المرور للوصول إلى لوحة التحكم الخاص بالأدمن القادة</p>
+        <form id="mediaPortalForm">
+          <div class="input-box hover-lift">
+            <i class="fa-solid fa-envelope field-icon"></i>
+            <input type="email" id="mediaAdminEmail" required placeholder=" ">
             <label>البريد الإلكتروني</label>
           </div>
           <div class="input-box hover-lift">
             <i class="fa-solid fa-lock field-icon"></i>
             <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
-            <input type="password" id="leaderPassword" required placeholder=" ">
+            <input type="password" id="mediaAdminPassword" required placeholder=" ">
             <label>كلمة المرور</label>
           </div>
 
-          <!-- مؤشر التحقق لبوابة القيادة -->
-          <div id="leaderCheckingBox" class="spinner-wrap" style="display: none; margin-bottom: 12px;">
+          <div id="mediaCheckingBox" class="spinner-wrap" style="display: none; margin-bottom: 12px;">
             <div class="spinner"></div>
-            <p style="color: var(--accent-gold); font-weight: bold; margin-top: 6px;">انتظر ثواني... جاري التحقق من حساب القائد</p>
+            <p style="color: var(--accent-gold); font-weight: bold; margin-top: 6px;">انتظر ثواني... جاري التحقق من الحساب</p>
           </div>
 
-          <p id="leaderError" class="error-msg"></p>
-          <button type="submit" id="leaderSubmitBtn" class="glow-btn hover-lift">دخول القيادة</button>
+          <p id="mediaError" class="error-msg"></p>
+          <button type="submit" id="mediaSubmitBtn" class="glow-btn hover-lift">دخول الإعلام والنشر</button>
         </form>
       </div>
     </div>
   </div>
 
-  <!-- نافذة تسجيل دخول الأدمن -->
+  <!-- 5️⃣ نافذة تسجيل دخول الأدمن -->
   <div id="adminLoginModal" class="modal-overlay" style="display: none;">
     <div class="scout-card-container hover-lift">
       <button class="close-btn hover-lift" onclick="closeModal('adminLoginModal')">
@@ -584,7 +1045,6 @@
             <label>كلمة المرور</label>
           </div>
 
-          <!-- مؤشر التحقق للأدمن -->
           <div id="adminCheckingBox" class="spinner-wrap" style="display: none; margin-bottom: 15px;">
             <div class="spinner"></div>
             <p style="color: var(--accent-gold); font-weight: bold; margin-top: 8px;">انتظر ثواني... جاري التحقق من الحساب</p>
@@ -597,10 +1057,10 @@
     </div>
   </div>
 
-  <!-- مكتبات Firebase مجانية 100% v9 Web SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 
   <script src="script.js"></script>
   <script>
