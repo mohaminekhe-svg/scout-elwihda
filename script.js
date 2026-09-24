@@ -98,6 +98,16 @@ function switchAdminTab(tabId, btnElement) {
     prefillMarqueeQuickEdit();
   }
 
+  // تحميل قائمة الكشافة والأولياء عند فتح تبويبهم
+  if (tabId === 'scouts-tab') {
+    loadScoutsParentsAdmin();
+  }
+
+  // تحميل الإحصائيات الحقيقية عند فتح تبويبها
+  if (tabId === 'statistics-tab') {
+    loadStatisticsAdmin();
+  }
+
   // حفظ التبويب الحالي في الرابط حتى يبقى المستخدم فيه بعد Refresh
   window.location.hash = 'admin-' + tabId;
 }
@@ -194,7 +204,7 @@ let currentUserPermissions = {};
 let currentUserAccountStatus = null;
 
 function can(action) {
-  if (currentUserAccountStatus !== 'active') return false;
+  if (currentUserAccountStatus === 'suspended' || currentUserAccountStatus === 'locked') return false;
   if (currentUserRole === 'admin') return true;
   if (ADMIN_ONLY_PERMISSIONS.indexOf(action) !== -1) return false;
   return currentUserPermissions[action] === true;
@@ -283,7 +293,8 @@ function restoreAdminRouteIfAny(userData) {
   if (!pendingTab) return;
   window.__pendingAdminRoute = null;
 
-  if ((userData.role === 'admin' || userData.role === 'leader') && userData.accountStatus === 'active') {
+  if ((userData.role === 'admin' || userData.role === 'leader')
+      && userData.accountStatus !== 'suspended' && userData.accountStatus !== 'locked') {
     const fullBlueScreen = document.getElementById('fullAdminBlueScreen');
     if (fullBlueScreen) fullBlueScreen.style.display = 'flex';
 
@@ -338,15 +349,46 @@ if (userLoginForm) {
         closeModal('roleSelectionModal');
         showAdminNotification('تم تسجيل الدخول بنجاح!', 'success');
       })
-      .catch(() => {
+      .catch((error) => {
         checkingBox.style.display = 'none';
         submitBtn.disabled = false;
-        errorMsg.innerText = 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
+        logFailedLoginAttempt(email);
+        errorMsg.innerText = getFriendlyAuthErrorMessage(error) || 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
       });
   });
 }
 
 // نسيت كلمة المرور — يستخدم Firebase Auth الأصلي، برسالة عامة لا تكشف عن وجود الحساب من عدمه
+/* =========================================================
+   حماية تسجيل الدخول من المحاولات الفاشلة
+   ⚠️ قرار تصميم مقصود: لا نقوم ببناء عدّاد "قفل تلقائي بعد N محاولات" يعتمد
+   على كتابة Firestore من طرف مستخدم غير موقّع دخوله (محاولة فاشلة = بلا جلسة).
+   السبب: أي رقم/Endpoint مفتوح للكتابة من مجهول لتغيير accountStatus لحساب
+   معيّن يفتح ثغرة عكسية خطيرة: أي شخص (حتى بدون معرفة كلمة المرور) يستطيع
+   قفل حساب أي عضو — بما فيه الأدمن — بمجرد إرسال طلبات وهمية متكررة. هذا
+   أخطر من عدم وجود قفل أصلاً.
+   الحماية الحقيقية ضد Brute Force هنا هي حماية Firebase Auth نفسها
+   (auth/too-many-requests) — وهي حماية Google الحقيقية من طرف الخادم، تعمل
+   تلقائياً ولا يمكن تجاوزها من الواجهة، ولا تحتاج أي كود إضافي منا لتفعيلها.
+   ما نضيفه هنا هو فقط: (1) رسالة واضحة للمستخدم عند حدوثها، و(2) سجل تدقيق
+   Write-only في securityEvents لمراجعة الأدمن لاحقاً — بدون أي قفل تلقائي
+   لأي حساب، وبالتأكيد بدون قفل حساب الأدمن أبداً بهذه الطريقة.
+   ========================================================= */
+function logFailedLoginAttempt(email) {
+  db.collection('securityEvents').add({
+    type: 'failed_login',
+    email: email || 'unknown',
+    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+  }).catch(() => { /* تجاهل بصمت — هذا سجل تدقيق ثانوي، لا يجب أن يعطل تجربة الدخول */ });
+}
+
+function getFriendlyAuthErrorMessage(error) {
+  if (error && error.code === 'auth/too-many-requests') {
+    return 'تم إيقاف محاولات الدخول مؤقتاً من طرف Firebase بسبب عدة محاولات خاطئة متتالية لهذا الحساب. هذا إجراء أمني مؤقت من Google نفسها (وليس قفلاً دائماً للحساب) — أعد المحاولة بعد قليل، أو استخدم "نسيت كلمة المرور؟" لاسترجاع الدخول فوراً دون انتظار.';
+  }
+  return null; // لا توجد رسالة خاصة؛ استخدم الرسالة العامة المعتادة
+}
+
 function handleForgotPassword() {
   const emailInput = document.getElementById('userLoginEmail');
   const errorMsg = document.getElementById('userLoginError');
@@ -416,7 +458,6 @@ if (leaderRegisterForm) {
           role: 'leader',
           accountStatus: 'pending_verification',
           verificationStatus: 'pending',
-          permissions: {},
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
@@ -449,6 +490,10 @@ if (scoutParentRegisterForm) {
   scoutParentRegisterForm.addEventListener('submit', (e) => {
     e.preventDefault();
 
+    const roleChoice = document.querySelector('input[name="scoutParentRoleChoice"]:checked');
+    const selectedRole = roleChoice ? roleChoice.value : 'scout';
+    const unit = document.getElementById('scoutParentUnit').value;
+    const photoFile = document.getElementById('scoutParentPhotoInput').files[0];
     const fullName = sanitizeInput(document.getElementById('scoutParentFullName').value.trim());
     const parentPhone = document.getElementById('scoutParentPhone').value.trim();
     const scoutPhone = document.getElementById('scoutSonPhone').value.trim();
@@ -457,6 +502,7 @@ if (scoutParentRegisterForm) {
     const confirmPassword = document.getElementById('scoutParentConfirmPassword').value;
 
     const checkingBox = document.getElementById('scoutParentCheckingBox');
+    const checkingText = checkingBox ? checkingBox.querySelector('p') : null;
     const errorMsg = document.getElementById('scoutParentError');
     const successMsg = document.getElementById('scoutParentSuccess');
     const submitBtn = document.getElementById('scoutParentSubmitBtn');
@@ -465,6 +511,10 @@ if (scoutParentRegisterForm) {
     errorMsg.innerText = '';
     successMsg.style.display = 'none';
 
+    if (!unit) {
+      errorMsg.innerText = 'يرجى اختيار الوحدة.';
+      return;
+    }
     if (!fullName || !/^[\u0600-\u06FFa-zA-Z\s]+$/.test(fullName)) {
       errorMsg.innerText = 'يرجى إدخال اسم صحيح بدون أرقام أو رموز.';
       return;
@@ -481,25 +531,51 @@ if (scoutParentRegisterForm) {
       errorMsg.innerText = 'كلمة المرور يجب أن تحتوي على 8 أحرف على الأقل مع أرقام ورموز!';
       return;
     }
+    if (photoFile) {
+      const allowedTypes = ['image/png', 'image/jpeg', 'image/webp'];
+      if (!allowedTypes.includes(photoFile.type)) {
+        errorMsg.innerText = 'نوع الصورة غير مدعوم. الأنواع المسموحة: JPG, PNG, WEBP.';
+        return;
+      }
+      if (photoFile.size > 3 * 1024 * 1024) {
+        errorMsg.innerText = 'حجم الصورة كبير جداً. الحد الأقصى 3 ميغابايت.';
+        return;
+      }
+    }
 
     checkingBox.style.display = 'flex';
+    if (checkingText) checkingText.innerText = 'جاري إنشاء حسابك...';
     submitBtn.disabled = true;
+
+    let createdUid = null;
 
     auth.createUserWithEmailAndPassword(email, password)
       .then((userCredential) => {
-        const uid = userCredential.user.uid;
-        return db.collection('users').doc(uid).set({
-          uid: uid,
+        createdUid = userCredential.user.uid;
+        if (!photoFile) return Promise.resolve(null);
+
+        if (checkingText) checkingText.innerText = 'جاري رفع الصورة...';
+        return compressImageFile(photoFile, 800, 0.8).then((compressedBlob) => {
+          const photoRef = firebase.storage().ref().child(`profiles/${createdUid}/photo.jpg`);
+          return photoRef.put(compressedBlob).then((snap) => snap.ref.getDownloadURL());
+        });
+      })
+      .then((photoURL) => {
+        if (checkingText) checkingText.innerText = 'جاري حفظ بياناتك...';
+        const userData = {
+          uid: createdUid,
           fullName: fullName,
           email: email,
           parentPhone: parentPhone,
           scoutPhone: scoutPhone,
-          role: 'scout_parent',
+          unit: unit,
+          role: selectedRole,
           accountStatus: 'active',
-          permissions: {},
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        };
+        if (photoURL) userData.photoURL = photoURL;
+        return db.collection('users').doc(createdUid).set(userData);
       })
       .then(() => {
         checkingBox.style.display = 'none';
@@ -521,9 +597,13 @@ function renderScoutOrLeaderCard(data) {
   if (!cardContainer) return;
 
   const isLeader = data.role === 'leader';
-  const cardTitle = isLeader ? 'بطاقة القائد' : 'بطاقة الكشاف';
-  const roleBadge = data.leaderRoleTitle || (isLeader ? 'قائد كشفي' : 'كشاف / ولي');
+  const isParent = data.role === 'parent';
+  const cardTitle = isLeader ? 'بطاقة القائد' : (isParent ? 'بطاقة الولي' : 'بطاقة الكشاف');
+  const roleBadge = data.leaderRoleTitle || (isLeader ? 'قائد كشفي' : (isParent ? 'ولي' : 'كشاف'));
   const fullName = data.fullName || (data.firstName ? `${data.firstName} ${data.lastName}` : 'عضو الفوج');
+  const avatarHtml = data.photoURL
+    ? `<img src="${data.photoURL}" alt="${fullName}" loading="lazy">`
+    : `<i class="fa-solid ${isLeader ? 'fa-user-shield' : 'fa-user-graduate'}"></i>`;
 
   cardContainer.innerHTML = `
     <div class="digital-scout-card hover-lift">
@@ -533,7 +613,7 @@ function renderScoutOrLeaderCard(data) {
       </div>
       <div class="card-body-content">
         <div class="card-avatar">
-          <i class="fa-solid ${isLeader ? 'fa-user-shield' : 'fa-user-graduate'}"></i>
+          ${avatarHtml}
         </div>
         <div class="card-details">
           <h3>${fullName}</h3>
@@ -542,7 +622,7 @@ function renderScoutOrLeaderCard(data) {
             <div><i class="fa-solid fa-envelope"></i> <strong>البريد:</strong> ${data.email || 'غير مدخل'}</div>
             ${data.parentPhone ? `<div><i class="fa-solid fa-phone"></i> <strong>هاتف الولي:</strong> ${data.parentPhone}</div>` : ''}
             ${data.scoutPhone ? `<div><i class="fa-solid fa-mobile-screen"></i> <strong>هاتف الابن:</strong> ${data.scoutPhone}</div>` : ''}
-            <div><i class="fa-solid fa-flag"></i> <strong>الفوج:</strong> فوج الوحدة الكشفي</div>
+            ${data.unit ? `<div><i class="fa-solid fa-shield-halved"></i> <strong>الوحدة:</strong> ${data.unit}</div>` : ''}
           </div>
         </div>
       </div>
@@ -596,7 +676,7 @@ if (mediaPortalForm) {
           checkingBox.style.display = 'none';
           submitBtn.disabled = false;
           errorMsg.innerText = 'حسابك لا يزال قيد المراجعة من طرف الإدارة. سيتم تفعيله بعد الموافقة.';
-        } else if (doc.data().accountStatus !== 'active') {
+        } else if (doc.data().accountStatus === 'suspended' || doc.data().accountStatus === 'locked') {
           auth.signOut();
           checkingBox.style.display = 'none';
           submitBtn.disabled = false;
@@ -605,10 +685,11 @@ if (mediaPortalForm) {
           handleSuccess();
         }
       })
-      .catch(() => {
+      .catch((error) => {
         checkingBox.style.display = 'none';
         submitBtn.disabled = false;
-        errorMsg.innerText = 'البريد الإلكتروني أو كلمة المرور غير صحيحة!';
+        logFailedLoginAttempt(email);
+        errorMsg.innerText = getFriendlyAuthErrorMessage(error) || 'البريد الإلكتروني أو كلمة المرور غير صحيحة!';
       });
   });
 }
@@ -653,7 +734,7 @@ if (adminLoginForm) {
           checkingBox.style.display = 'none';
           submitBtn.disabled = false;
           errorMsg.innerText = 'عذراً، هذا الحساب لا يملك صلاحيات الأدمن!';
-        } else if (doc.data().accountStatus !== 'active') {
+        } else if (doc.data().accountStatus === 'suspended' || doc.data().accountStatus === 'locked') {
           auth.signOut();
           checkingBox.style.display = 'none';
           submitBtn.disabled = false;
@@ -662,10 +743,11 @@ if (adminLoginForm) {
           handleSuccessfulLogin();
         }
       })
-      .catch(() => {
+      .catch((error) => {
         checkingBox.style.display = 'none';
         submitBtn.disabled = false;
-        errorMsg.innerText = 'البريد الإلكتروني أو كلمة المرور غير صحيحة!';
+        logFailedLoginAttempt(email);
+        errorMsg.innerText = getFriendlyAuthErrorMessage(error) || 'البريد الإلكتروني أو كلمة المرور غير صحيحة!';
       });
   });
 }
@@ -896,7 +978,6 @@ if (adminAddLeaderForm) {
           leaderRoleTitle: leaderRoleTitle,
           accountStatus: 'active',
           verificationStatus: 'verified',
-          permissions: {},
           createdBy: auth.currentUser ? auth.currentUser.uid : null,
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -926,6 +1007,103 @@ if (adminAddLeaderForm) {
 }
 
 // استعراض القادة في الصفحة الرئيسية لتبويب الأدمن
+// تحميل قائمة الكشافة والأولياء (بحث حقيقي، بيانات حقيقية من users)
+let allScoutsParentsCache = [];
+function loadScoutsParentsAdmin() {
+  const container = document.getElementById('scoutsParentsListContainer');
+  if (!container) return;
+
+  container.innerHTML = '<p class="announcements-loading-text"><i class="fa-solid fa-spinner fa-spin"></i> جاري التحميل...</p>';
+
+  db.collection('users').where('role', 'in', ['scout', 'parent']).get()
+    .then((snapshot) => {
+      allScoutsParentsCache = [];
+      snapshot.forEach((doc) => allScoutsParentsCache.push({ id: doc.id, ...doc.data() }));
+      renderScoutsParentsList(allScoutsParentsCache);
+    })
+    .catch((error) => {
+      container.innerHTML = '<p class="announcements-empty-text">حدث خطأ أثناء جلب الحسابات.</p>';
+      console.error('loadScoutsParentsAdmin error:', error);
+    });
+}
+
+function renderScoutsParentsList(list) {
+  const container = document.getElementById('scoutsParentsListContainer');
+  if (!container) return;
+
+  if (list.length === 0) {
+    container.innerHTML = '<p class="announcements-empty-text">لا توجد حسابات كشافة/أولياء حالياً.</p>';
+    return;
+  }
+
+  container.innerHTML = '';
+  list.forEach((user) => {
+    const card = document.createElement('div');
+    card.className = 'leader-item-card hover-lift';
+    card.innerHTML = `
+      <div class="leader-card-info">
+        <h3>${user.fullName || 'بدون اسم'}</h3>
+        <p><i class="fa-solid ${user.role === 'scout' ? 'fa-user-graduate' : 'fa-user-shield'}"></i> ${user.role === 'scout' ? 'كشاف' : 'ولي'}${user.unit ? ' — ' + user.unit : ''}</p>
+        <p><i class="fa-solid fa-envelope"></i> ${user.email || ''}</p>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function filterScoutsParentsList(query) {
+  const q = sanitizeInput(query.trim().toLowerCase());
+  if (!q) { renderScoutsParentsList(allScoutsParentsCache); return; }
+  const filtered = allScoutsParentsCache.filter((u) =>
+    (u.fullName || '').toLowerCase().indexOf(q) !== -1 ||
+    (u.email || '').toLowerCase().indexOf(q) !== -1
+  );
+  renderScoutsParentsList(filtered);
+}
+
+// إحصائيات حقيقية من Firestore — بدون أي أرقام وهمية
+// ملاحظة أداء: تُستخدم .get().size وهي كافية بحجم الفوج الحالي، لكنها تقرأ
+// كل مستند في كل مجموعة؛ عند نمو الحسابات لآلاف، يُستحسن استبدالها بـ
+// count() aggregation queries (متوفرة في إصدار أحدث من Firebase SDK).
+function loadStatisticsAdmin() {
+  const grid = document.getElementById('statisticsGrid');
+  if (!grid) return;
+  grid.innerHTML = '<p class="announcements-loading-text"><i class="fa-solid fa-spinner fa-spin"></i> جاري الحساب...</p>';
+
+  Promise.all([
+    db.collection('users').where('role', '==', 'leader').get(),
+    db.collection('users').where('role', '==', 'scout').get(),
+    db.collection('users').where('role', '==', 'parent').get(),
+    db.collection('users').where('role', 'in', ['admin', 'media_manager']).get(),
+    db.collection('announcements').where('published', '==', true).get(),
+    db.collection('gallery').get()
+  ]).then(([leadersSnap, scoutsSnap, parentsSnap, staffSnap, announcementsSnap, gallerySnap]) => {
+    const pendingLeaders = leadersSnap.docs.filter(d => d.data().verificationStatus === 'pending').length;
+    const totalUsers = leadersSnap.size + scoutsSnap.size + parentsSnap.size + staffSnap.size;
+
+    const stats = [
+      { icon: 'fa-users', label: 'إجمالي الحسابات', value: totalUsers },
+      { icon: 'fa-user-tie', label: 'القادة', value: leadersSnap.size },
+      { icon: 'fa-hourglass-half', label: 'قادة قيد المراجعة', value: pendingLeaders },
+      { icon: 'fa-user-graduate', label: 'الكشافة', value: scoutsSnap.size },
+      { icon: 'fa-user-shield', label: 'الأولياء', value: parentsSnap.size },
+      { icon: 'fa-bullhorn', label: 'الإعلانات المنشورة', value: announcementsSnap.size },
+      { icon: 'fa-images', label: 'صور المعرض', value: gallerySnap.size }
+    ];
+
+    grid.innerHTML = stats.map(s => `
+      <div class="stat-box hover-lift">
+        <i class="fa-solid ${s.icon}"></i>
+        <div class="stat-box-value">${s.value}</div>
+        <div class="stat-box-label">${s.label}</div>
+      </div>
+    `).join('');
+  }).catch((error) => {
+    grid.innerHTML = '<p class="announcements-empty-text">حدث خطأ أثناء حساب الإحصائيات.</p>';
+    console.error('loadStatisticsAdmin error:', error);
+  });
+}
+
 function fetchLeadersList() {
   const container = document.getElementById('leadersListContainer');
   if (!container) return;
@@ -940,18 +1118,72 @@ function fetchLeadersList() {
 
     snapshot.forEach((doc) => {
       const leader = doc.data();
+      const uid = doc.id;
+      const isPending = leader.verificationStatus === 'pending';
+      const isRejected = leader.verificationStatus === 'rejected';
+
       const card = document.createElement('div');
       card.className = 'leader-item-card hover-lift';
+
+      let statusBadge = '<span class="status-badge status-verified"><i class="fa-solid fa-circle-check"></i> نشط</span>';
+      if (isPending) statusBadge = '<span class="status-badge status-pending"><i class="fa-solid fa-hourglass-half"></i> قيد المراجعة</span>';
+      if (isRejected) statusBadge = '<span class="status-badge status-rejected"><i class="fa-solid fa-circle-xmark"></i> مرفوض</span>';
+      if (leader.accountStatus === 'suspended' || leader.accountStatus === 'locked') {
+        statusBadge = '<span class="status-badge status-rejected"><i class="fa-solid fa-ban"></i> موقوف</span>';
+      }
 
       card.innerHTML = `
         <div class="leader-card-info">
           <h3>${leader.fullName}</h3>
           <p><i class="fa-solid fa-user-shield"></i> ${leader.leaderRoleTitle || 'قائد كشفي'}</p>
+          <p><i class="fa-solid fa-envelope"></i> ${leader.email || ''}</p>
+          <p>${statusBadge}</p>
         </div>
+        ${isPending ? `
+        <div class="announcement-card-actions">
+          <button class="btn-edit" style="background: rgba(34,197,94,0.2); color:#22c55e;" onclick="approveLeaderVerification('${uid}')"><i class="fa-solid fa-check"></i> قبول</button>
+          <button class="btn-delete" onclick="rejectLeaderVerification('${uid}')"><i class="fa-solid fa-xmark"></i> رفض</button>
+        </div>` : ''}
       `;
 
       container.appendChild(card);
     });
+  });
+}
+
+// قبول تحقق القائد: يفعّل حسابه فعلياً في users وleaders معاً
+function approveLeaderVerification(uid) {
+  const updateData = {
+    accountStatus: 'active',
+    verificationStatus: 'verified',
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  Promise.all([
+    db.collection('users').doc(uid).update(updateData),
+    db.collection('leaders').doc(uid).update(updateData)
+  ]).then(() => {
+    showAdminNotification('تم قبول الحساب وتفعيله بنجاح!', 'success');
+    fetchLeadersList();
+  }).catch((error) => {
+    showAdminNotification('حدث خطأ: ' + error.message, 'error');
+  });
+}
+
+// رفض تحقق القائد
+function rejectLeaderVerification(uid) {
+  const updateData = {
+    accountStatus: 'rejected',
+    verificationStatus: 'rejected',
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  Promise.all([
+    db.collection('users').doc(uid).update(updateData),
+    db.collection('leaders').doc(uid).update(updateData)
+  ]).then(() => {
+    showAdminNotification('تم رفض الحساب.', 'success');
+    fetchLeadersList();
+  }).catch((error) => {
+    showAdminNotification('حدث خطأ: ' + error.message, 'error');
   });
 }
 
