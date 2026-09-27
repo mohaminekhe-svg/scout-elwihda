@@ -65,6 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
   fetchLeadersList();
   fetchAllAccountsForDeleteView();
   renderPublicAnnouncements();
+  renderPublicGallery();
 });
 
 /* --- التبديل بين ألسنة لوحة الأدمن --- */
@@ -101,6 +102,11 @@ function switchAdminTab(tabId, btnElement) {
   // تحميل قائمة الكشافة والأولياء عند فتح تبويبهم
   if (tabId === 'scouts-tab') {
     loadScoutsParentsAdmin();
+  }
+
+  // تحميل صور المعرض عند فتح تبويبه
+  if (tabId === 'gallery-tab') {
+    loadGalleryAdmin();
   }
 
   // تحميل الإحصائيات الحقيقية عند فتح تبويبها
@@ -216,6 +222,52 @@ function resetCurrentUserPermissionState() {
   currentUserAccountStatus = null;
 }
 
+// تطبيق واجهة لوحة الأدمن الصحيحة حسب الدور الحقيقي — هذا هو الإصلاح الجوهري
+// لمشكلة "القائد يرى نفس واجهة الأدمن بالضبط". يُستدعى بعد كل تسجيل دخول
+// (أدمن، بوابة الإعلام، أو استعادة الجلسة بعد Refresh) بعد أن تكون
+// currentUserRole/currentUserPermissions قد تحدّثت فعلياً من Firestore.
+function applyAdminPanelUIForRole() {
+  const isAdminUser = currentUserRole === 'admin';
+
+  document.querySelectorAll('.admin-only-nav').forEach((btn) => {
+    btn.style.display = isAdminUser ? '' : 'none';
+  });
+
+  document.querySelectorAll('.admin-nav-btn[data-requires-permission]').forEach((btn) => {
+    const perm = btn.getAttribute('data-requires-permission');
+    btn.style.display = (isAdminUser || can(perm)) ? '' : 'none';
+  });
+
+  const titleEl = document.getElementById('adminWelcomeTitle');
+  const subtitleEl = document.getElementById('adminWelcomeSubtitle');
+  const sidebarTitleEl = document.getElementById('adminSidebarTitle');
+
+  if (titleEl) {
+    titleEl.innerText = isAdminUser ? 'مرحبا بك في لوحة الإدارة' : 'مرحبًا بك في بوابة الإعلام والنشر';
+  }
+  if (subtitleEl) {
+    subtitleEl.innerText = isAdminUser
+      ? 'من هنا يمكنك إدارة وتحديث كافة أقسام ومحتويات الموقع بكل سهولة ودون الحاجة لتعديل البرمجة في كل مرة.'
+      : 'من هنا يمكنك إدارة الإعلانات والمعرض الرقمي حسب الصلاحيات الممنوحة لحسابك من طرف الإدارة.';
+  }
+  if (sidebarTitleEl) {
+    sidebarTitleEl.innerText = isAdminUser ? 'واجهة الأدمن' : 'بوابة الإعلام والنشر';
+  }
+
+  // إن كان التبويب المفتوح حالياً لا يُفترض أن يراه هذا المستخدم (مثلاً بقي
+  // مفتوحاً من جلسة أدمن سابقة على نفس المتصفح)، أعده للرئيسية فوراً
+  if (!isAdminUser) {
+    const activeTab = document.querySelector('.admin-tab-content.active-tab');
+    if (activeTab && activeTab.id !== 'welcome-tab') {
+      const correspondingBtn = document.querySelector(`.admin-nav-btn[onclick*="'${activeTab.id}'"]`);
+      if (!correspondingBtn || correspondingBtn.style.display === 'none') {
+        const homeBtn = document.querySelector('.admin-nav-btn[onclick*="\'welcome-tab\'"]');
+        switchAdminTab('welcome-tab', homeBtn);
+      }
+    }
+  }
+}
+
 function listenToAuthStatus() {
   auth.onAuthStateChanged((user) => {
     const guestBtns = document.querySelectorAll('.auth-guest-btn');
@@ -301,6 +353,7 @@ function restoreAdminRouteIfAny(userData) {
     const tabId = VALID_ADMIN_TABS.includes(pendingTab) ? pendingTab : 'welcome-tab';
     const btnElement = document.querySelector(`.admin-nav-btn[onclick*="'${tabId}'"]`);
     switchAdminTab(tabId, btnElement);
+    applyAdminPanelUIForRole();
   } else {
     // المستخدم لا يملك صلاحية admin/leader — إعادة توجيه آمنة بدل عرض محتوى الأدمن
     history.replaceState(null, '', window.location.pathname);
@@ -646,7 +699,11 @@ if (mediaPortalForm) {
     checkingBox.style.display = 'flex';
     submitBtn.disabled = true;
 
-    const handleSuccess = () => {
+    const handleSuccess = (userData) => {
+      currentUserRole = userData.role || null;
+      currentUserPermissions = userData.permissions || {};
+      currentUserAccountStatus = userData.accountStatus || null;
+
       setTimeout(() => {
         checkingBox.style.display = 'none';
         submitBtn.disabled = false;
@@ -657,6 +714,7 @@ if (mediaPortalForm) {
         if (fullBlueScreen) {
           fullBlueScreen.style.display = 'flex';
         }
+        applyAdminPanelUIForRole();
       }, 1500);
     };
 
@@ -681,8 +739,14 @@ if (mediaPortalForm) {
           checkingBox.style.display = 'none';
           submitBtn.disabled = false;
           errorMsg.innerText = 'تم توقيف هذا الحساب لأغراض أمنية. سيتم مراجعته من طرف الإدارة.';
+        } else if (doc.data().role === 'leader'
+          && !(doc.data().permissions && doc.data().permissions['media.portal'] === true)) {
+          auth.signOut();
+          checkingBox.style.display = 'none';
+          submitBtn.disabled = false;
+          errorMsg.innerText = 'حسابك لا يملك صلاحية الوصول إلى بوابة الإعلام والنشر. تواصل مع الأدمن.';
         } else {
-          handleSuccess();
+          handleSuccess(doc.data());
         }
       })
       .catch((error) => {
@@ -710,7 +774,11 @@ if (adminLoginForm) {
     checkingBox.style.display = 'flex';
     submitBtn.disabled = true;
 
-    const handleSuccessfulLogin = () => {
+    const handleSuccessfulLogin = (userData) => {
+      currentUserRole = userData.role || null;
+      currentUserPermissions = userData.permissions || {};
+      currentUserAccountStatus = userData.accountStatus || null;
+
       setTimeout(() => {
         checkingBox.style.display = 'none';
         submitBtn.disabled = false;
@@ -721,6 +789,7 @@ if (adminLoginForm) {
         if (fullBlueScreen) {
           fullBlueScreen.style.display = 'flex';
         }
+        applyAdminPanelUIForRole();
       }, 1500);
     };
 
@@ -740,7 +809,7 @@ if (adminLoginForm) {
           submitBtn.disabled = false;
           errorMsg.innerText = 'تم توقيف هذا الحساب لأغراض أمنية. سيتم مراجعته من طرف الإدارة.';
         } else {
-          handleSuccessfulLogin();
+          handleSuccessfulLogin(doc.data());
         }
       })
       .catch((error) => {
@@ -797,6 +866,54 @@ function toggleAdminSidebar() {
 }
 
 /* --- تصفية المعرض الرقمي --- */
+// عرض صور المعرض الحقيقية للزوار (Live Update)
+function renderPublicGallery() {
+  const container = document.getElementById('galleryContainer');
+  if (!container) return;
+
+  const categoryLabels = { units: 'الوحدات', gatherings: 'التجمعات', camps: 'المخيمات' };
+
+  db.collection('gallery').orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
+    if (snapshot.empty) {
+      container.innerHTML = '<p class="announcements-empty-text">لا توجد صور في المعرض حالياً.</p>';
+      return;
+    }
+    container.innerHTML = '';
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      const card = document.createElement('div');
+      card.className = 'gallery-card hover-lift';
+      card.setAttribute('data-category', data.category || 'units');
+      card.innerHTML = `
+        <div class="media-box hover-lift" onclick="openGalleryLightbox('${data.imageUrl}')">
+          <img src="${data.imageUrl}" alt="${data.title || ''}" loading="lazy">
+        </div>
+        <h3>${data.title || categoryLabels[data.category] || ''}</h3>
+        <span class="gallery-tag">${categoryLabels[data.category] || data.category || ''}</span>
+      `;
+      container.appendChild(card);
+    });
+  }, (error) => {
+    container.innerHTML = '<p class="announcements-empty-text">تعذر تحميل صور المعرض حالياً.</p>';
+    console.error('renderPublicGallery error:', error);
+  });
+}
+
+// Lightbox بسيط لعرض الصورة بحجم كامل
+function openGalleryLightbox(imageUrl) {
+  let lightbox = document.getElementById('galleryLightboxOverlay');
+  if (!lightbox) {
+    lightbox = document.createElement('div');
+    lightbox.id = 'galleryLightboxOverlay';
+    lightbox.className = 'gallery-lightbox-overlay';
+    lightbox.onclick = () => { lightbox.style.display = 'none'; };
+    lightbox.innerHTML = '<img id="galleryLightboxImg" src="" alt="">';
+    document.body.appendChild(lightbox);
+  }
+  document.getElementById('galleryLightboxImg').src = imageUrl;
+  lightbox.style.display = 'flex';
+}
+
 function filterGallery(category, btnElement) {
   const buttons = document.querySelectorAll('.gallery-filter-btn');
   buttons.forEach(btn => btn.classList.remove('active'));
@@ -943,6 +1060,11 @@ if (adminAddLeaderForm) {
       leaderRoleTitle = customRole || 'مسؤول مخصص';
     }
 
+    const selectedPermissions = {};
+    document.querySelectorAll('#adminLeaderPermissionsBox input[type="checkbox"]:checked').forEach((cb) => {
+      selectedPermissions[cb.value] = true;
+    });
+
     const errorMsg = document.getElementById('adminLeaderError');
     const successMsg = document.getElementById('adminLeaderSuccess');
     const checkingBox = document.getElementById('adminLeaderCheckingBox');
@@ -978,6 +1100,7 @@ if (adminAddLeaderForm) {
           leaderRoleTitle: leaderRoleTitle,
           accountStatus: 'active',
           verificationStatus: 'verified',
+          permissions: selectedPermissions,
           createdBy: auth.currentUser ? auth.currentUser.uid : null,
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -1104,6 +1227,56 @@ function loadStatisticsAdmin() {
   });
 }
 
+// فتح نافذة تعديل صلاحيات قائد
+let pendingEditPermissionsUid = null;
+function openEditPermissionsModal(uid, name) {
+  pendingEditPermissionsUid = uid;
+  document.getElementById('editPermissionsLeaderName').innerText = name || '';
+  document.getElementById('editPermissionsError').innerText = '';
+
+  db.collection('users').doc(uid).get().then((doc) => {
+    const permissions = (doc.exists && doc.data().permissions) ? doc.data().permissions : {};
+    document.querySelectorAll('#editLeaderPermissionsBox input[type="checkbox"]').forEach((cb) => {
+      cb.checked = permissions[cb.value] === true;
+    });
+  });
+
+  openModal('editLeaderPermissionsModal');
+}
+
+// حفظ صلاحيات القائد المعدّلة
+function saveLeaderPermissions() {
+  if (!pendingEditPermissionsUid) return;
+
+  const checkingBox = document.getElementById('editPermissionsCheckingBox');
+  const errorMsg = document.getElementById('editPermissionsError');
+  errorMsg.innerText = '';
+  checkingBox.style.display = 'flex';
+
+  const newPermissions = {};
+  document.querySelectorAll('#editLeaderPermissionsBox input[type="checkbox"]:checked').forEach((cb) => {
+    newPermissions[cb.value] = true;
+  });
+
+  const updateData = {
+    permissions: newPermissions,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  Promise.all([
+    db.collection('users').doc(pendingEditPermissionsUid).update(updateData),
+    db.collection('leaders').doc(pendingEditPermissionsUid).update(updateData)
+  ]).then(() => {
+    checkingBox.style.display = 'none';
+    showAdminNotification('تم حفظ الصلاحيات بنجاح!', 'success');
+    closeModal('editLeaderPermissionsModal');
+    pendingEditPermissionsUid = null;
+  }).catch((error) => {
+    checkingBox.style.display = 'none';
+    errorMsg.innerText = 'حدث خطأ أثناء الحفظ: ' + error.message;
+  });
+}
+
 function fetchLeadersList() {
   const container = document.getElementById('leadersListContainer');
   if (!container) return;
@@ -1143,7 +1316,10 @@ function fetchLeadersList() {
         <div class="announcement-card-actions">
           <button class="btn-edit" style="background: rgba(34,197,94,0.2); color:#22c55e;" onclick="approveLeaderVerification('${uid}')"><i class="fa-solid fa-check"></i> قبول</button>
           <button class="btn-delete" onclick="rejectLeaderVerification('${uid}')"><i class="fa-solid fa-xmark"></i> رفض</button>
-        </div>` : ''}
+        </div>` : `
+        <div class="announcement-card-actions">
+          <button class="btn-edit" onclick='openEditPermissionsModal("${uid}", ${JSON.stringify(leader.fullName || '')})'><i class="fa-solid fa-key"></i> الصلاحيات</button>
+        </div>`}
       `;
 
       container.appendChild(card);
@@ -1197,15 +1373,19 @@ function fetchAllAccountsForDeleteView() {
   const container = document.getElementById('allAccountsListContainer');
   if (!container) return;
 
-  db.collection('users').get().then((snapshot) => {
+  // فقط حسابات القادة — أبداً الأدمن أو الكشافة أو الأولياء
+  db.collection('users').where('role', '==', 'leader').get().then((snapshot) => {
     container.innerHTML = '';
 
-    if (snapshot.empty) {
-      container.innerHTML = '<p style="color: rgba(255,255,255,0.6); text-align: center; width: 100%;">لا توجد حسابات مسجلة حالياً.</p>';
+    const myUid = auth.currentUser ? auth.currentUser.uid : null;
+    const leaderDocs = snapshot.docs.filter((d) => d.id !== myUid); // استبعاد إضافي احترازي لحساب الأدمن الحالي نفسه
+
+    if (leaderDocs.length === 0) {
+      container.innerHTML = '<p style="color: rgba(255,255,255,0.6); text-align: center; width: 100%;">لا توجد حسابات قادة قابلة للحذف حالياً.</p>';
       return;
     }
 
-    snapshot.forEach((docSnap) => {
+    leaderDocs.forEach((docSnap) => {
       const userData = docSnap.data();
       const userId = docSnap.id;
       const card = document.createElement('div');
@@ -1225,7 +1405,7 @@ function fetchAllAccountsForDeleteView() {
         transition: all 0.3s ease;
       `;
 
-      const roleText = userData.role === 'leader' ? (userData.leaderRoleTitle || 'قائد كشفي') : (userData.role === 'admin' ? 'مدير النظام (أدمن)' : 'كشاف / ولي');
+      const roleText = userData.leaderRoleTitle || 'قائد كشفي';
       const nameText = userData.fullName || (userData.firstName ? `${userData.firstName} ${userData.lastName}` : 'عضو');
 
       card.innerHTML = `
@@ -1295,10 +1475,11 @@ function executeDeleteLeader() {
         }, 1200);
       }, 1000);
     })
-    .catch(() => {
+    .catch((error) => {
       checkingBox.style.display = 'none';
       buttonsRow.style.display = 'flex';
-      alert('حدث خطأ أثناء محاولة حذف الحساب.');
+      alert('حدث خطأ أثناء محاولة حذف الحساب: ' + error.message + ' (الكود: ' + error.code + ')');
+      console.error('executeDeleteLeader error:', error);
     });
 }
 // جلب جميع القادة من Firestore وعرضهم في لوحة الأدمن
@@ -1589,6 +1770,15 @@ if (adminAnnouncementForm) {
 
     const isEditing = !!pendingEditAnnouncementId;
 
+    // شبكة أمان: لا يبقى الـLoading معلّقاً للأبد مهما حدث
+    let announcementTimedOut = false;
+    const announcementSafetyTimeout = setTimeout(() => {
+      announcementTimedOut = true;
+      checkingBox.style.display = 'none';
+      submitBtn.disabled = false;
+      errorMsg.innerText = 'استغرقت العملية وقتاً طويلاً بلا استجابة. تحقق من اتصالك وحاول مرة أخرى.';
+    }, 30000);
+
     const uploadImageIfNeeded = () => {
       if (!imageFile) return Promise.resolve(null);
 
@@ -1619,6 +1809,8 @@ if (adminAnnouncementForm) {
         }
       })
       .then(() => {
+        if (announcementTimedOut) return;
+        clearTimeout(announcementSafetyTimeout);
         checkingBox.style.display = 'none';
         submitBtn.disabled = false;
         successMsg.style.display = 'block';
@@ -1631,6 +1823,8 @@ if (adminAnnouncementForm) {
         }, 900);
       })
       .catch((error) => {
+        if (announcementTimedOut) return;
+        clearTimeout(announcementSafetyTimeout);
         checkingBox.style.display = 'none';
         submitBtn.disabled = false;
         errorMsg.innerText = 'حدث خطأ أثناء الحفظ: ' + error.message;
@@ -1639,14 +1833,24 @@ if (adminAnnouncementForm) {
 }
 
 // جلب وعرض الإعلانات في لوحة الأدمن
+let unsubscribeAnnouncementsAdminListener = null;
 function loadAnnouncementsAdmin() {
   const container = document.getElementById('announcementsListContainer');
   if (!container) return;
 
+  // إلغاء أي مستمع سابق لتفادي تراكم عدة مستمعين عند فتح التبويب أكثر من مرة
+  if (unsubscribeAnnouncementsAdminListener) {
+    unsubscribeAnnouncementsAdminListener();
+    unsubscribeAnnouncementsAdminListener = null;
+  }
+
   container.innerHTML = '<p class="announcements-loading-text"><i class="fa-solid fa-spinner fa-spin"></i> جاري التحميل...</p>';
 
-  db.collection('announcements').orderBy('createdAt', 'desc').get()
-    .then((snapshot) => {
+  // onSnapshot بدل get() لمرة واحدة: يضمن ظهور أي إعلان جديد فوراً بمجرد
+  // تأكيد الخادم للكتابة (بدل الاعتماد على توقيت setTimeout يدوي قد لا يتزامن
+  // مع لحظة حسم قيمة serverTimestamp فعلياً في الخلفية).
+  unsubscribeAnnouncementsAdminListener = db.collection('announcements').orderBy('createdAt', 'desc')
+    .onSnapshot((snapshot) => {
       container.innerHTML = '';
 
       if (snapshot.empty) {
@@ -1659,7 +1863,7 @@ function loadAnnouncementsAdmin() {
         const id = doc.id;
         const dateText = data.createdAt && data.createdAt.toDate
           ? data.createdAt.toDate().toLocaleDateString('ar-DZ')
-          : '';
+          : 'جاري الحفظ...';
 
         const card = document.createElement('div');
         card.className = 'announcement-card-item hover-lift';
@@ -1677,8 +1881,7 @@ function loadAnnouncementsAdmin() {
         `;
         container.appendChild(card);
       });
-    })
-    .catch((error) => {
+    }, (error) => {
       container.innerHTML = '<p class="announcements-empty-text">حدث خطأ أثناء جلب الإعلانات.</p>';
       console.error('loadAnnouncementsAdmin error:', error);
     });
@@ -1760,23 +1963,173 @@ function renderPublicAnnouncements() {
 
 
 // رفع صورة للمعرض
-function uploadGalleryImage(file, category) {
-  const storageRef = firebase.storage().ref();
-  const imageRef = storageRef.child(`gallery/${category}/${file.name}`);
+/* =========================================================
+   إدارة المعرض الرقمي من لوحة الأدمن
+   ========================================================= */
+const adminGalleryUploadForm = document.getElementById('adminGalleryUploadForm');
+if (adminGalleryUploadForm) {
+  adminGalleryUploadForm.addEventListener('submit', (e) => {
+    e.preventDefault();
 
-  imageRef.put(file).then((snapshot) => {
-    snapshot.ref.getDownloadURL().then((downloadURL) => {
-      // حفظ الرابط في Firestore باش يبان في الموقع
-      db.collection('gallery').add({
-        imageUrl: downloadURL,
-        category: category,
-        date: new Date()
-      }).then(() => {
-        showAdminNotification('تم رفع الصورة بنجاح!', 'success');
+    const category = document.getElementById('galleryUploadCategory').value;
+    const title = sanitizeInput(document.getElementById('galleryUploadTitle').value.trim());
+    const file = document.getElementById('galleryUploadFile').files[0];
+
+    const checkingBox = document.getElementById('galleryUploadCheckingBox');
+    const checkingText = document.getElementById('galleryUploadCheckingText');
+    const errorMsg = document.getElementById('galleryUploadError');
+    const submitBtn = document.getElementById('galleryUploadSubmitBtn');
+
+    errorMsg.innerText = '';
+
+    if (!category) {
+      errorMsg.innerText = 'يرجى اختيار التصنيف.';
+      return;
+    }
+    if (!file) {
+      errorMsg.innerText = 'يرجى اختيار صورة.';
+      return;
+    }
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      errorMsg.innerText = 'نوع الصورة غير مدعوم. الأنواع المسموحة: JPG, PNG, WEBP.';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      errorMsg.innerText = 'حجم الصورة كبير جداً. الحد الأقصى 5 ميغابايت.';
+      return;
+    }
+
+    submitBtn.disabled = true;
+    checkingBox.style.display = 'flex';
+    checkingText.innerText = 'جاري تجهيز الصورة...';
+    const progressTrack = document.getElementById('galleryUploadProgressTrack');
+    const progressFill = document.getElementById('galleryUploadProgressFill');
+    if (progressTrack) progressTrack.style.display = 'none';
+    if (progressFill) progressFill.style.width = '0%';
+
+    // شبكة أمان: إذا لم تنتهِ العملية خلال 30 ثانية لأي سبب، أوقف الـLoading
+    // وأظهر خطأً بدل تركه معلّقاً للأبد
+    let uploadTimedOut = false;
+    const safetyTimeout = setTimeout(() => {
+      uploadTimedOut = true;
+      checkingBox.style.display = 'none';
+      submitBtn.disabled = false;
+      errorMsg.innerText = 'استغرقت العملية وقتاً طويلاً جداً بلا استجابة من Firebase. تحقق من اتصالك بالإنترنت، أو من أن Firebase Storage مفعّل فعلياً لهذا المشروع في Firebase Console، ثم حاول مرة أخرى.';
+    }, 30000);
+
+    const finishWithError = (message) => {
+      if (uploadTimedOut) return; // انتهت المهلة بالفعل، لا داعي لتكرار الرسالة
+      clearTimeout(safetyTimeout);
+      checkingBox.style.display = 'none';
+      submitBtn.disabled = false;
+      errorMsg.innerText = message;
+    };
+
+    compressImageFile(file, 1600, 0.8)
+      .then((compressedBlob) => {
+        if (uploadTimedOut) return;
+        checkingText.innerText = 'جاري رفع الصورة... 0%';
+        if (progressTrack) progressTrack.style.display = 'block';
+
+        const safeName = `${category}_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+        const imageRef = firebase.storage().ref().child(`gallery/${safeName}`);
+        const uploadTask = imageRef.put(compressedBlob);
+
+        uploadTask.on('state_changed',
+          (snapshot) => {
+            // تقدّم حقيقي من Firebase نفسه، وليس شريطاً وهمياً
+            const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+            checkingText.innerText = `جاري رفع الصورة... ${pct}%`;
+            if (progressFill) progressFill.style.width = pct + '%';
+          },
+          (error) => {
+            // خطأ حقيقي من Storage (صلاحيات، اتصال، إلخ) — لا يُخفى أبداً
+            finishWithError('فشل رفع الصورة إلى Storage: ' + error.message + ' (الكود: ' + error.code + ')');
+          },
+          () => {
+            if (uploadTimedOut) return;
+            checkingText.innerText = 'جاري حفظ بيانات الصورة...';
+            uploadTask.snapshot.ref.getDownloadURL()
+              .then((imageUrl) => {
+                return db.collection('gallery').add({
+                  imageUrl: imageUrl,
+                  category: category,
+                  title: title || '',
+                  uploadedBy: auth.currentUser ? auth.currentUser.uid : null,
+                  createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+              })
+              .then(() => {
+                if (uploadTimedOut) return;
+                clearTimeout(safetyTimeout);
+                checkingBox.style.display = 'none';
+                submitBtn.disabled = false;
+                adminGalleryUploadForm.reset();
+                if (progressTrack) progressTrack.style.display = 'none';
+                showAdminNotification('تم نشر الصورة بنجاح!', 'success');
+              })
+              .catch((error) => {
+                finishWithError('تم رفع الصورة لكن فشل حفظ بياناتها في Firestore: ' + error.message);
+              });
+          }
+        );
+      })
+      .catch((error) => {
+        finishWithError('حدث خطأ أثناء تجهيز الصورة: ' + error.message);
       });
-    });
   });
 }
+
+let unsubscribeGalleryAdminListener = null;
+function loadGalleryAdmin() {
+  const container = document.getElementById('adminGalleryListContainer');
+  if (!container) return;
+
+  if (unsubscribeGalleryAdminListener) {
+    unsubscribeGalleryAdminListener();
+    unsubscribeGalleryAdminListener = null;
+  }
+
+  container.innerHTML = '<p class="announcements-loading-text"><i class="fa-solid fa-spinner fa-spin"></i> جاري التحميل...</p>';
+
+  const categoryLabels = { units: 'الوحدات', gatherings: 'التجمعات', camps: 'المخيمات' };
+
+  unsubscribeGalleryAdminListener = db.collection('gallery').orderBy('createdAt', 'desc')
+    .onSnapshot((snapshot) => {
+      container.innerHTML = '';
+      if (snapshot.empty) {
+        container.innerHTML = '<p class="announcements-empty-text">لا توجد صور في المعرض حالياً.</p>';
+        return;
+      }
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        const card = document.createElement('div');
+        card.className = 'announcement-card-item hover-lift';
+        card.innerHTML = `
+          <img src="${data.imageUrl}" class="announcement-card-thumb" alt="" loading="lazy">
+          <div class="announcement-card-info" style="flex:1;">
+            <h3>${data.title || 'بدون عنوان'}</h3>
+            <p class="announcement-excerpt">${categoryLabels[data.category] || data.category}</p>
+          </div>
+          <div class="announcement-card-actions">
+            <button class="btn-delete" onclick="deleteGalleryImage('${doc.id}')"><i class="fa-solid fa-trash-can"></i> حذف</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }, (error) => {
+      container.innerHTML = '<p class="announcements-empty-text">حدث خطأ أثناء جلب الصور.</p>';
+      console.error('loadGalleryAdmin error:', error);
+    });
+}
+
+function deleteGalleryImage(id) {
+  db.collection('gallery').doc(id).delete()
+    .then(() => showAdminNotification('تم حذف الصورة بنجاح!', 'success'))
+    .catch((error) => showAdminNotification('حدث خطأ أثناء الحذف: ' + error.message, 'error'));
+}
+
 function showAdminNotification(message, type) {
   const notif = document.createElement('div');
   notif.className = `admin-toast-notification ${type}`;

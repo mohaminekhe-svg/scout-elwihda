@@ -27,7 +27,7 @@
       <div class="sidebar-header">
         <img src="./logo elwihda.png" alt="فوج الوحدة الكشفي" class="sidebar-logo">
         <div class="sidebar-brand">
-          <h2>واجهة الأدمن</h2>
+          <h2 id="adminSidebarTitle">واجهة الأدمن</h2>
           <p>فوج الوحدة الكشفي</p>
         </div>
       </div>
@@ -38,27 +38,27 @@
           <i class="fa-solid fa-house-user"></i>
           <span>الرئيسية</span>
         </button>
-        <button class="admin-nav-btn hover-lift" onclick="switchAdminTab('leaders-tab', this)">
+        <button class="admin-nav-btn hover-lift admin-only-nav" onclick="switchAdminTab('leaders-tab', this)">
           <i class="fa-solid fa-user-tie"></i>
           <span>حسابات القادة</span>
         </button>
-        <button class="admin-nav-btn hover-lift" onclick="switchAdminTab('scouts-tab', this)">
+        <button class="admin-nav-btn hover-lift admin-only-nav" onclick="switchAdminTab('scouts-tab', this)">
           <i class="fa-solid fa-users-gear"></i>
           <span>حسابات الأولياء والكشافين</span>
         </button>
-        <button class="admin-nav-btn hover-lift" onclick="switchAdminTab('announcements-tab', this)">
+        <button class="admin-nav-btn hover-lift" data-requires-permission="announcements.view" onclick="switchAdminTab('announcements-tab', this)">
           <i class="fa-solid fa-bullhorn"></i>
           <span>الإعلانات</span>
         </button>
-        <button class="admin-nav-btn hover-lift" onclick="switchAdminTab('gallery-tab', this)">
+        <button class="admin-nav-btn hover-lift" data-requires-permission="gallery.view" onclick="switchAdminTab('gallery-tab', this)">
           <i class="fa-solid fa-images"></i>
           <span>المعرض الرقمي</span>
         </button>
-        <button class="admin-nav-btn hover-lift" onclick="switchAdminTab('statistics-tab', this)">
+        <button class="admin-nav-btn hover-lift admin-only-nav" onclick="switchAdminTab('statistics-tab', this)">
           <i class="fa-solid fa-chart-simple"></i>
           <span>الإحصائيات</span>
         </button>
-        <button class="admin-nav-btn hover-lift" onclick="switchAdminTab('settings-tab', this)">
+        <button class="admin-nav-btn hover-lift admin-only-nav" onclick="switchAdminTab('settings-tab', this)">
           <i class="fa-solid fa-sliders"></i>
           <span>إعدادات الأدمن</span>
         </button>
@@ -82,8 +82,8 @@
           <div class="admin-welcome-icon">
             <i class="fa-solid fa-user-shield"></i>
           </div>
-          <h1>مرحبا بك في واجهة الأدمن</h1>
-          <p class="admin-subtitle">من هنا يمكنك إدارة وتحديث كافة أقسام ومحتويات الموقع بكل سهولة ودون الحاجة لتعديل البرمجة في كل مرة.</p>
+          <h1 id="adminWelcomeTitle">مرحبا بك في واجهة الأدمن</h1>
+          <p class="admin-subtitle" id="adminWelcomeSubtitle">من هنا يمكنك إدارة وتحديث كافة أقسام ومحتويات الموقع بكل سهولة ودون الحاجة لتعديل البرمجة في كل مرة.</p>
         </div>
       </div>
 
@@ -118,6 +118,14 @@
         <div class="admin-section-card">
           <h2><i class="fa-solid fa-users-gear"></i> إدارة حسابات الأولياء والكشافين</h2>
           <p>استعراض الفتية المسجلين، أرقام التواصل مع الأولياء، وتفعيل الحسابات.</p>
+
+          <div class="input-box hover-lift mt-20" style="max-width: 400px;">
+            <i class="fa-solid fa-magnifying-glass field-icon"></i>
+            <input type="text" id="scoutsSearchInput" placeholder=" " oninput="filterScoutsParentsList(this.value)">
+            <label>بحث بالاسم أو البريد الإلكتروني</label>
+          </div>
+
+          <div id="scoutsParentsListContainer" class="leaders-cards-list mt-20"></div>
         </div>
       </div>
 
@@ -166,6 +174,43 @@
         <div class="admin-section-card">
           <h2><i class="fa-solid fa-images"></i> إدارة المعرض الرقمي</h2>
           <p>رفع وتنظيم صور المخيمات والتجمعات والأنشطة الكشفية.</p>
+
+          <form id="adminGalleryUploadForm" class="mt-20" novalidate>
+            <div class="input-box hover-lift">
+              <i class="fa-solid fa-shield-halved field-icon"></i>
+              <select id="galleryUploadCategory" required>
+                <option value="" disabled selected>اختر التصنيف</option>
+                <option value="units">الوحدات</option>
+                <option value="gatherings">التجمعات</option>
+                <option value="camps">المخيمات</option>
+              </select>
+            </div>
+
+            <div class="input-box hover-lift">
+              <i class="fa-solid fa-heading field-icon"></i>
+              <input type="text" id="galleryUploadTitle" placeholder=" ">
+              <label>عنوان/وصف الصورة (اختياري)</label>
+            </div>
+
+            <div class="field-group-title mt-10"><i class="fa-solid fa-image"></i> الصورة</div>
+            <input type="file" id="galleryUploadFile" accept="image/png, image/jpeg, image/webp" class="file-input-styled" required>
+            <p class="input-hint">الحد الأقصى 5 ميغابايت — jpg / png / webp فقط</p>
+
+            <div id="galleryUploadCheckingBox" class="spinner-wrap" style="display: none; margin: 12px 0;">
+              <div class="spinner"></div>
+              <p id="galleryUploadCheckingText" style="color: var(--accent-gold); font-weight: bold; margin-top: 6px;">جاري الرفع...</p>
+              <div class="upload-progress-track" id="galleryUploadProgressTrack" style="display:none;">
+                <div class="upload-progress-fill" id="galleryUploadProgressFill"></div>
+              </div>
+            </div>
+            <p id="galleryUploadError" class="error-msg bold-text"></p>
+
+            <button type="submit" id="galleryUploadSubmitBtn" class="glow-btn btn-green hover-lift mt-10">
+              <i class="fa-solid fa-cloud-arrow-up"></i> نشر الصورة
+            </button>
+          </form>
+
+          <div id="adminGalleryListContainer" class="leaders-cards-list mt-20"></div>
         </div>
       </div>
 
@@ -173,9 +218,9 @@
       <div id="statistics-tab" class="admin-tab-content">
         <div class="admin-section-card">
           <h2><i class="fa-solid fa-chart-simple"></i> الإحصائيات</h2>
-          <div class="coming-soon-notice">
-            <i class="fa-solid fa-hourglass-half"></i>
-            <p>قسم الإحصائيات الحقيقية (المبنية فعلياً على بيانات Firestore) ضمن مرحلة قادمة من التطوير. لن يتم عرض أي أرقام غير حقيقية هنا حتى ذلك الحين.</p>
+          <p>أرقام حقيقية محسوبة من قاعدة البيانات مباشرة.</p>
+          <div id="statisticsGrid" class="stats-grid mt-20">
+            <p class="announcements-loading-text"><i class="fa-solid fa-spinner fa-spin"></i> جاري الحساب...</p>
           </div>
         </div>
       </div>
@@ -458,28 +503,6 @@
           <div id="publicAnnouncementsContainer" class="public-announcements-list">
             <p class="announcements-loading-text"><i class="fa-solid fa-spinner fa-spin"></i> جاري تحميل الإعلانات...</p>
           </div>
-
-          <!-- بطاقة ثابتة للتحقق من استمارة التسجيل -->
-          <div class="bulletin-card-main hover-lift mt-20">
-            <h3>استمارة التسجيل للموسم الكشفي</h3>
-            <p class="bulletin-text">
-              يمكنك التحقق من توفر استمارة التسجيل لهذا الموسم وتحميلها مباشرة من هنا.
-            </p>
-
-            <div class="bulletin-actions">
-              <button class="btn-primary hero-btn-red border-none-btn hover-lift" onclick="checkRegistrationForm()">
-                <i class="fa-solid fa-file-pdf"></i> التحقق من استمارة التسجيل
-              </button>
-            </div>
-
-            <div id="formStatusBox" class="form-status-box" style="display: none;">
-              <div id="loadingSpinner" class="spinner-wrap" style="display: none;">
-                <div class="spinner"></div>
-                <p>انتظر ثواني...</p>
-              </div>
-              <div id="formResult" class="form-result"></div>
-            </div>
-          </div>
         </div>
       </section>
     </div>
@@ -512,21 +535,7 @@
           </div>
 
           <div class="gallery-grid" id="galleryContainer">
-            <div class="gallery-card hover-lift" data-category="camps">
-              <div class="media-box hover-lift"><i class="fa-solid fa-campground"></i></div>
-              <h3>مخيم الغابة الصيفي</h3>
-              <span class="gallery-tag">المخيمات</span>
-            </div>
-            <div class="gallery-card hover-lift" data-category="gatherings">
-              <div class="media-box hover-lift"><i class="fa-solid fa-fire"></i></div>
-              <h3>سهرة السمر الكشفي</h3>
-              <span class="gallery-tag">التجمعات</span>
-            </div>
-            <div class="gallery-card hover-lift" data-category="units">
-              <div class="media-box hover-lift"><i class="fa-solid fa-kit-medical"></i></div>
-              <h3>ورشة الإسعافات الأولية</h3>
-              <span class="gallery-tag">الوحدات</span>
-            </div>
+            <p class="announcements-loading-text"><i class="fa-solid fa-spinner fa-spin"></i> جاري تحميل الصور...</p>
           </div>
         </div>
       </section>
@@ -765,6 +774,44 @@
             </div>
           </div>
 
+          <!-- صلاحيات الوصول -->
+          <div class="field-group-title mt-10"><i class="fa-solid fa-key"></i> صلاحيات الوصول</div>
+          <div class="permissions-checklist" id="adminLeaderPermissionsBox">
+            <label class="permission-check-item">
+              <input type="checkbox" value="media.portal">
+              <span>الوصول إلى بوابة الإعلام والنشر</span>
+            </label>
+            <label class="permission-check-item">
+              <input type="checkbox" value="announcements.view">
+              <span>مشاهدة الإعلانات</span>
+            </label>
+            <label class="permission-check-item">
+              <input type="checkbox" value="announcements.create">
+              <span>إنشاء إعلان</span>
+            </label>
+            <label class="permission-check-item">
+              <input type="checkbox" value="announcements.edit">
+              <span>تعديل إعلان</span>
+            </label>
+            <label class="permission-check-item">
+              <input type="checkbox" value="announcements.delete">
+              <span>حذف إعلان</span>
+            </label>
+            <label class="permission-check-item">
+              <input type="checkbox" value="gallery.view">
+              <span>مشاهدة المعرض</span>
+            </label>
+            <label class="permission-check-item">
+              <input type="checkbox" value="gallery.upload">
+              <span>نشر الصور في المعرض الرقمي</span>
+            </label>
+            <label class="permission-check-item">
+              <input type="checkbox" value="gallery.manage">
+              <span>إدارة المعرض الرقمي (حذف/تعديل)</span>
+            </label>
+          </div>
+          <p class="input-hint">لن يحصل القائد إلا على الصلاحيات المحددة هنا فقط.</p>
+
           <!-- مؤشر التحميل -->
           <div id="adminLeaderCheckingBox" class="spinner-wrap" style="display: none; margin: 12px 0;">
             <div class="spinner"></div>
@@ -852,7 +899,7 @@
       </div>
       <div class="form-box">
         <h2>حذف الحساب</h2>
-        <p class="confirm-prompt-text bold-text mt-10">هل أنت متأكد من حذف هذا الحساب؟</p>
+        <p class="confirm-prompt-text bold-text mt-10">هل أنت متأكد من حذف هذا الحساب؟<br><span style="font-weight:400; font-size:0.85rem; color:#cbd5e1;">سيتم حذف بيانات الحساب المرتبطة به وفق النظام الحالي.</span></p>
         
         <div id="deleteLeaderCheckingBox" class="spinner-wrap" style="display: none; margin: 15px 0;">
           <div class="spinner"></div>
@@ -952,6 +999,69 @@
     </div>
   </div>
 
+  <!-- نافذة تعديل صلاحيات قائد موجود -->
+  <div id="editLeaderPermissionsModal" class="modal-overlay" style="display: none;">
+    <div class="scout-card-container hover-lift">
+      <button class="close-btn hover-lift" onclick="closeModal('editLeaderPermissionsModal')">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="welcome-box welcome-admin">
+        <div class="welcome-overlay hover-lift">
+          <div class="scout-badge-icon badge-admin hover-lift"><i class="fa-solid fa-key"></i></div>
+          <h3>صلاحيات الوصول</h3>
+          <p id="editPermissionsLeaderName">—</p>
+        </div>
+      </div>
+      <div class="form-box">
+        <h2>تعديل صلاحيات القائد</h2>
+        <div class="permissions-checklist" id="editLeaderPermissionsBox">
+          <label class="permission-check-item">
+            <input type="checkbox" value="media.portal">
+            <span>الوصول إلى بوابة الإعلام والنشر</span>
+          </label>
+          <label class="permission-check-item">
+            <input type="checkbox" value="announcements.view">
+            <span>مشاهدة الإعلانات</span>
+          </label>
+          <label class="permission-check-item">
+            <input type="checkbox" value="announcements.create">
+            <span>إنشاء إعلان</span>
+          </label>
+          <label class="permission-check-item">
+            <input type="checkbox" value="announcements.edit">
+            <span>تعديل إعلان</span>
+          </label>
+          <label class="permission-check-item">
+            <input type="checkbox" value="announcements.delete">
+            <span>حذف إعلان</span>
+          </label>
+          <label class="permission-check-item">
+            <input type="checkbox" value="gallery.view">
+            <span>مشاهدة المعرض</span>
+          </label>
+          <label class="permission-check-item">
+            <input type="checkbox" value="gallery.upload">
+            <span>نشر الصور في المعرض الرقمي</span>
+          </label>
+          <label class="permission-check-item">
+            <input type="checkbox" value="gallery.manage">
+            <span>إدارة المعرض الرقمي (حذف/تعديل)</span>
+          </label>
+        </div>
+
+        <div id="editPermissionsCheckingBox" class="spinner-wrap" style="display: none; margin: 12px 0;">
+          <div class="spinner"></div>
+          <p style="color: var(--accent-gold); font-weight: bold;">جاري الحفظ...</p>
+        </div>
+        <p id="editPermissionsError" class="error-msg bold-text"></p>
+
+        <button type="button" class="glow-btn btn-green hover-lift mt-10" onclick="saveLeaderPermissions()">
+          <i class="fa-solid fa-floppy-disk"></i> حفظ الصلاحيات
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- 3️⃣ نافذة إنشاء حساب كشاف / ولي -->
   <div id="scoutParentRegisterModal" class="modal-overlay" style="display: none;">
     <div class="scout-card-container hover-lift modal-scrollable">
@@ -969,22 +1079,59 @@
         <h2>إنشاء حساب كشاف / ولي</h2>
         <p class="step-desc">يرجى ملء البيانات التالية بدقة لتفعيل حسابك الكشفي</p>
         <form id="scoutParentRegisterForm" novalidate>
+
+          <div class="field-group-title"><i class="fa-solid fa-users"></i> أنت:</div>
+          <div class="role-options-group mb-15">
+            <label class="role-card-option">
+              <input type="radio" name="scoutParentRoleChoice" value="scout" checked>
+              <div class="role-card-content hover-lift">
+                <i class="fa-solid fa-user-graduate"></i>
+                <span>كشاف</span>
+              </div>
+            </label>
+            <label class="role-card-option">
+              <input type="radio" name="scoutParentRoleChoice" value="parent">
+              <div class="role-card-content hover-lift">
+                <i class="fa-solid fa-user-shield"></i>
+                <span>ولي</span>
+              </div>
+            </label>
+          </div>
+
           <div class="input-box hover-lift">
             <i class="fa-solid fa-user field-icon"></i>
             <input type="text" id="scoutParentFullName" required placeholder=" " oninput="validateAlphaOnly(this)">
             <label>الاسم واللقب كاملين</label>
           </div>
 
+          <div class="input-box hover-lift">
+            <label class="select-label">الوحدة</label>
+            <select id="scoutParentUnit" required>
+              <option value="" disabled selected>اختر الوحدة</option>
+              <option value="اشبال">أشبال</option>
+              <option value="زهرات">زهرات</option>
+              <option value="كشافة">كشافة</option>
+              <option value="مرشدات">مرشدات</option>
+              <option value="جوالة">جوالة</option>
+              <option value="قائدات">قائدات</option>
+            </select>
+          </div>
+
+          <div class="field-group-title mt-10"><i class="fa-solid fa-camera"></i> صورة الحساب (اختياري — تظهر في البطاقة)</div>
+          <input type="file" id="scoutParentPhotoInput" accept="image/png, image/jpeg, image/webp" class="file-input-styled">
+          <p class="input-hint">الحد الأقصى 3 ميغابايت — jpg / png / webp فقط</p>
+          <div id="scoutParentPhotoPreview" class="announcement-image-preview" style="display:none;"></div>
+
           <div class="input-row">
             <div class="input-box hover-lift phone-box">
               <i class="fa-solid fa-phone-volume field-icon"></i>
-              <input type="tel" id="scoutParentPhone" required placeholder=" " maxlength="10">
+              <input type="tel" dir="ltr" id="scoutParentPhone" required placeholder=" " maxlength="10">
               <label>رقم هاتف الولي</label>
               <div class="phone-mask-hint" id="parentPhoneMask"></div>
             </div>
             <div class="input-box hover-lift phone-box">
               <i class="fa-solid fa-mobile-screen-button field-icon"></i>
-              <input type="tel" id="scoutSonPhone" required placeholder=" " maxlength="10">
+              <input type="tel" dir="ltr" id="scoutSonPhone" required placeholder=" " maxlength="10">
               <label>رقم هاتف الابن</label>
               <div class="phone-mask-hint" id="scoutPhoneMask"></div>
             </div>
@@ -992,7 +1139,7 @@
 
           <div class="input-box hover-lift">
             <i class="fa-solid fa-envelope field-icon"></i>
-            <input type="email" id="scoutParentEmail" required placeholder=" ">
+            <input type="email" dir="ltr" id="scoutParentEmail" required placeholder=" ">
             <label>البريد الإلكتروني</label>
           </div>
 
