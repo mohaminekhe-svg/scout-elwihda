@@ -64,8 +64,6 @@ document.addEventListener('DOMContentLoaded', () => {
   listenToAuthStatus();
   fetchLeadersList();
   fetchAllAccountsForDeleteView();
-  renderPublicAnnouncements();
-  renderPublicGallery();
 });
 
 /* --- التبديل بين ألسنة لوحة الأدمن --- */
@@ -274,6 +272,11 @@ function listenToAuthStatus() {
     const userBtns = document.querySelectorAll('.auth-user-btn');
     const cardSection = document.getElementById('userCardDisplaySection');
 
+    // المعرض وصفحة الإعلانات: الوصول يعتمد فقط على كون المستخدم مسجلاً دخوله
+    // أم لا (أي دور)، وليس على انتظار جلب بيانات الدور/الصلاحيات
+    updateGalleryAccessUI(user);
+    updateAnnouncementsAccessUI(user);
+
     if (user) {
       guestBtns.forEach(b => b.style.display = 'none');
       userBtns.forEach(b => b.style.display = 'inline-flex');
@@ -299,6 +302,47 @@ function listenToAuthStatus() {
       resetCurrentUserPermissionState();
     }
   });
+}
+
+// التحكم في وصول الزوار لصفحة المعرض: محجوبة عن غير المسجلين
+function updateGalleryAccessUI(user) {
+  const lockBox = document.getElementById('galleryLoginRequiredBox');
+  const authedContent = document.getElementById('galleryAuthedContent');
+  if (!lockBox || !authedContent) return;
+
+  if (user) {
+    lockBox.style.display = 'none';
+    authedContent.style.display = 'block';
+    renderPublicGallery();
+  } else {
+    lockBox.style.display = 'block';
+    authedContent.style.display = 'none';
+    if (unsubscribePublicGalleryListener) {
+      unsubscribePublicGalleryListener();
+      unsubscribePublicGalleryListener = null;
+    }
+  }
+}
+
+// التحكم في وصول الزوار لصفحة الإعلانات: محجوبة عن غير المسجلين
+// (الشريط العلوي settings/announcements منفصل تماماً ويبقى عاماً للجميع)
+function updateAnnouncementsAccessUI(user) {
+  const lockBox = document.getElementById('announcementsLoginRequiredBox');
+  const container = document.getElementById('publicAnnouncementsContainer');
+  if (!lockBox || !container) return;
+
+  if (user) {
+    lockBox.style.display = 'none';
+    container.style.display = 'flex';
+    renderPublicAnnouncements();
+  } else {
+    lockBox.style.display = 'block';
+    container.style.display = 'none';
+    if (unsubscribePublicAnnouncementsListener) {
+      unsubscribePublicAnnouncementsListener();
+      unsubscribePublicAnnouncementsListener = null;
+    }
+  }
 }
 
 // تحديث بطاقة المستخدم المصغّرة في القائمة (اسم حقيقي + صورة حقيقية أو placeholder)
@@ -871,9 +915,14 @@ function renderPublicGallery() {
   const container = document.getElementById('galleryContainer');
   if (!container) return;
 
+  if (unsubscribePublicGalleryListener) {
+    unsubscribePublicGalleryListener();
+    unsubscribePublicGalleryListener = null;
+  }
+
   const categoryLabels = { units: 'الوحدات', gatherings: 'التجمعات', camps: 'المخيمات' };
 
-  db.collection('gallery').orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
+  unsubscribePublicGalleryListener = db.collection('gallery').orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
     if (snapshot.empty) {
       container.innerHTML = '<p class="announcements-empty-text">لا توجد صور في المعرض حالياً.</p>';
       return;
@@ -881,6 +930,7 @@ function renderPublicGallery() {
     container.innerHTML = '';
     snapshot.forEach((doc) => {
       const data = doc.data();
+      const safeTitle = (data.title || categoryLabels[data.category] || 'صورة');
       const card = document.createElement('div');
       card.className = 'gallery-card hover-lift';
       card.setAttribute('data-category', data.category || 'units');
@@ -890,6 +940,9 @@ function renderPublicGallery() {
         </div>
         <h3>${data.title || categoryLabels[data.category] || ''}</h3>
         <span class="gallery-tag">${categoryLabels[data.category] || data.category || ''}</span>
+        <button type="button" class="gallery-download-btn hover-lift" onclick='downloadGalleryImage("${data.imageUrl}", ${JSON.stringify(safeTitle)})'>
+          <i class="fa-solid fa-download"></i> تحميل الصورة
+        </button>
       `;
       container.appendChild(card);
     });
@@ -897,6 +950,27 @@ function renderPublicGallery() {
     container.innerHTML = '<p class="announcements-empty-text">تعذر تحميل صور المعرض حالياً.</p>';
     console.error('renderPublicGallery error:', error);
   });
+}
+
+// تحميل الصورة فعلياً (fetch + blob) بدل مجرد فتح رابط Firebase الخام
+function downloadGalleryImage(imageUrl, title) {
+  fetch(imageUrl)
+    .then((res) => res.blob())
+    .then((blob) => {
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = (title || 'صورة').replace(/[^a-zA-Z0-9\u0600-\u06FF_\-]/g, '_') + '.jpg';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(blobUrl);
+    })
+    .catch(() => {
+      // إن منع المتصفح التحميل المباشر بسبب CORS، نفتح الصورة في تبويب جديد
+      // كحل احتياطي صادق بدل تجاهل الزر أو ادّعاء نجاح لم يحدث
+      window.open(imageUrl, '_blank');
+    });
 }
 
 // Lightbox بسيط لعرض الصورة بحجم كامل
@@ -1834,6 +1908,8 @@ if (adminAnnouncementForm) {
 
 // جلب وعرض الإعلانات في لوحة الأدمن
 let unsubscribeAnnouncementsAdminListener = null;
+let unsubscribePublicGalleryListener = null;
+let unsubscribePublicAnnouncementsListener = null;
 function loadAnnouncementsAdmin() {
   const container = document.getElementById('announcementsListContainer');
   if (!container) return;
@@ -1929,7 +2005,12 @@ function renderPublicAnnouncements() {
   const container = document.getElementById('publicAnnouncementsContainer');
   if (!container) return;
 
-  db.collection('announcements')
+  if (unsubscribePublicAnnouncementsListener) {
+    unsubscribePublicAnnouncementsListener();
+    unsubscribePublicAnnouncementsListener = null;
+  }
+
+  unsubscribePublicAnnouncementsListener = db.collection('announcements')
     .where('published', '==', true)
     .orderBy('createdAt', 'desc')
     .onSnapshot((snapshot) => {

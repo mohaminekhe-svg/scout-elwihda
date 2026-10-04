@@ -1088,3 +1088,23 @@ input[type="text"][inputmode="numeric"] {
   height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent-gold), #d4af37);
   transition: width 0.2s ease; border-radius: 10px;
 }
+
+/* رسالة "سجّل للوصول" للزوار غير المسجلين (المعرض/الإعلانات) */
+.login-required-box {
+  text-align: center; max-width: 480px; margin: 40px auto; padding: 40px 25px;
+  background: rgba(18, 34, 92, 0.6); border: 1px solid rgba(241, 207, 121, 0.3);
+  border-radius: 20px;
+}
+.login-required-box i { font-size: 2.5rem; color: var(--accent-gold); margin-bottom: 15px; }
+.login-required-box h3 { color: #fff; font-size: 1.2rem; margin-bottom: 8px; }
+.login-required-box p { color: #cbd5e1; font-size: 0.9rem; margin-bottom: 20px; }
+.login-required-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.login-required-actions button { padding: 12px 22px; border-radius: 10px; font-weight: 700; min-height: 44px; }
+
+/* زر تحميل صورة المعرض */
+.gallery-download-btn {
+  margin-top: 10px; width: 100%; padding: 8px; border: 1px solid rgba(241,207,121,0.4);
+  background: rgba(241,207,121,0.1); color: var(--accent-gold); border-radius: 8px;
+  font-size: 0.78rem; font-weight: 700; cursor: pointer; min-height: 36px;
+}
+.gallery-download-btn:hover { background: rgba(241,207,121,0.25); }

@@ -499,6 +499,17 @@
         </div>
 
         <div class="section-body container">
+          <!-- رسالة للزائر غير المسجل -->
+          <div id="announcementsLoginRequiredBox" class="login-required-box" style="display:none;">
+            <i class="fa-solid fa-lock"></i>
+            <h3>سجّل حسابك للوصول إلى محتوى الإعلانات</h3>
+            <p>يرجى التسجيل في الموقع للحصول على كامل الميزات.</p>
+            <div class="login-required-actions">
+              <button class="btn-primary hero-btn-red border-none-btn hover-lift" onclick="openModal('roleSelectionModal')">إنشاء حساب</button>
+              <button class="btn-primary border-none-btn hover-lift" style="background: rgba(255,255,255,0.1);" onclick="openModal('roleSelectionModal')">تسجيل الدخول</button>
+            </div>
+          </div>
+
           <!-- الإعلانات الحقيقية القادمة من Firestore -->
           <div id="publicAnnouncementsContainer" class="public-announcements-list">
             <p class="announcements-loading-text"><i class="fa-solid fa-spinner fa-spin"></i> جاري تحميل الإعلانات...</p>
@@ -519,23 +530,36 @@
         </div>
 
         <div class="section-body container">
-          <div class="gallery-filters">
-            <button class="gallery-filter-btn active hover-lift" onclick="filterGallery('all', this)">
-              <i class="fa-solid fa-layer-group"></i> الكل
-            </button>
-            <button class="gallery-filter-btn hover-lift" onclick="filterGallery('units', this)">
-              <i class="fa-solid fa-people-group"></i> الوحدات
-            </button>
-            <button class="gallery-filter-btn hover-lift" onclick="filterGallery('gatherings', this)">
-              <i class="fa-solid fa-users"></i> التجمعات
-            </button>
-            <button class="gallery-filter-btn hover-lift" onclick="filterGallery('camps', this)">
-              <i class="fa-solid fa-campground"></i> المخيمات
-            </button>
+          <!-- رسالة للزائر غير المسجل -->
+          <div id="galleryLoginRequiredBox" class="login-required-box" style="display:none;">
+            <i class="fa-solid fa-lock"></i>
+            <h3>المحتوى مخصص للأعضاء المسجلين</h3>
+            <p>يرجى التسجيل في الموقع للحصول على كامل الميزات والوصول إلى المعرض الرقمي.</p>
+            <div class="login-required-actions">
+              <button class="btn-primary hero-btn-red border-none-btn hover-lift" onclick="openModal('roleSelectionModal')">إنشاء حساب</button>
+              <button class="btn-primary border-none-btn hover-lift" style="background: rgba(255,255,255,0.1);" onclick="openModal('roleSelectionModal')">تسجيل الدخول</button>
+            </div>
           </div>
 
-          <div class="gallery-grid" id="galleryContainer">
-            <p class="announcements-loading-text"><i class="fa-solid fa-spinner fa-spin"></i> جاري تحميل الصور...</p>
+          <div id="galleryAuthedContent">
+            <div class="gallery-filters">
+              <button class="gallery-filter-btn active hover-lift" onclick="filterGallery('all', this)">
+                <i class="fa-solid fa-layer-group"></i> الكل
+              </button>
+              <button class="gallery-filter-btn hover-lift" onclick="filterGallery('units', this)">
+                <i class="fa-solid fa-people-group"></i> الوحدات
+              </button>
+              <button class="gallery-filter-btn hover-lift" onclick="filterGallery('gatherings', this)">
+                <i class="fa-solid fa-users"></i> التجمعات
+              </button>
+              <button class="gallery-filter-btn hover-lift" onclick="filterGallery('camps', this)">
+                <i class="fa-solid fa-campground"></i> المخيمات
+              </button>
+            </div>
+
+            <div class="gallery-grid" id="galleryContainer">
+              <p class="announcements-loading-text"><i class="fa-solid fa-spinner fa-spin"></i> جاري تحميل الصور...</p>
+            </div>
           </div>
         </div>
       </section>
