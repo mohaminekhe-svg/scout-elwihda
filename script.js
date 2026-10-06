@@ -185,6 +185,13 @@ function proceedToRoleRegistration() {
     if (selectedRole.value === 'leader') {
       openModal('leaderRegisterModal');
     } else {
+      // تحديد الاختيار المسبق (كشاف/ولي) داخل الاستمارة حسب ما اختير في "من أنت؟"
+      const matchingRadio = document.querySelector(`input[name="scoutParentRoleChoice"][value="${selectedRole.value}"]`);
+      if (matchingRadio) matchingRadio.checked = true;
+      const headingEl = document.getElementById('scoutParentModalHeading');
+      if (headingEl) {
+        headingEl.innerText = selectedRole.value === 'parent' ? 'إنشاء حساب ولي أمر' : 'إنشاء حساب كشاف';
+      }
       openModal('scoutParentRegisterModal');
     }
   }, 1000);
@@ -1379,12 +1386,17 @@ function fetchLeadersList() {
         statusBadge = '<span class="status-badge status-rejected"><i class="fa-solid fa-ban"></i> موقوف</span>';
       }
 
+      // مصدر الحساب: مُنشأ من الإدارة (createdBy موجود) أو تسجيل ذاتي (غير موجود)
+      const sourceBadge = leader.createdBy
+        ? '<span class="status-badge source-badge-admin"><i class="fa-solid fa-user-shield"></i> قائد مُنشأ من الإدارة</span>'
+        : '<span class="status-badge source-badge-self"><i class="fa-solid fa-user-pen"></i> طلب قائد / تسجيل ذاتي</span>';
+
       card.innerHTML = `
         <div class="leader-card-info">
           <h3>${leader.fullName}</h3>
           <p><i class="fa-solid fa-user-shield"></i> ${leader.leaderRoleTitle || 'قائد كشفي'}</p>
           <p><i class="fa-solid fa-envelope"></i> ${leader.email || ''}</p>
-          <p>${statusBadge}</p>
+          <p>${statusBadge} ${sourceBadge}</p>
         </div>
         ${isPending ? `
         <div class="announcement-card-actions">
@@ -1398,6 +1410,9 @@ function fetchLeadersList() {
 
       container.appendChild(card);
     });
+  }).catch((error) => {
+    container.innerHTML = '<p class="announcements-empty-text">حدث خطأ أثناء جلب قائمة القادة: ' + error.message + '</p>';
+    console.error('fetchLeadersList error:', error);
   });
 }
 
@@ -1437,9 +1452,196 @@ function rejectLeaderVerification(uid) {
   });
 }
 
-// دالة الزر الأصفر (حسابات مشبوهة)
-function showSuspiciousAccountsNotice() {
-  alert('تنبيه: لا توجد حالياً أي حسابات مشبوهة أو نشاطات غير مرغوب فيها مسجلة في النظام.');
+/* =========================================================
+   الحسابات المشبوهة — نظام حقيقي مبني على بيانات Firestore فعلية
+   ========================================================= */
+
+function openSuspiciousAccountsModal() {
+  openModal('suspiciousAccountsModal');
+  loadSuspiciousAccounts();
+}
+
+// جلب الحسابات المشبوهة فعلياً: (أ) قادة موقوفون فعلياً accountStatus
+// suspended/locked، (ب) قادة نشطون لديهم محاولات دخول فاشلة حقيقية مسجّلة
+// (≥3) في securityEvents — سبب حقيقي، وليس مخترعاً.
+function loadSuspiciousAccounts() {
+  const container = document.getElementById('suspiciousAccountsListContainer');
+  if (!container) return;
+  container.innerHTML = '<p class="announcements-loading-text"><i class="fa-solid fa-spinner fa-spin"></i> جاري التحميل...</p>';
+
+  Promise.all([
+    db.collection('users').where('role', '==', 'leader').get(),
+    db.collection('securityEvents').where('type', '==', 'failed_login').limit(500).get()
+  ]).then(([leadersSnap, eventsSnap]) => {
+    // عدّ محاولات الدخول الفاشلة الحقيقية لكل بريد إلكتروني
+    const failedCountByEmail = {};
+    eventsSnap.forEach((doc) => {
+      const email = (doc.data().email || '').toLowerCase();
+      if (!email) return;
+      failedCountByEmail[email] = (failedCountByEmail[email] || 0) + 1;
+    });
+
+    const suspiciousList = [];
+    leadersSnap.forEach((doc) => {
+      const data = doc.data();
+      const uid = doc.id;
+      const email = (data.email || '').toLowerCase();
+      const failedAttempts = failedCountByEmail[email] || 0;
+
+      if (data.accountStatus === 'suspended' || data.accountStatus === 'locked') {
+        suspiciousList.push({
+          uid, data,
+          reason: data.suspicionReason || 'تم إيقاف هذا الحساب من طرف الإدارة.',
+          failedAttempts
+        });
+      } else if (failedAttempts >= 3) {
+        suspiciousList.push({
+          uid, data,
+          reason: `محاولات تسجيل دخول فاشلة (${failedAttempts} مرة) — الحساب لا يزال نشطاً حالياً.`,
+          failedAttempts
+        });
+      }
+    });
+
+    renderSuspiciousAccountsList(suspiciousList);
+  }).catch((error) => {
+    container.innerHTML = '<p class="announcements-empty-text">حدث خطأ أثناء جلب البيانات: ' + error.message + '</p>';
+    console.error('loadSuspiciousAccounts error:', error);
+  });
+}
+
+function renderSuspiciousAccountsList(list) {
+  const container = document.getElementById('suspiciousAccountsListContainer');
+  if (!container) return;
+
+  if (list.length === 0) {
+    container.innerHTML = '<p class="announcements-empty-text">لا توجد حالياً أي حسابات تحتاج إلى مراجعة.</p>';
+    return;
+  }
+
+  container.innerHTML = '';
+  list.forEach((item) => {
+    const isBlocked = item.data.accountStatus === 'suspended' || item.data.accountStatus === 'locked';
+    const card = document.createElement('div');
+    card.className = 'leader-item-card suspicious-account-card hover-lift';
+    card.innerHTML = `
+      <div class="leader-card-info" style="flex:1;">
+        <h3><i class="fa-solid fa-user"></i> ${item.data.fullName || 'بدون اسم'}</h3>
+        <p><i class="fa-solid fa-envelope"></i> ${item.data.email || ''}</p>
+        <p>${isBlocked
+          ? '<span class="status-badge status-rejected"><i class="fa-solid fa-ban"></i> محظور</span>'
+          : '<span class="status-badge status-pending"><i class="fa-solid fa-triangle-exclamation"></i> نشط — يحتاج مراجعة</span>'}
+        </p>
+        <p class="suspicious-reason-text"><i class="fa-solid fa-circle-info"></i> سبب الاشتباه: ${item.reason}</p>
+        <div class="suspicious-actions-row">
+          <button class="btn-warn-email" disabled title="يحتاج خدمة بريد إلكتروني حقيقية — غير متاحة حالياً ضمن Firebase Client">
+            <i class="fa-solid fa-envelope"></i> إرسال رسالة تحذير (NEEDS EMAIL SERVICE)
+          </button>
+          ${isBlocked ? `
+          <button class="btn-restore-account" onclick="confirmRestoreSuspiciousAccount('${item.uid}', ${JSON.stringify(item.data.fullName || '')})">
+            <i class="fa-solid fa-rotate-left"></i> إعادة الحساب للخدمة
+          </button>` : ''}
+          <button class="btn-delete" onclick="confirmDeleteUser('${item.uid}')">
+            <i class="fa-solid fa-trash-can"></i> حذف الحساب
+          </button>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+// فتح نافذة إضافة حساب مشبوه يدوياً — تعبئة قائمة القادة أولاً
+function openAddSuspiciousModal() {
+  const select = document.getElementById('suspiciousLeaderSelect');
+  document.getElementById('suspiciousReasonInput').value = '';
+  document.getElementById('addSuspiciousError').innerText = '';
+  select.innerHTML = '<option value="" disabled selected>جاري التحميل...</option>';
+
+  db.collection('users').where('role', '==', 'leader').get().then((snapshot) => {
+    select.innerHTML = '<option value="" disabled selected>اختر قائداً...</option>';
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      if (data.accountStatus === 'suspended' || data.accountStatus === 'locked') return; // مستبعد، موقوف فعلاً
+      const opt = document.createElement('option');
+      opt.value = doc.id;
+      opt.innerText = `${data.fullName || 'بدون اسم'} (${data.email || ''})`;
+      select.appendChild(opt);
+    });
+  });
+
+  openModal('addSuspiciousAccountModal');
+}
+
+// حفظ وضع حساب قيد المراجعة يدوياً (accountStatus → suspended + سبب حقيقي مكتوب من الأدمن)
+function submitAddSuspiciousAccount() {
+  const uid = document.getElementById('suspiciousLeaderSelect').value;
+  const reason = sanitizeInput(document.getElementById('suspiciousReasonInput').value.trim());
+  const checkingBox = document.getElementById('addSuspiciousCheckingBox');
+  const errorMsg = document.getElementById('addSuspiciousError');
+
+  if (!uid) {
+    errorMsg.innerText = 'يرجى اختيار قائد أولاً.';
+    return;
+  }
+
+  checkingBox.style.display = 'flex';
+  errorMsg.innerText = '';
+
+  const updateData = {
+    accountStatus: 'suspended',
+    suspicionReason: reason || 'تم وضعه قيد المراجعة يدوياً من طرف الإدارة.',
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  Promise.all([
+    db.collection('users').doc(uid).update(updateData),
+    db.collection('leaders').doc(uid).update(updateData)
+  ]).then(() => {
+    checkingBox.style.display = 'none';
+    closeModal('addSuspiciousAccountModal');
+    showAdminNotification('تم إيقاف الحساب ووضعه قيد المراجعة.', 'success');
+    loadSuspiciousAccounts();
+    fetchLeadersList();
+  }).catch((error) => {
+    checkingBox.style.display = 'none';
+    errorMsg.innerText = 'حدث خطأ: ' + error.message;
+  });
+}
+
+// تأكيد إعادة حساب موقوف للخدمة
+let pendingRestoreUid = null;
+function confirmRestoreSuspiciousAccount(uid, name) {
+  pendingRestoreUid = uid;
+  if (!confirm(`هل أنت متأكد من إعادة حساب "${name}" إلى الخدمة؟`)) {
+    pendingRestoreUid = null;
+    return;
+  }
+  executeRestoreSuspiciousAccount();
+}
+
+function executeRestoreSuspiciousAccount() {
+  if (!pendingRestoreUid) return;
+  const uid = pendingRestoreUid;
+
+  const updateData = {
+    accountStatus: 'active',
+    suspicionReason: firebase.firestore.FieldValue.delete(),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  Promise.all([
+    db.collection('users').doc(uid).update(updateData),
+    db.collection('leaders').doc(uid).update(updateData)
+  ]).then(() => {
+    showAdminNotification('تمت إعادة الحساب إلى الخدمة بنجاح.', 'success');
+    pendingRestoreUid = null;
+    loadSuspiciousAccounts();
+    fetchLeadersList();
+  }).catch((error) => {
+    showAdminNotification('فشلت العملية: ' + error.message, 'error');
+    pendingRestoreUid = null;
+  });
 }
 
 // جلب وعرض جميع الحسابات المضافة داخل المستطيلات بستايل أنيق ومميز مع زر الحذف
@@ -1546,6 +1748,7 @@ function executeDeleteLeader() {
           pendingDeleteUserId = null;
           fetchAllAccountsForDeleteView();
           fetchLeadersList();
+          loadSuspiciousAccounts();
         }, 1200);
       }, 1000);
     })

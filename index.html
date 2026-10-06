@@ -98,7 +98,7 @@
             <button class="btn-action-green hover-lift" onclick="openModal('adminAddLeaderModal')">
               <i class="fa-solid fa-user-plus"></i> إضافة حساب
             </button>
-            <button class="btn-action-suspicious hover-lift" onclick="showSuspiciousAccountsNotice()">
+            <button class="btn-action-suspicious hover-lift" onclick="openSuspiciousAccountsModal()">
               <i class="fa-solid fa-user-ninja"></i> حسابات مشبوهة
             </button>
             <button class="btn-action-red hover-lift" onclick="openModal('deleteAccountsListModal')">
@@ -249,7 +249,7 @@
       </div>
       <div class="marquee-container">
         <div class="marquee-text" id="announcementMarqueeText">
-          عن قريب سيتم فتح التسجيلات للموسم الكشفي الجديد (2026 - 2027 م / 1448 هـ)
+          🔐 يرجى إنشاء حساب أو تسجيل الدخول للوصول إلى جميع صلاحيات الموقع
         </div>
       </div>
     </div>
@@ -567,6 +567,12 @@
 
   </main>
 
+  <footer class="site-footer">
+    <p>فوج الوحدة الكشفي</p>
+    <p>جميع الحقوق محفوظة © 2026</p>
+    <p class="footer-credit">تم تطوير هذا الموقع بواسطة Mohamed Amine Kherfi</p>
+  </footer>
+
   <!-- 1️⃣ نافذة اختيار الصفة: من أنت؟ -->
   <div id="roleSelectionModal" class="modal-overlay" style="display: none;">
     <div class="scout-card-container hover-lift">
@@ -610,23 +616,34 @@
 
         <div class="or-divider"><span>أو</span></div>
 
-        <h2>ليس لديك حساب؟ أنشئه الآن</h2>
+        <h2>من أنت؟</h2>
         <p class="step-desc">اختر صفك للوصول إلى استمارة التسجيل المناسبة</p>
         
-        <div class="role-options-group">
+        <div class="role-options-group role-options-group-3">
+          <label class="role-card-option">
+            <input type="radio" name="userRoleChoice" value="scout" onchange="handleRoleSelectionChange()">
+            <div class="role-card-content hover-lift">
+              <i class="fa-solid fa-user-graduate"></i>
+              <span>كشاف</span>
+              <small>أنا كشاف وأريد إنشاء حساب</small>
+            </div>
+          </label>
+
+          <label class="role-card-option">
+            <input type="radio" name="userRoleChoice" value="parent" onchange="handleRoleSelectionChange()">
+            <div class="role-card-content hover-lift">
+              <i class="fa-solid fa-user-shield"></i>
+              <span>ولي أمر</span>
+              <small>أنا ولي أمر كشاف</small>
+            </div>
+          </label>
+
           <label class="role-card-option">
             <input type="radio" name="userRoleChoice" value="leader" onchange="handleRoleSelectionChange()">
             <div class="role-card-content hover-lift">
               <i class="fa-solid fa-user-tie"></i>
               <span>قائد</span>
-            </div>
-          </label>
-
-          <label class="role-card-option">
-            <input type="radio" name="userRoleChoice" value="scout_parent" onchange="handleRoleSelectionChange()">
-            <div class="role-card-content hover-lift">
-              <i class="fa-solid fa-user-graduate"></i>
-              <span>كشاف - ولي</span>
+              <small>أنا قائد</small>
             </div>
           </label>
         </div>
@@ -1024,6 +1041,69 @@
   </div>
 
   <!-- نافذة تعديل صلاحيات قائد موجود -->
+  <!-- نافذة الحسابات المشبوهة -->
+  <div id="suspiciousAccountsModal" class="modal-overlay" style="display: none;">
+    <div class="scout-card-container hover-lift modal-wide">
+      <button class="close-btn hover-lift" onclick="closeModal('suspiciousAccountsModal')">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="form-box" style="width:100%;">
+        <h2><i class="fa-solid fa-user-ninja"></i> الحسابات المشبوهة</h2>
+        <p class="step-desc">حسابات قادة موقوفة فعلياً، أو ظهرت لها محاولات دخول فاشلة حقيقية مسجّلة.</p>
+
+        <div class="suspicious-toolbar">
+          <button class="btn-action-green hover-lift" onclick="openAddSuspiciousModal()">
+            <i class="fa-solid fa-circle-plus"></i> إضافة حساب مشبوه
+          </button>
+          <button class="btn-action-red hover-lift" onclick="showAdminNotification('اضغط زر الحذف داخل بطاقة الحساب المطلوب مباشرة.', 'success')">
+            <i class="fa-solid fa-trash"></i> حذف حساب
+          </button>
+          <button class="btn-action-suspicious hover-lift" onclick="loadSuspiciousAccounts()">
+            <i class="fa-solid fa-rotate"></i> تحديث
+          </button>
+        </div>
+
+        <div id="suspiciousAccountsListContainer" class="leaders-cards-list mt-20"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة إضافة حساب مشبوه يدوياً -->
+  <div id="addSuspiciousAccountModal" class="modal-overlay" style="display: none;">
+    <div class="scout-card-container hover-lift">
+      <button class="close-btn hover-lift" onclick="closeModal('addSuspiciousAccountModal')">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="form-box">
+        <h2>وضع حساب قيد المراجعة</h2>
+        <p class="step-desc">اختر القائد وسبب الاشتباه. سيتم إيقاف حسابه فوراً لمراجعة الإدارة.</p>
+
+        <div class="input-box hover-lift">
+          <label class="select-label">القائد</label>
+          <select id="suspiciousLeaderSelect" required>
+            <option value="" disabled selected>اختر قائداً...</option>
+          </select>
+        </div>
+
+        <div class="input-box hover-lift textarea-box">
+          <i class="fa-solid fa-align-right field-icon"></i>
+          <textarea id="suspiciousReasonInput" rows="3" placeholder=" "></textarea>
+          <label>سبب الاشتباه (اختياري)</label>
+        </div>
+
+        <div id="addSuspiciousCheckingBox" class="spinner-wrap" style="display:none; margin:12px 0;">
+          <div class="spinner"></div>
+          <p style="color: var(--accent-gold); font-weight:bold;">جاري الحفظ...</p>
+        </div>
+        <p id="addSuspiciousError" class="error-msg bold-text"></p>
+
+        <button type="button" class="glow-btn btn-admin-red hover-lift mt-10" onclick="submitAddSuspiciousAccount()">
+          <i class="fa-solid fa-ban"></i> إيقاف الحساب
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div id="editLeaderPermissionsModal" class="modal-overlay" style="display: none;">
     <div class="scout-card-container hover-lift">
       <button class="close-btn hover-lift" onclick="closeModal('editLeaderPermissionsModal')">
@@ -1100,7 +1180,7 @@
         </div>
       </div>
       <div class="form-box">
-        <h2>إنشاء حساب كشاف / ولي</h2>
+        <h2 id="scoutParentModalHeading">إنشاء حساب كشاف / ولي</h2>
         <p class="step-desc">يرجى ملء البيانات التالية بدقة لتفعيل حسابك الكشفي</p>
         <form id="scoutParentRegisterForm" novalidate>
 
