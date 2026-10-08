@@ -941,7 +941,19 @@ a { text-decoration: none; color: inherit; }
   }
   .nav-menu.active { right: 0; }
   .nav-menu li { width: 100%; }
-  .nav-menu .nav-btn { width: 100%; text-align: right; padding: 14px 10px; }
+
+  /* توحيد شكل كل عناصر القائمة (روابط + أزرار الدخول + بطاقة المستخدم) بنفس
+     الحجم والـpadding وborder-radius تماماً، بدل مربعات متفاوتة الحجم */
+  .nav-menu .nav-btn,
+  .nav-menu .menu-auth-item > button,
+  .nav-menu .menu-auth-item > .user-chip {
+    width: 100%; box-sizing: border-box; text-align: right;
+    padding: 14px 16px; min-height: 50px; border-radius: 12px;
+    display: flex; align-items: center; gap: 10px; font-size: 0.9rem;
+  }
+  .nav-menu .menu-auth-divider {
+    width: 100%; height: 1px; background: rgba(241,207,121,0.2); margin: 6px 0; padding: 0;
+  }
 
   /* لوحة الأدمن: تحويل الشريط الجانبي إلى Drawer */
   .admin-mobile-toggle-btn { display: flex; align-items: center; justify-content: center; }
@@ -1169,3 +1181,14 @@ input[type="text"][inputmode="numeric"] {
 @media (max-width: 560px) {
   .role-options-group-3 { grid-template-columns: 1fr; }
 }
+
+/* زر "العودة إلى الموقع" — إجراء غير مدمّر، لون مختلف عن تسجيل الخروج */
+.btn-back-to-site {
+  background: rgba(241, 207, 121, 0.12);
+  color: var(--accent-gold);
+  border: 1px solid rgba(241, 207, 121, 0.4);
+  padding: 12px 15px; border-radius: 12px; font-size: 0.85rem; font-weight: 800;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  gap: 10px; width: 100%; margin-bottom: 10px; transition: all 0.3s ease;
+}
+.btn-back-to-site:hover { background: rgba(241, 207, 121, 0.22); }

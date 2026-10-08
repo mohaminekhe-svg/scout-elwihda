@@ -700,14 +700,19 @@ function renderScoutOrLeaderCard(data) {
   const cardContainer = document.getElementById('userCardContainer');
   if (!cardContainer) return;
 
+  const isAdmin = data.role === 'admin';
   const isLeader = data.role === 'leader';
   const isParent = data.role === 'parent';
-  const cardTitle = isLeader ? 'بطاقة القائد' : (isParent ? 'بطاقة الولي' : 'بطاقة الكشاف');
-  const roleBadge = data.leaderRoleTitle || (isLeader ? 'قائد كشفي' : (isParent ? 'ولي' : 'كشاف'));
+  const cardTitle = isAdmin ? 'بطاقة الإدارة' : (isLeader ? 'بطاقة القائد' : (isParent ? 'بطاقة الولي' : 'بطاقة الكشاف'));
+  const roleBadge = isAdmin ? 'مدير النظام (Admin)' : (data.leaderRoleTitle || (isLeader ? 'قائد كشفي' : (isParent ? 'ولي أمر' : 'كشاف')));
   const fullName = data.fullName || (data.firstName ? `${data.firstName} ${data.lastName}` : 'عضو الفوج');
   const avatarHtml = data.photoURL
     ? `<img src="${data.photoURL}" alt="${fullName}" loading="lazy">`
-    : `<i class="fa-solid ${isLeader ? 'fa-user-shield' : 'fa-user-graduate'}"></i>`;
+    : `<i class="fa-solid ${(isLeader || isAdmin) ? 'fa-user-shield' : 'fa-user-graduate'}"></i>`;
+
+  const statusLabel = data.accountStatus === 'active' ? '🟢 نشط'
+    : (data.accountStatus === 'pending_verification' ? '🟡 قيد المراجعة'
+    : (data.accountStatus ? '🔴 ' + data.accountStatus : ''));
 
   cardContainer.innerHTML = `
     <div class="digital-scout-card hover-lift">
@@ -727,6 +732,8 @@ function renderScoutOrLeaderCard(data) {
             ${data.parentPhone ? `<div><i class="fa-solid fa-phone"></i> <strong>هاتف الولي:</strong> ${data.parentPhone}</div>` : ''}
             ${data.scoutPhone ? `<div><i class="fa-solid fa-mobile-screen"></i> <strong>هاتف الابن:</strong> ${data.scoutPhone}</div>` : ''}
             ${data.unit ? `<div><i class="fa-solid fa-shield-halved"></i> <strong>الوحدة:</strong> ${data.unit}</div>` : ''}
+            <div><i class="fa-solid fa-flag"></i> <strong>الفوج:</strong> فوج الوحدة الكشفي</div>
+            ${statusLabel ? `<div><i class="fa-solid fa-circle-check"></i> <strong>الحالة:</strong> ${statusLabel}</div>` : ''}
           </div>
         </div>
       </div>
@@ -887,6 +894,50 @@ function closeAllModalsAndOverlays() {
 
   const fullBlueScreen = document.getElementById('fullAdminBlueScreen');
   if (fullBlueScreen) fullBlueScreen.style.display = 'none';
+}
+
+// إرسال طلب استعادة الوصول (كتابة فقط، آمنة حتى لغير المسجلين حسب Rules)
+function submitAccessRecoveryRequest() {
+  const email = document.getElementById('recoveryEmail').value.trim();
+  const message = sanitizeInput(document.getElementById('recoveryMessage').value.trim());
+  const checkingBox = document.getElementById('recoveryCheckingBox');
+  const errorMsg = document.getElementById('recoveryError');
+  const successMsg = document.getElementById('recoverySuccess');
+  const submitBtn = document.getElementById('recoverySubmitBtn');
+
+  errorMsg.innerText = '';
+  successMsg.style.display = 'none';
+
+  if (!email || !message) {
+    errorMsg.innerText = 'يرجى تعبئة البريد الإلكتروني ووصف المشكلة.';
+    return;
+  }
+
+  checkingBox.style.display = 'flex';
+  submitBtn.disabled = true;
+
+  db.collection('securityRequests').add({
+    email: email,
+    message: message,
+    status: 'new',
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(() => {
+    checkingBox.style.display = 'none';
+    submitBtn.disabled = false;
+    successMsg.style.display = 'block';
+    document.getElementById('recoveryEmail').value = '';
+    document.getElementById('recoveryMessage').value = '';
+  }).catch((error) => {
+    checkingBox.style.display = 'none';
+    submitBtn.disabled = false;
+    errorMsg.innerText = 'حدث خطأ أثناء الإرسال: ' + error.message;
+  });
+}
+
+// العودة إلى الموقع العام دون تسجيل الخروج — الجلسة تبقى فعّالة تماماً
+function backToSiteFromAdmin() {
+  closeAllModalsAndOverlays();
+  showPage('home-page');
 }
 
 function logoutAdmin() {
@@ -1459,6 +1510,77 @@ function rejectLeaderVerification(uid) {
 function openSuspiciousAccountsModal() {
   openModal('suspiciousAccountsModal');
   loadSuspiciousAccounts();
+  loadSecurityRequests();
+}
+
+// جلب طلبات استعادة الوصول الحقيقية (status == 'new' أو 'reviewed' فقط — الطلبات المغلقة تُخفى)
+let securityRequestsCache = {};
+function loadSecurityRequests() {
+  const container = document.getElementById('securityRequestsListContainer');
+  if (!container) return;
+  container.innerHTML = '<p class="announcements-loading-text"><i class="fa-solid fa-spinner fa-spin"></i> جاري التحميل...</p>';
+
+  db.collection('securityRequests').orderBy('createdAt', 'desc').limit(100).get().then((snapshot) => {
+    const relevant = snapshot.docs.filter((d) => d.data().status !== 'closed');
+    securityRequestsCache = {};
+    relevant.forEach((d) => { securityRequestsCache[d.id] = d.data(); });
+
+    if (relevant.length === 0) {
+      container.innerHTML = '<p class="announcements-empty-text">لا توجد طلبات دعم أمني حالياً.</p>';
+      return;
+    }
+
+    container.innerHTML = '';
+    relevant.forEach((doc) => {
+      const data = doc.data();
+      const dateText = data.createdAt && data.createdAt.toDate ? data.createdAt.toDate().toLocaleDateString('ar-DZ') : '';
+      const statusBadge = data.status === 'reviewed'
+        ? '<span class="status-badge status-pending"><i class="fa-solid fa-eye"></i> مراجَع</span>'
+        : '<span class="status-badge status-rejected"><i class="fa-solid fa-circle-exclamation"></i> جديد</span>';
+
+      const card = document.createElement('div');
+      card.className = 'leader-item-card hover-lift';
+      card.innerHTML = `
+        <div class="leader-card-info" style="flex:1;">
+          <h3><i class="fa-solid fa-envelope"></i> ${data.email || ''}</h3>
+          <p><i class="fa-solid fa-calendar"></i> ${dateText}</p>
+          <p>${statusBadge}</p>
+        </div>
+        <div class="announcement-card-actions">
+          <button class="btn-edit" onclick="viewSecurityRequest('${doc.id}')"><i class="fa-solid fa-eye"></i> عرض المشكلة</button>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+  }).catch((error) => {
+    container.innerHTML = '<p class="announcements-empty-text">حدث خطأ: ' + error.message + '</p>';
+    console.error('loadSecurityRequests error:', error);
+  });
+}
+
+let currentViewedRequestId = null;
+function viewSecurityRequest(id) {
+  const data = securityRequestsCache[id];
+  if (!data) return;
+  currentViewedRequestId = id;
+  document.getElementById('viewRequestEmail').innerText = data.email || '';
+  document.getElementById('viewRequestDate').innerText = data.createdAt && data.createdAt.toDate ? data.createdAt.toDate().toLocaleString('ar-DZ') : '';
+  document.getElementById('viewRequestMessage').innerText = data.message || '';
+  openModal('viewSecurityRequestModal');
+}
+
+function updateSecurityRequestStatus(newStatus) {
+  if (!currentViewedRequestId) return;
+  db.collection('securityRequests').doc(currentViewedRequestId).update({ status: newStatus })
+    .then(() => {
+      showAdminNotification(newStatus === 'closed' ? 'تم إغلاق الطلب.' : 'تم وضع الطلب كمراجَع.', 'success');
+      closeModal('viewSecurityRequestModal');
+      currentViewedRequestId = null;
+      loadSecurityRequests();
+    })
+    .catch((error) => {
+      showAdminNotification('حدث خطأ: ' + error.message, 'error');
+    });
 }
 
 // جلب الحسابات المشبوهة فعلياً: (أ) قادة موقوفون فعلياً accountStatus

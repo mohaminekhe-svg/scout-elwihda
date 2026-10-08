@@ -66,6 +66,10 @@
 
       <!-- زر تسجيل الخروج في الأسفل بالأحمر -->
       <div class="sidebar-footer">
+        <button class="btn-back-to-site hover-lift" onclick="backToSiteFromAdmin()">
+          <i class="fa-solid fa-house"></i>
+          <span>العودة إلى الموقع</span>
+        </button>
         <button class="btn-admin-logout hover-lift" onclick="logoutAdmin()">
           <i class="fa-solid fa-right-from-bracket"></i>
           <span>تسجيل الخروج من واجهة الأدمن</span>
@@ -1064,6 +1068,33 @@
         </div>
 
         <div id="suspiciousAccountsListContainer" class="leaders-cards-list mt-20"></div>
+
+        <h2 class="mt-20"><i class="fa-solid fa-life-ring"></i> طلبات الدعم الأمني</h2>
+        <p class="step-desc">طلبات استعادة وصول حقيقية أرسلها قادة لا يستطيعون الدخول.</p>
+        <div id="securityRequestsListContainer" class="leaders-cards-list mt-20"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة عرض تفاصيل طلب الدعم الأمني -->
+  <div id="viewSecurityRequestModal" class="modal-overlay" style="display: none;">
+    <div class="scout-card-container hover-lift">
+      <button class="close-btn hover-lift" onclick="closeModal('viewSecurityRequestModal')">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="form-box">
+        <h2>طلب استعادة الوصول</h2>
+        <div class="card-info-grid" style="margin-top:15px;">
+          <div><i class="fa-solid fa-envelope"></i> <strong>البريد:</strong> <span id="viewRequestEmail"></span></div>
+          <div><i class="fa-solid fa-calendar"></i> <strong>التاريخ:</strong> <span id="viewRequestDate"></span></div>
+        </div>
+        <div class="field-group-title mt-10">المشكلة</div>
+        <p id="viewRequestMessage" style="color:#e2e8f0; line-height:1.8; background:rgba(255,255,255,0.05); padding:12px; border-radius:10px;"></p>
+
+        <div class="suspicious-actions-row mt-20">
+          <button class="btn-restore-account" onclick="updateSecurityRequestStatus('reviewed')"><i class="fa-solid fa-eye"></i> وضع كمراجَع</button>
+          <button class="btn-delete" onclick="updateSecurityRequestStatus('closed')"><i class="fa-solid fa-circle-xmark"></i> إغلاق الطلب</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1328,7 +1359,45 @@
 
           <p id="mediaError" class="error-msg"></p>
           <button type="submit" id="mediaSubmitBtn" class="glow-btn hover-lift">دخول الإعلام والنشر</button>
+
+          <p class="forgot-password-link" onclick="closeModal('mediaPortalModal'); openModal('accessRecoveryModal');">هل نسيت الرمز؟</p>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة طلب استعادة الوصول -->
+  <div id="accessRecoveryModal" class="modal-overlay" style="display: none;">
+    <div class="scout-card-container hover-lift">
+      <button class="close-btn hover-lift" onclick="closeModal('accessRecoveryModal')">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="form-box">
+        <h2>طلب استعادة الوصول</h2>
+        <p class="step-desc">صف مشكلتك وسيتواصل معك الأدمن للتحقق والمساعدة.</p>
+
+        <div class="input-box hover-lift">
+          <i class="fa-solid fa-envelope field-icon"></i>
+          <input type="email" id="recoveryEmail" required placeholder=" ">
+          <label>البريد الإلكتروني</label>
+        </div>
+
+        <div class="input-box hover-lift textarea-box">
+          <i class="fa-solid fa-align-right field-icon"></i>
+          <textarea id="recoveryMessage" rows="4" placeholder=" " required></textarea>
+          <label>وصف المشكلة (مثال: نسيت بيانات الدخول / لا أستطيع الدخول / أعتقد أن حسابي معطّل)</label>
+        </div>
+
+        <div id="recoveryCheckingBox" class="spinner-wrap" style="display:none; margin:12px 0;">
+          <div class="spinner"></div>
+          <p style="color: var(--accent-gold); font-weight:bold;">جاري الإرسال...</p>
+        </div>
+        <p id="recoveryError" class="error-msg bold-text"></p>
+        <p id="recoverySuccess" class="success-msg bold-text" style="display:none; color:#22c55e;">تم إرسال طلبك. سيراجعه الأدمن قريباً.</p>
+
+        <button type="button" id="recoverySubmitBtn" class="glow-btn hover-lift mt-10" onclick="submitAccessRecoveryRequest()">
+          <i class="fa-solid fa-paper-plane"></i> إرسال الطلب
+        </button>
       </div>
     </div>
   </div>
