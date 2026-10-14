@@ -15,7 +15,7 @@
 // إن أردت تغيير مكان المجلدات مستقبلاً، عدّل هذين السطرين فقط:
 const LOCAL_IMAGE_FOLDERS = {
   announcements: 'assets/images/announcements/',
-  gallery: 'assets/images/gallery/'
+  gallery: 'assets/images/gallery-logo elwihda.png/'
 };
 
 // اسم الملف المسموح: حروف/أرقام/نقطة/شرطة فقط + امتداد صورة. لا يُسمح بأي "/" أو ".."
