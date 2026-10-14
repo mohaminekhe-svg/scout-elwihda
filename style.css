@@ -1228,3 +1228,95 @@ input[type="text"][inputmode="numeric"] {
   .admin-sidebar-close-btn { display: flex; }
   .nav-menu .menu-close-btn { width: 44px; }
 }
+
+/* =========================================================
+   المرحلة: الصور المحلية، عرض المزيد، الإعدادات، القفل، المساعدة
+   ========================================================= */
+
+/* نافذة الترحيب في الصفحة الرئيسية: الأزرق الأساسي بدل الخلفية الداكنة */
+.hero-content-full.glass-card {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  border-color: rgba(241, 207, 121, 0.35);
+}
+
+/* مؤشر وجود إعلانات نشطة بجانب زر «الإعلانات»: مخفي افتراضياً، ويظهر فقط عند وجود إعلان نشط فعلاً */
+.announcements-dot { display: none !important; }
+body.has-active-announcements .announcements-dot { display: inline-block !important; }
+.mobile-menu-btn { position: relative; }
+.mobile-red-dot {
+  position: absolute; top: 6px; left: 6px; width: 9px; height: 9px;
+  border-radius: 50%; background: var(--secondary);
+}
+
+/* مساحة الصورة (إعلانات + معرض) مع بديل واضح عند غياب الصورة */
+.media-frame {
+  width: 100%; margin: 10px 0 12px; border-radius: 14px; overflow: hidden;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(241,207,121,0.2);
+}
+.media-frame img { display: block; width: 100%; max-height: 320px; object-fit: cover; margin: 0; border-radius: 0; }
+.media-frame.is-clickable { cursor: zoom-in; }
+.image-unavailable {
+  display: flex; align-items: center; justify-content: center; min-height: 110px;
+  padding: 15px; color: #94a3b8; font-size: 0.85rem; font-weight: 700; text-align: center;
+}
+.image-unavailable.is-hidden { display: none; }
+
+/* «عرض المزيد / عرض أقل» — مستقل لكل بطاقة */
+.expandable-body { white-space: pre-line; line-height: 1.8; }
+.expandable-body.is-collapsed {
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+}
+.read-more-btn {
+  margin-top: 8px; background: transparent; border: 1px solid rgba(241,207,121,0.5);
+  color: var(--accent-gold); padding: 6px 16px; border-radius: 20px; font-size: 0.8rem;
+  font-weight: 700; cursor: pointer; min-height: 36px;
+}
+.read-more-btn:hover { background: rgba(241,207,121,0.15); }
+.gallery-card .gallery-desc { font-size: 0.85rem; color: #cbd5e1; margin-top: 8px; text-align: right; }
+.gallery-card .expandable-wrap { text-align: right; }
+
+/* مساحة توضيحية بدل حقل رفع الصور */
+.image-upload-placeholder {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
+  padding: 18px 12px; margin-bottom: 12px; border: 2px dashed rgba(241,207,121,0.35);
+  border-radius: 12px; background: rgba(255,255,255,0.03); color: #cbd5e1; cursor: not-allowed;
+}
+.image-upload-placeholder i { font-size: 1.8rem; color: var(--accent-gold); opacity: 0.8; }
+.image-upload-placeholder p { margin: 0; font-size: 0.82rem; }
+
+/* بطاقات فرعية داخل تبويب الإعلانات + بطاقات الإعدادات */
+.admin-subcard, .settings-card {
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(241,207,121,0.25);
+  border-radius: 16px; padding: 18px; margin-top: 18px;
+}
+.settings-card h3 { color: var(--accent-gold); font-size: 1rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+.status-draft { background: rgba(148,163,184,0.2); color: #cbd5e1; }
+
+/* زر المساعدة ؟ */
+.help-btn {
+  background: rgba(241,207,121,0.15); color: var(--accent-gold); border: 1px solid rgba(241,207,121,0.5);
+  width: 30px; height: 30px; border-radius: 50%; font-size: 0.95rem; font-weight: 900;
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1;
+}
+.help-btn:hover { background: rgba(241,207,121,0.3); }
+.help-btn-floating { position: absolute; top: 12px; left: 52px; z-index: 11; }
+h2 .help-btn { margin-right: 10px; vertical-align: middle; }
+.help-modal-overlay { z-index: 250000; }
+.help-modal-box { max-width: 460px; }
+.help-modal-body { color: #e2e8f0; font-size: 0.9rem; line-height: 1.9; text-align: right; }
+.help-modal-body ul { padding-right: 18px; margin: 10px 0 0; }
+.help-modal-body li { margin-bottom: 8px; }
+
+/* شاشة القفل التلقائي */
+.idle-lock-overlay {
+  position: fixed; inset: 0; z-index: 400000; display: none; align-items: center; justify-content: center;
+  background: rgba(8, 12, 32, 0.96); backdrop-filter: blur(10px); padding: 20px;
+}
+.idle-lock-box {
+  width: 100%; max-width: 380px; text-align: center; padding: 30px 22px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  border: 1px solid rgba(241,207,121,0.4); border-radius: 20px;
+}
+.idle-lock-box > i { font-size: 2.4rem; color: var(--accent-gold); margin-bottom: 10px; }
+.idle-lock-box h2 { font-size: 1.1rem; margin-bottom: 6px; }
+.idle-lock-box p { color: #cbd5e1; font-size: 0.85rem; margin-bottom: 14px; }

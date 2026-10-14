@@ -59,9 +59,9 @@
           <i class="fa-solid fa-chart-simple"></i>
           <span>الإحصائيات</span>
         </button>
-        <button class="admin-nav-btn hover-lift admin-only-nav" onclick="switchAdminTab('settings-tab', this)">
+        <button class="admin-nav-btn hover-lift" onclick="switchAdminTab('settings-tab', this)">
           <i class="fa-solid fa-sliders"></i>
-          <span>إعدادات الأدمن</span>
+          <span id="settingsNavLabel">إعدادات الأدمن</span>
         </button>
       </nav>
 
@@ -140,6 +140,7 @@
           <h2><i class="fa-solid fa-bullhorn"></i> إدارة الإعلانات والنشرات</h2>
           <p>إضافة ونشر الإعلانات الهامة وشريط الأخبار العاجلة للموقع.</p>
 
+          <div class="admin-subcard">
           <!-- ======================= القسم الأول: الشريط الأصفر العلوي ======================= -->
           <div class="announcement-section-header">
             <i class="fa-solid fa-scroll"></i> القسم الأول — الشريط الأصفر العلوي
@@ -162,7 +163,9 @@
             </div>
             <p id="marqueeQuickMsg" class="error-msg bold-text"></p>
           </div>
+          </div>
 
+          <div class="admin-subcard">
           <!-- ======================= القسم الثاني: إعلانات صفحة الموقع ======================= -->
           <div class="announcement-section-header mt-20">
             <i class="fa-solid fa-newspaper"></i> القسم الثاني — إعلانات صفحة الموقع
@@ -170,7 +173,7 @@
 
           <!-- الأزرار الخاصة بتبويب الإعلانات -->
           <div class="leaders-action-toolbar mt-20">
-            <button class="btn-action-green hover-lift" onclick="openAnnouncementModal('create')">
+            <button class="btn-action-green hover-lift" data-requires-action="announcements.create" onclick="openAnnouncementModal('create')">
               <i class="fa-solid fa-circle-plus"></i> إنشاء إعلان جديد
             </button>
           </div>
@@ -178,6 +181,7 @@
           <!-- قائمة عرض الإعلانات -->
           <div id="announcementsListContainer" class="leaders-cards-list mt-20">
             <!-- سيتم تحميل الإعلانات هنا ديناميكياً -->
+          </div>
           </div>
         </div>
       </div>
@@ -201,26 +205,36 @@
 
             <div class="input-box hover-lift">
               <i class="fa-solid fa-heading field-icon"></i>
-              <input type="text" id="galleryUploadTitle" placeholder=" ">
-              <label>عنوان/وصف الصورة (اختياري)</label>
+              <input type="text" id="galleryUploadTitle" placeholder=" " maxlength="120">
+              <label>عنوان الصورة</label>
+            </div>
+
+            <div class="input-box hover-lift textarea-box">
+              <i class="fa-solid fa-align-right field-icon"></i>
+              <textarea id="galleryUploadDescription" rows="3" placeholder=" " maxlength="1000"></textarea>
+              <label>وصف الصورة (اختياري)</label>
             </div>
 
             <div class="field-group-title mt-10"><i class="fa-solid fa-image"></i> الصورة</div>
-            <input type="file" id="galleryUploadFile" accept="image/png, image/jpeg, image/webp" class="file-input-styled" required>
-            <p class="input-hint">الحد الأقصى 5 ميغابايت — jpg / png / webp فقط</p>
-
-            <div id="galleryUploadCheckingBox" class="spinner-wrap" style="display: none; margin: 12px 0;">
-              <div class="spinner"></div>
-              <p id="galleryUploadCheckingText" style="color: var(--accent-gold); font-weight: bold; margin-top: 6px;">جاري الرفع...</p>
-              <div class="upload-progress-track" id="galleryUploadProgressTrack" style="display:none;">
-                <div class="upload-progress-fill" id="galleryUploadProgressFill"></div>
-              </div>
+            <div class="image-upload-placeholder" aria-disabled="true">
+              <i class="fa-regular fa-image"></i>
+              <p>إضافة الصور من ملفات المشروع — الرفع المباشر غير متاح حاليًا.</p>
             </div>
+            <div class="input-box hover-lift">
+              <i class="fa-solid fa-file-image field-icon"></i>
+              <input type="text" id="galleryImageFileInput" dir="ltr" placeholder=" " maxlength="100" autocomplete="off">
+              <label>اسم ملف الصورة (اختياري) — مثال: gallery-001.jpg</label>
+            </div>
+            <p class="input-hint">ضع الصورة في المجلد assets/images/gallery/ ثم اكتب اسمها هنا فقط.</p>
+
             <p id="galleryUploadError" class="error-msg bold-text"></p>
 
-            <button type="submit" id="galleryUploadSubmitBtn" class="glow-btn btn-green hover-lift mt-10">
-              <i class="fa-solid fa-cloud-arrow-up"></i> نشر الصورة
-            </button>
+            <div class="suspicious-actions-row">
+              <button type="submit" id="galleryUploadSubmitBtn" class="glow-btn btn-green hover-lift mt-10">
+                <i class="fa-solid fa-floppy-disk"></i> <span id="galleryUploadSubmitText">حفظ العنصر</span>
+              </button>
+              <button type="button" id="galleryCancelEditBtn" class="glow-btn hover-lift mt-10" style="display:none;" onclick="cancelGalleryEdit()">إلغاء التعديل</button>
+            </div>
           </form>
 
           <div id="adminGalleryListContainer" class="leaders-cards-list mt-20"></div>
@@ -240,11 +254,64 @@
 
       <div id="settings-tab" class="admin-tab-content">
         <div class="admin-section-card">
-          <h2><i class="fa-solid fa-sliders"></i> إعدادات لوحة الأدمن</h2>
-          <p>تعديل بيانات الحساب، كلمات المرور، وإعدادات النظام.</p>
-          <div class="coming-soon-notice">
-            <i class="fa-solid fa-hourglass-half"></i>
-            <p>هذا القسم قيد التطوير ضمن مرحلة قادمة.</p>
+          <h2 id="settingsTabTitle"><i class="fa-solid fa-sliders"></i> إعدادات الحساب</h2>
+          <p id="settingsAccountSummary" class="step-desc"></p>
+
+          <div class="settings-card">
+            <h3><i class="fa-solid fa-envelope"></i> تغيير البريد الإلكتروني</h3>
+            <div class="input-box hover-lift">
+              <i class="fa-solid fa-envelope field-icon"></i>
+              <input type="email" id="settingsNewEmail" dir="ltr" placeholder=" " autocomplete="off">
+              <label>البريد الإلكتروني الجديد</label>
+            </div>
+            <div class="input-box hover-lift">
+              <i class="fa-solid fa-lock field-icon"></i>
+              <input type="password" id="settingsEmailCurrentPassword" placeholder=" " autocomplete="current-password">
+              <label>كلمة المرور الحالية (للتأكيد)</label>
+            </div>
+            <p id="settingsEmailMsg" class="error-msg bold-text"></p>
+            <button type="button" id="settingsEmailBtn" class="glow-btn btn-green hover-lift" onclick="changeAccountEmail()">إرسال رابط التأكيد</button>
+            <p class="input-hint">سيصل رابط تأكيد إلى البريد الجديد، ولا يتغير البريد الفعلي إلا بعد الضغط عليه.</p>
+          </div>
+
+          <div class="settings-card">
+            <h3><i class="fa-solid fa-key"></i> تغيير كلمة المرور</h3>
+            <div class="input-box hover-lift">
+              <i class="fa-solid fa-lock field-icon"></i>
+              <input type="password" id="settingsCurrentPassword" placeholder=" " autocomplete="current-password">
+              <label>كلمة المرور الحالية</label>
+            </div>
+            <div class="input-box hover-lift">
+              <i class="fa-solid fa-lock field-icon"></i>
+              <input type="password" id="settingsNewPassword" placeholder=" " autocomplete="new-password">
+              <label>كلمة المرور الجديدة</label>
+            </div>
+            <div class="input-box hover-lift">
+              <i class="fa-solid fa-lock field-icon"></i>
+              <input type="password" id="settingsConfirmPassword" placeholder=" " autocomplete="new-password">
+              <label>تأكيد كلمة المرور الجديدة</label>
+            </div>
+            <p class="input-hint">8 أحرف على الأقل مع أرقام ورموز.</p>
+            <p id="settingsPasswordMsg" class="error-msg bold-text"></p>
+            <button type="button" id="settingsPasswordBtn" class="glow-btn btn-green hover-lift" onclick="changeAccountPassword()">تغيير كلمة المرور</button>
+          </div>
+
+          <div class="settings-card">
+            <h3><i class="fa-solid fa-user-lock"></i> القفل التلقائي بعد عدم النشاط</h3>
+            <div class="input-box hover-lift">
+              <label class="select-label">المدة</label>
+              <select id="idleLockSelect" onchange="saveIdleLockSetting(this.value)">
+                <option value="0">معطّل</option>
+                <option value="10">10 ثوانٍ</option>
+                <option value="30">30 ثانية</option>
+                <option value="60">دقيقة واحدة</option>
+                <option value="300">5 دقائق</option>
+                <option value="600">10 دقائق</option>
+                <option value="900">15 دقيقة</option>
+                <option value="1800">30 دقيقة</option>
+              </select>
+            </div>
+            <p class="input-hint">يُحفظ هذا الاختيار على هذا الجهاز فقط. بعد المدة تظهر واجهة قفل تطلب كلمة المرور (إعادة مصادقة Firebase). هذا القفل لراحتك على الجهاز، وليس بديلاً عن حماية Firestore Rules.</p>
           </div>
         </div>
       </div>
@@ -287,7 +354,7 @@
           <li><button onclick="showPage('units-page')" class="nav-btn hover-lift">الوحدات</button></li>
           <li>
             <button onclick="showPage('bulletin-page')" class="nav-btn nav-link-bulletin hover-lift">
-              <span class="red-dot pulse-glow"></span> الإعلانات
+              <span class="red-dot announcements-dot pulse-glow" title="يوجد إعلانات نشطة"></span> الإعلانات
             </button>
           </li>
           <li><button onclick="showPage('gallery-page')" class="nav-btn hover-lift">المعرض الرقمي</button></li>
@@ -357,7 +424,7 @@
 
         <button class="mobile-menu-btn hover-lift" onclick="toggleMobileMenu()" aria-label="القائمة">
           <i class="fa-solid fa-ellipsis-vertical"></i>
-          <span class="mobile-red-dot pulse-glow"></span>
+          <span class="mobile-red-dot announcements-dot pulse-glow"></span>
         </button>
 
       </div>
@@ -1012,9 +1079,16 @@
           </div>
 
           <div class="field-group-title mt-10"><i class="fa-solid fa-image"></i> صورة الإعلان (اختياري)</div>
-          <input type="file" id="announcementImageInput" accept="image/png, image/jpeg, image/webp" class="file-input-styled">
-          <p class="input-hint">الحد الأقصى 3 ميغابايت — jpg / png / webp فقط</p>
-          <div id="announcementImagePreview" class="announcement-image-preview" style="display:none;"></div>
+          <div class="image-upload-placeholder" aria-disabled="true">
+            <i class="fa-regular fa-image"></i>
+            <p>إضافة الصور من ملفات المشروع — ميزة الرفع المباشر غير متاحة حاليًا.</p>
+          </div>
+          <div class="input-box hover-lift">
+            <i class="fa-solid fa-file-image field-icon"></i>
+            <input type="text" id="announcementImageFileInput" dir="ltr" placeholder=" " maxlength="100" autocomplete="off">
+            <label>اسم ملف الصورة (اختياري) — مثال: announcement-001.jpg</label>
+          </div>
+          <p class="input-hint">ضع الصورة في المجلد assets/images/announcements/ ثم اكتب اسمها هنا فقط.</p>
 
           <div class="field-group-title mt-10"><i class="fa-solid fa-clock"></i> توقيت النشر (اختياري — بتوقيت الجزائر)</div>
           <div class="input-row">
@@ -1028,6 +1102,11 @@
             </div>
           </div>
           <p class="input-hint">بتوقيت الجزائر (Africa/Algiers). اتركهما فارغين لإعلان عادي يُنشر فوراً وبلا انتهاء.</p>
+
+          <label class="permission-check-item mt-10">
+            <input type="checkbox" id="announcementDraftCheckbox">
+            <span>حفظ كمسودة (لا يظهر للزوار حتى أنشره)</span>
+          </label>
 
           <div id="announcementCheckingBox" class="spinner-wrap" style="display: none; margin: 12px 0;">
             <div class="spinner"></div>
@@ -1482,6 +1561,37 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 
+  <!-- شاشة القفل التلقائي بعد عدم النشاط (إعادة مصادقة Firebase) -->
+  <div id="idleLockOverlay" class="idle-lock-overlay" style="display:none;">
+    <div class="idle-lock-box">
+      <i class="fa-solid fa-user-lock"></i>
+      <h2>انتهت جلسة الأمان بسبب عدم النشاط</h2>
+      <p>يرجى إدخال كلمة المرور للمتابعة.</p>
+      <div class="input-box">
+        <i class="fa-solid fa-lock field-icon"></i>
+        <input type="password" id="idleLockPassword" placeholder=" " autocomplete="current-password">
+        <label>كلمة المرور</label>
+      </div>
+      <p id="idleLockError" class="error-msg bold-text"></p>
+      <button type="button" id="idleLockUnlockBtn" class="glow-btn btn-green hover-lift" onclick="unlockIdleSession()">فتح الجلسة</button>
+      <button type="button" class="btn-back-to-site hover-lift" style="margin-top:10px;" onclick="logoutFromIdleLock()">تسجيل الخروج</button>
+    </div>
+  </div>
+
+  <!-- نافذة المساعدة (علامة الاستفهام) -->
+  <div id="helpModal" class="modal-overlay help-modal-overlay" style="display:none;">
+    <div class="scout-card-container help-modal-box">
+      <button class="close-btn hover-lift" type="button" onclick="closeHelp()" aria-label="إغلاق">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="form-box">
+        <h2 id="helpModalTitle"><i class="fa-solid fa-circle-question"></i> مساعدة</h2>
+        <div id="helpModalBody" class="help-modal-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="content-config.js"></script>
   <script src="script.js"></script>
   <script>
     const pdfFormUrl = "./registration-form.pdf";
