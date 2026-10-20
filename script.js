@@ -62,9 +62,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initPasswordValidationAdminLeader();
   initPasswordValidationScout();
   initHelpButtons();
-  initDateTimePickers();
-  attachImageFileChecker('announcementImageFileInput', 'announcements');
-  attachImageFileChecker('galleryImageFileInput', 'gallery');
   listenToAuthStatus();
   fetchLeadersList();
   fetchAllAccountsForDeleteView();
@@ -191,7 +188,7 @@ function proceedToRoleRegistration() {
     closeModal('roleSelectionModal');
 
     if (selectedRole.value === 'leader') {
-      openLeaderRegistration('leader_request');
+      openModal('leaderRegisterModal');
     } else {
       // تحديد الاختيار المسبق (كشاف/ولي) داخل الاستمارة حسب ما اختير في "من أنت؟"
       const matchingRadio = document.querySelector(`input[name="scoutParentRoleChoice"][value="${selectedRole.value}"]`);
@@ -287,16 +284,6 @@ function applyAdminPanelUIForRole() {
   }
 }
 
-// إظهار/إخفاء عنصر حسب حالة الدخول. عناصر القائمة الجانبية للهاتف (.mobile-only) تتحكم فيها
-// قاعدة CSS بـ !important، ولا يستطيع style.display المضمّن تجاوزها، لذلك نستخدم صنفاً (auth-hidden).
-function setAuthVisible(el, visible, displayType) {
-  if (el.classList.contains('mobile-only')) {
-    el.classList.toggle('auth-hidden', !visible);
-  } else {
-    el.style.display = visible ? displayType : 'none';
-  }
-}
-
 function listenToAuthStatus() {
   auth.onAuthStateChanged((user) => {
     const guestBtns = document.querySelectorAll('.auth-guest-btn');
@@ -309,8 +296,8 @@ function listenToAuthStatus() {
     updateAnnouncementsAccessUI(user);
 
     if (user) {
-      guestBtns.forEach(b => setAuthVisible(b, false, 'inline-flex'));
-      userBtns.forEach(b => setAuthVisible(b, true, 'inline-flex'));
+      guestBtns.forEach(b => b.style.display = 'none');
+      userBtns.forEach(b => b.style.display = 'inline-flex');
 
       db.collection('users').doc(user.uid).get().then((doc) => {
         if (doc.exists) {
@@ -328,8 +315,8 @@ function listenToAuthStatus() {
         }
       });
     } else {
-      guestBtns.forEach(b => setAuthVisible(b, true, 'inline-flex'));
-      userBtns.forEach(b => setAuthVisible(b, false, 'inline-flex'));
+      guestBtns.forEach(b => b.style.display = 'inline-flex');
+      userBtns.forEach(b => b.style.display = 'none');
       if (cardSection) cardSection.style.display = 'none';
       clearNavUserChip();
       updateDashboardAccessButton(null);
@@ -616,32 +603,19 @@ if (leaderRegisterForm) {
     checkingBox.style.display = 'flex';
     submitBtn.disabled = true;
 
-    const signupType = currentLeaderSignupType;
-    let authUserCreated = false;
-
-    // فحص حديث لحالة التسجيل قبل إنشاء حساب Authentication (تفادياً لحسابات يتيمة).
-    // الحماية الحقيقية في Firestore Rules أيضاً — هذا الفحص لتجربة المستخدم فقط.
-    isMediaSignupOpen()
-      .then((open) => {
-        if (!open) { const e = new Error('closed'); e.code = 'registration/closed'; throw e; }
-        return auth.createUserWithEmailAndPassword(email, password);
-      })
+    auth.createUserWithEmailAndPassword(email, password)
       .then((userCredential) => {
-        authUserCreated = true;
         const uid = userCredential.user.uid;
-        userCredential.user.sendEmailVerification().catch(() => {}); // تحقق من البريد (مجاني)
         const leaderData = {
           uid: uid,
           fullName: fullName,
           email: email,
           role: 'leader',
-          signupType: signupType,
           accountStatus: 'pending_verification',
           verificationStatus: 'pending',
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
-        if (signupType === 'media_officer') leaderData.leaderRoleTitle = 'مسؤول إعلام';
         return Promise.all([
           db.collection('users').doc(uid).set(leaderData),
           db.collection('leaders').doc(uid).set(leaderData)
@@ -650,7 +624,7 @@ if (leaderRegisterForm) {
       .then(() => {
         checkingBox.style.display = 'none';
         submitBtn.style.display = 'none';
-        successMsg.innerText = 'تم إنشاء حسابك بنجاح! حالته الآن «بانتظار الموافقة» من الإدارة، ولن تحصل على أي صلاحيات قبل ذلك. أُرسل رابط تحقق إلى بريدك الإلكتروني.';
+        successMsg.innerText = 'تم إنشاء حسابك بنجاح! حسابك الآن قيد المراجعة من طرف الإدارة قبل تفعيل الصلاحيات الكاملة.';
         successMsg.style.display = 'block';
         fetchLeadersList();
         fetchAllAccountsForDeleteView();
@@ -658,14 +632,6 @@ if (leaderRegisterForm) {
       .catch((error) => {
         checkingBox.style.display = 'none';
         submitBtn.disabled = false;
-        const closed = (error && (error.code === 'registration/closed' || error.code === 'permission-denied'));
-        // إن أُنشئ حساب Authentication ثم رُفضت كتابة بياناته (التسجيل أُغلق/محاولة تجاوز)، نحذف الحساب اليتيم
-        if (authUserCreated && closed && auth.currentUser) { auth.currentUser.delete().catch(() => {}); }
-        if (closed) {
-          closeModal('leaderRegisterModal');
-          showRegistrationClosed();
-          return;
-        }
         errorMsg.innerText = getRegistrationErrorMessage(error);
       });
   });
@@ -889,11 +855,6 @@ if (mediaPortalForm) {
           checkingBox.style.display = 'none';
           submitBtn.disabled = false;
           errorMsg.innerText = 'حسابك لا يزال قيد المراجعة من طرف الإدارة. سيتم تفعيله بعد الموافقة.';
-        } else if (doc.data().accountStatus === 'rejected') {
-          auth.signOut();
-          checkingBox.style.display = 'none';
-          submitBtn.disabled = false;
-          errorMsg.innerText = 'تم رفض طلب إنشاء هذا الحساب من طرف الإدارة.';
         } else if (doc.data().accountStatus === 'suspended' || doc.data().accountStatus === 'locked') {
           auth.signOut();
           checkingBox.style.display = 'none';
@@ -1047,7 +1008,7 @@ function updateDashboardAccessButton(userData) {
   const desktopBtn = document.getElementById('desktopDashboardReturnBtn');
   const mobileItem = document.getElementById('mobileDashboardReturnItem');
   if (desktopBtn) desktopBtn.style.display = canAccess ? 'inline-flex' : 'none';
-  if (mobileItem) setAuthVisible(mobileItem, canAccess, 'block');
+  if (mobileItem) mobileItem.style.display = canAccess ? 'block' : 'none';
 }
 
 // العودة إلى لوحة التعديلات دون الحاجة لإعادة تسجيل الدخول — الجلسة فعّالة أصلاً
@@ -1588,9 +1549,7 @@ function fetchLeadersList() {
       // مصدر الحساب: مُنشأ من الإدارة (createdBy موجود) أو تسجيل ذاتي (غير موجود)
       const sourceBadge = leader.createdBy
         ? '<span class="status-badge source-badge-admin"><i class="fa-solid fa-user-shield"></i> قائد مُنشأ من الإدارة</span>'
-        : (leader.signupType === 'media_officer'
-            ? '<span class="status-badge source-badge-self"><i class="fa-solid fa-bullhorn"></i> طلب مسؤول إعلام / تسجيل ذاتي</span>'
-            : '<span class="status-badge source-badge-self"><i class="fa-solid fa-user-pen"></i> طلب قائد / تسجيل ذاتي</span>');
+        : '<span class="status-badge source-badge-self"><i class="fa-solid fa-user-pen"></i> طلب قائد / تسجيل ذاتي</span>';
 
       card.innerHTML = `
         <div class="leader-card-info">
@@ -1601,7 +1560,7 @@ function fetchLeadersList() {
         </div>
         ${isPending ? `
         <div class="announcement-card-actions">
-          <button class="btn-edit" style="background: rgba(34,197,94,0.2); color:#22c55e;" onclick="approveLeaderVerification('${uid}', ${leader.signupType === 'media_officer'})"><i class="fa-solid fa-check"></i> قبول</button>
+          <button class="btn-edit" style="background: rgba(34,197,94,0.2); color:#22c55e;" onclick="approveLeaderVerification('${uid}')"><i class="fa-solid fa-check"></i> قبول</button>
           <button class="btn-delete" onclick="rejectLeaderVerification('${uid}')"><i class="fa-solid fa-xmark"></i> رفض</button>
         </div>` : `
         <div class="announcement-card-actions">
@@ -1618,22 +1577,12 @@ function fetchLeadersList() {
 }
 
 // قبول تحقق القائد: يفعّل حسابه فعلياً في users وleaders معاً
-function approveLeaderVerification(uid, isMediaOfficer) {
+function approveLeaderVerification(uid) {
   const updateData = {
     accountStatus: 'active',
     verificationStatus: 'verified',
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
-  // قبول «مسؤول إعلام»: يُمنح صلاحيات الإعلام الأساسية فقط (دون حذف/إدارة المعرض)،
-  // ويستطيع الأدمن تعديلها لاحقاً من زر «الصلاحيات». غير ذلك: لا صلاحيات تلقائية.
-  if (isMediaOfficer) {
-    updateData.permissions = {
-      'media.portal': true,
-      'announcements.view': true, 'announcements.create': true, 'announcements.edit': true,
-      'gallery.view': true, 'gallery.upload': true
-    };
-    updateData.leaderRoleTitle = 'مسؤول إعلام';
-  }
   Promise.all([
     db.collection('users').doc(uid).update(updateData),
     db.collection('leaders').doc(uid).update(updateData)
@@ -2278,7 +2227,6 @@ function buildImageAreaHtml(kind, data, altText, clickable) {
 }
 
 function handleImageLoadError(img) {
-  console.warn('[الصور] تعذّر تحميل الصورة (404 أو مسار خاطئ): ' + img.src);
   img.style.display = 'none';
   const frame = img.parentElement;
   if (frame) {
@@ -2326,8 +2274,6 @@ function openAnnouncementModal(mode, id) {
   const successMsg = document.getElementById('announcementSuccess');
 
   form.reset();
-  setPickerValue('announcementStartAtInput', '');
-  setPickerValue('announcementEndAtInput', '');
   errorMsg.innerText = '';
   successMsg.style.display = 'none';
 
@@ -2344,10 +2290,10 @@ function openAnnouncementModal(mode, id) {
         contentInput.value = unescapeSanitized(data.content || '');
         imageFileInput.value = data.imageFile || '';
         draftCheckbox.checked = data.published === false;
-        setPickerValue('announcementStartAtInput',
-          data.startAt && data.startAt.toDate ? dateToAlgiersLocalInputValue(data.startAt.toDate()) : '');
-        setPickerValue('announcementEndAtInput',
-          data.endAt && data.endAt.toDate ? dateToAlgiersLocalInputValue(data.endAt.toDate()) : '');
+        document.getElementById('announcementStartAtInput').value =
+          data.startAt && data.startAt.toDate ? dateToAlgiersLocalInputValue(data.startAt.toDate()) : '';
+        document.getElementById('announcementEndAtInput').value =
+          data.endAt && data.endAt.toDate ? dateToAlgiersLocalInputValue(data.endAt.toDate()) : '';
       }
     }).catch((error) => {
       errorMsg.innerText = 'تعذر تحميل بيانات الإعلان: ' + error.message;
@@ -2435,7 +2381,7 @@ if (adminAnnouncementForm) {
     }
 
     // اسم ملف الصورة: اختياري، وصيغته مقيّدة (لا مسارات ولا روابط)
-    const imageFile = cleanLocalImageFileName(rawImageName, 'announcements');
+    const imageFile = cleanLocalImageFileName(rawImageName);
     if (rawImageName && !imageFile) {
       errorMsg.innerText = 'اسم ملف الصورة غير صالح. اكتب اسم الملف فقط مع امتداده (مثال: announcement-001.jpg).';
       return;
@@ -2789,7 +2735,7 @@ if (adminGalleryUploadForm) {
     if (!category) { errorMsg.innerText = 'يرجى اختيار التصنيف.'; return; }
     if (!title) { errorMsg.innerText = 'يرجى كتابة عنوان للصورة.'; return; }
 
-    const imageFile = cleanLocalImageFileName(rawImageName, 'gallery');
+    const imageFile = cleanLocalImageFileName(rawImageName);
     if (rawImageName && !imageFile) {
       errorMsg.innerText = 'اسم ملف الصورة غير صالح. اكتب اسم الملف فقط مع امتداده (مثال: gallery-001.jpg).';
       return;
@@ -2985,7 +2931,6 @@ function refreshSettingsTab() {
   }
   const select = document.getElementById('idleLockSelect');
   if (select) select.value = String(getIdleLockSeconds());
-  if (currentUserRole === 'admin') loadMediaSignupSetting();
   ['settingsEmailMsg', 'settingsPasswordMsg'].forEach((id) => { const el = document.getElementById(id); if (el) el.innerText = ''; });
 }
 
@@ -3249,226 +3194,4 @@ function openHelp(key) {
 
 function closeHelp() {
   document.getElementById('helpModal').style.display = 'none';
-}
-
-/* =========================================================
-   قفل تمرير الصفحة الخلفية عند فتح القوائم الجانبية على الهاتف
-   - يُراقَب صنف .active (قائمة الموقع) و .mobile-open (شريط الأدمن) تلقائياً،
-     فيعمل القفل مع كل طرق الفتح والإغلاق (زر، ×، Escape، الضغط خارجها، تغيير الصفحة).
-   - يُحفظ موضع التمرير ويُستعاد عند الإغلاق دون قفزة.
-   ========================================================= */
-let menuScrollLocked = false;
-let menuScrollY = 0;
-
-function syncMenuScrollLock() {
-  const navMenu = document.getElementById('navMenu');
-  const sidebar = document.getElementById('adminSidebar');
-  const shouldLock = (navMenu && navMenu.classList.contains('active'))
-    || (sidebar && sidebar.classList.contains('mobile-open'));
-
-  if (shouldLock && !menuScrollLocked) {
-    menuScrollY = window.scrollY || window.pageYOffset || 0;
-    document.body.style.position = 'fixed';
-    document.body.style.top = (-menuScrollY) + 'px';
-    document.body.style.left = '0';
-    document.body.style.right = '0';
-    document.body.style.width = '100%';
-    document.body.classList.add('menu-scroll-locked');
-    menuScrollLocked = true;
-  } else if (!shouldLock && menuScrollLocked) {
-    document.body.style.position = '';
-    document.body.style.top = '';
-    document.body.style.left = '';
-    document.body.style.right = '';
-    document.body.style.width = '';
-    document.body.classList.remove('menu-scroll-locked');
-    menuScrollLocked = false;
-    // عند الانتقال إلى صفحة أخرى من القائمة نعود للأعلى، وإلا نستعيد الموضع السابق
-    window.scrollTo(0, window.__forceScrollTop ? 0 : menuScrollY);
-    window.__forceScrollTop = false;
-  }
-}
-
-(function initMenuScrollLock() {
-  const observer = new MutationObserver(syncMenuScrollLock);
-  ['navMenu', 'adminSidebar'].forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) observer.observe(el, { attributes: true, attributeFilter: ['class'] });
-  });
-
-  // الضغط خارج قائمة الموقع يغلقها
-  document.addEventListener('click', (e) => {
-    const navMenu = document.getElementById('navMenu');
-    if (!navMenu || !navMenu.classList.contains('active')) return;
-    if (navMenu.contains(e.target) || (e.target.closest && e.target.closest('.mobile-menu-btn'))) return;
-    navMenu.classList.remove('active');
-  });
-
-  // عند التكبير إلى شاشة حاسوب لا نترك الصفحة مقفلة
-  window.addEventListener('resize', () => {
-    if (window.innerWidth > 900) {
-      const navMenu = document.getElementById('navMenu');
-      const sidebar = document.getElementById('adminSidebar');
-      if (navMenu) navMenu.classList.remove('active');
-      if (sidebar) sidebar.classList.remove('mobile-open');
-      const overlay = document.getElementById('adminSidebarOverlay');
-      if (overlay) overlay.classList.remove('active');
-    }
-  });
-})();
-
-
-/* =========================================================
-   فحص فوري لاسم ملف الصورة في نماذج الإدارة + اقتراحات من LOCAL_IMAGE_LIBRARY
-   يُظهر ✔ إن كان الملف موجوداً فعلاً على الموقع، أو تحذيراً بالمسار الذي بُحث عنه.
-   ========================================================= */
-function attachImageFileChecker(inputId, kind) {
-  const input = document.getElementById(inputId);
-  if (!input) return;
-
-  // قائمة الاقتراحات
-  const listId = inputId + 'List';
-  const library = (LOCAL_IMAGE_LIBRARY && LOCAL_IMAGE_LIBRARY[kind]) || [];
-  if (library.length) {
-    const dl = document.createElement('datalist');
-    dl.id = listId;
-    library.forEach((name) => { const o = document.createElement('option'); o.value = name; dl.appendChild(o); });
-    input.parentNode.appendChild(dl);
-    input.setAttribute('list', listId);
-  }
-
-  // سطر النتيجة تحت الحقل
-  const status = document.createElement('p');
-  status.className = 'image-check-msg';
-  const anchor = input.closest('.input-box') || input;
-  anchor.insertAdjacentElement('afterend', status);
-
-  let timer = null;
-  const check = () => {
-    const raw = input.value.trim();
-    status.className = 'image-check-msg';
-    status.innerText = '';
-    if (!raw) return;
-    const clean = cleanLocalImageFileName(raw, kind);
-    if (!clean) { status.classList.add('is-bad'); status.innerText = '✖ اسم غير صالح. اكتب اسم الملف فقط مع امتداده (jpg/png/webp/gif).'; return; }
-    const path = resolveLocalImagePath(kind, clean);
-    const probe = new Image();
-    probe.onload = () => { status.classList.add('is-ok'); status.innerText = '✔ الصورة موجودة: ' + path; };
-    probe.onerror = () => { status.classList.add('is-bad'); status.innerText = '⚠ الملف غير موجود على الموقع المنشور في: ' + path + ' — تأكد من رفعه إلى GitHub ومن تطابق الأحرف الكبيرة/الصغيرة.'; };
-    probe.src = path + '?v=' + Date.now();
-  };
-  input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(check, 400); });
-  input.addEventListener('change', check);
-}
-
-
-/* =========================================================
-   التسجيل الذاتي لمسؤولي الإعلام/القادة — يتحكم به الأدمن من الإعدادات
-   الإعداد محفوظ في Firestore: settings/registration { allowMediaOfficerSignup: true|false }
-   الحماية الحقيقية: قواعد Firestore ترفض إنشاء مستند مستخدم بدور leader عندما يكون مغلقاً
-   (راجع mediaSignupOpen() في firestore.rules). فحص الواجهة هنا للتجربة فقط.
-   ========================================================= */
-let currentLeaderSignupType = 'leader_request';
-
-function isMediaSignupOpen() {
-  return db.collection('settings').doc('registration').get()
-    .then((doc) => doc.exists && doc.data().allowMediaOfficerSignup === true)
-    .catch(() => false); // أي فشل = نعتبره مغلقاً (الأكثر أماناً)
-}
-
-function showRegistrationClosed() {
-  openModal('registrationClosedModal');
-}
-
-function openLeaderRegistration(signupType) {
-  isMediaSignupOpen().then((open) => {
-    if (!open) { showRegistrationClosed(); return; }
-    currentLeaderSignupType = signupType;
-    const heading = document.getElementById('leaderRegModalHeading');
-    if (heading) heading.innerText = signupType === 'media_officer' ? 'طلب إنشاء حساب مسؤول إعلام' : 'طلب إنشاء حساب قائد';
-    openModal('leaderRegisterModal');
-  });
-}
-
-function openMediaOfficerSignup() {
-  closeModal('mediaPortalModal');
-  openLeaderRegistration('media_officer');
-}
-
-// الأدمن: تحميل وحفظ إعداد فتح/إغلاق التسجيل
-function loadMediaSignupSetting() {
-  const toggle = document.getElementById('allowMediaSignupToggle');
-  const label = document.getElementById('allowMediaSignupLabel');
-  if (!toggle) return;
-  isMediaSignupOpen().then((open) => {
-    toggle.checked = open;
-    label.innerText = open ? 'التسجيل مفتوح' : 'التسجيل مغلق';
-  });
-}
-
-function saveMediaSignupSetting(checked) {
-  const toggle = document.getElementById('allowMediaSignupToggle');
-  const label = document.getElementById('allowMediaSignupLabel');
-  const msg = document.getElementById('mediaSignupMsg');
-  msg.style.color = '';
-  msg.innerText = '';
-  toggle.disabled = true;
-
-  db.collection('settings').doc('registration').set({
-    allowMediaOfficerSignup: !!checked,
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    updatedBy: auth.currentUser ? auth.currentUser.uid : null
-  }, { merge: true }).then(() => {
-    label.innerText = checked ? 'التسجيل مفتوح' : 'التسجيل مغلق';
-    msg.style.color = '#22c55e';
-    msg.innerText = checked ? 'تم فتح التسجيل.' : 'تم إغلاق التسجيل.';
-  }).catch((error) => {
-    toggle.checked = !checked; // تراجع عن الواجهة إن رفض Firestore
-    msg.innerText = 'تعذّر حفظ الإعداد: ' + error.message;
-  }).then(() => { toggle.disabled = false; });
-}
-
-/* =========================================================
-   منتقي تاريخ ووقت حديث (flatpickr) لحقول موعد النشر/الانتهاء
-   - القيمة المحفوظة تبقى نفس الصيغة السابقة (YYYY-MM-DDTHH:mm بتوقيت الجزائر)
-     فلا يتغير منطق الجدولة ولا توافق البيانات القديمة.
-   - إن لم تُحمَّل المكتبة (انقطاع CDN) يبقى حقل datetime-local الأصلي يعمل.
-   ========================================================= */
-function initDateTimePickers() {
-  if (typeof flatpickr === 'undefined') return;
-  const locale = (flatpickr.l10ns && flatpickr.l10ns.ar) ? flatpickr.l10ns.ar : 'default';
-  ['announcementStartAtInput', 'announcementEndAtInput'].forEach((id) => {
-    const el = document.getElementById(id);
-    if (!el || el._flatpickr) return;
-    flatpickr(el, {
-      enableTime: true,
-      time_24hr: true,
-      minuteIncrement: 1,
-      dateFormat: 'Y-m-d\\TH:i',
-      altInput: true,
-      altFormat: 'l j F Y — H:i',
-      altInputClass: 'flatpickr-alt-input',
-      locale: locale,
-      disableMobile: true,
-      allowInput: false,
-      onReady: (selected, str, instance) => {
-        const clearBtn = document.createElement('button');
-        clearBtn.type = 'button';
-        clearBtn.className = 'flatpickr-clear-btn';
-        clearBtn.innerText = 'مسح الموعد';
-        clearBtn.addEventListener('click', () => { instance.clear(); instance.close(); });
-        instance.calendarContainer.appendChild(clearBtn);
-      }
-    });
-  });
-}
-
-function setPickerValue(id, value) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  if (el._flatpickr) {
-    if (value) el._flatpickr.setDate(value, false); else el._flatpickr.clear(false);
-  } else {
-    el.value = value || '';
-  }
 }
