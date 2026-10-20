@@ -14,8 +14,8 @@
 // مجلدات الصور — مسارات نسبية متوافقة مع GitHub Pages (لا تستخدم مسارات الحاسوب مثل C:\...)
 // إن أردت تغيير مكان المجلدات مستقبلاً، عدّل هذين السطرين فقط:
 const LOCAL_IMAGE_FOLDERS = {
-  announcements: 'assets/images/announcements-10.png/',
-  gallery: 'assets/images/gallery-logo elwihda.png/'
+  announcements: 'assets/images/announcements/',
+  gallery: 'assets/images/gallery/'
 };
 
 // اسم الملف المسموح: حروف/أرقام/نقطة/شرطة فقط + امتداد صورة. لا يُسمح بأي "/" أو ".."
