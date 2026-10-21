@@ -1320,3 +1320,43 @@ h2 .help-btn { margin-right: 10px; vertical-align: middle; }
 .idle-lock-box > i { font-size: 2.4rem; color: var(--accent-gold); margin-bottom: 10px; }
 .idle-lock-box h2 { font-size: 1.1rem; margin-bottom: 6px; }
 .idle-lock-box p { color: #cbd5e1; font-size: 0.85rem; margin-bottom: 14px; }
+
+
+/* عناصر قائمة الهاتف المخفية حسب حالة الدخول (تتغلب على display:block !important) */
+@media (max-width: 900px) {
+  .mobile-only.auth-hidden { display: none !important; }
+}
+
+/* التمرير داخل القوائم الجانبية فقط، دون تمرير الصفحة الخلفية */
+.nav-menu, .admin-sidebar { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+body.menu-scroll-locked { overflow: hidden; }
+
+/* نتيجة فحص اسم ملف الصورة */
+.image-check-msg { font-size: 0.78rem; margin: -6px 0 10px; min-height: 1em; color: #94a3b8; word-break: break-all; }
+.image-check-msg.is-ok { color: #22c55e; }
+.image-check-msg.is-bad { color: #fbbf24; }
+
+/* شعار داخل نافذة الدخول/التسجيل — تناسب الأبعاد دون تمديد */
+.modal-logo { height: 64px; width: auto; max-width: 100%; object-fit: contain; margin-bottom: 8px; }
+
+/* منتقي التاريخ والوقت: ظهوره فوق النوافذ + تنسيق الحقل بألوان الموقع */
+.flatpickr-calendar { z-index: 260000 !important; }
+.flatpickr-alt-input {
+  width: 100%; padding: 12px 15px; background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(241,207,121,0.3); border-radius: 10px; color: #fff;
+  font-size: 0.9rem; font-family: 'Cairo', sans-serif; direction: rtl; text-align: right; cursor: pointer;
+}
+.flatpickr-alt-input::placeholder { color: #94a3b8; }
+.flatpickr-clear-btn {
+  width: calc(100% - 16px); margin: 6px 8px 8px; padding: 8px; background: rgba(239,68,68,0.15);
+  color: #fca5a5; border: 1px solid rgba(239,68,68,0.4); border-radius: 8px; cursor: pointer;
+  font-weight: 700; font-family: 'Cairo', sans-serif;
+}
+
+/* مفتاح تشغيل/إيقاف (تسجيل مسؤولي الإعلام) */
+.switch-row { display: flex; align-items: center; gap: 12px; cursor: pointer; font-weight: 700; margin: 6px 0 10px; }
+.switch-row input { display: none; }
+.switch-track { width: 48px; height: 26px; border-radius: 20px; background: rgba(148,163,184,0.4); position: relative; transition: background .2s; flex-shrink: 0; }
+.switch-thumb { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: right .2s; }
+.switch-row input:checked + .switch-track { background: #22c55e; }
+.switch-row input:checked + .switch-track .switch-thumb { right: 25px; }

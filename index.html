@@ -3,10 +3,29 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>فوج الوحدة الكشفي - الكشافة الإسلامية الجزائرية</title>
+  <title>فوج الوحدة الكشفي - الكشافة الإسلامية الجزائرية | المنصة الرقمية</title>
+  <meta name="description" content="المنصة الرقمية لفوج الوحدة الكشفي (الكشافة الإسلامية الجزائرية): الإعلانات، المعرض الرقمي، الوحدات الكشفية، وحسابات الكشافين والأولياء والقادة.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://mohaminekhe-svg.github.io/scout-elwihda/">
+  <meta name="theme-color" content="#1b3280">
+  <link rel="icon" type="image/png" href="logo%20elwihda.png">
+  <link rel="apple-touch-icon" href="logo%20elwihda.png">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ar_DZ">
+  <meta property="og:site_name" content="فوج الوحدة الكشفي">
+  <meta property="og:title" content="فوج الوحدة الكشفي - الكشافة الإسلامية الجزائرية | المنصة الرقمية">
+  <meta property="og:description" content="المنصة الرقمية لفوج الوحدة الكشفي: الإعلانات، المعرض الرقمي، والوحدات الكشفية.">
+  <meta property="og:url" content="https://mohaminekhe-svg.github.io/scout-elwihda/">
+  <meta property="og:image" content="https://mohaminekhe-svg.github.io/scout-elwihda/logo%20elwihda.png">
+  <meta name="twitter:card" content="summary">
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"Organization","name":"فوج الوحدة الكشفي","alternateName":"Scout Elwihda","url":"https://mohaminekhe-svg.github.io/scout-elwihda/","logo":"https://mohaminekhe-svg.github.io/scout-elwihda/logo%20elwihda.png","parentOrganization":{"@type":"Organization","name":"الكشافة الإسلامية الجزائرية"}}
+  </script>
   
   <!-- مكتبة الأيقونات Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/themes/dark.min.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -26,7 +45,7 @@
     <aside class="admin-sidebar" id="adminSidebar">
       <div class="sidebar-header">
         <button type="button" class="admin-sidebar-close-btn" onclick="toggleAdminSidebar()" aria-label="إغلاق القائمة"><i class="fa-solid fa-xmark"></i></button>
-        <img src="./logo elwihda.png" alt="فوج الوحدة الكشفي" class="sidebar-logo">
+        <img src="logo%20elwihda.png" alt="فوج الوحدة الكشفي" class="sidebar-logo">
         <div class="sidebar-brand">
           <h2 id="adminSidebarTitle">واجهة الأدمن</h2>
           <p>فوج الوحدة الكشفي</p>
@@ -257,6 +276,17 @@
           <h2 id="settingsTabTitle"><i class="fa-solid fa-sliders"></i> إعدادات الحساب</h2>
           <p id="settingsAccountSummary" class="step-desc"></p>
 
+          <div class="settings-card admin-only-nav" id="mediaSignupSettingsCard">
+            <h3><i class="fa-solid fa-user-plus"></i> السماح بإنشاء حسابات مسؤولي الإعلام</h3>
+            <label class="switch-row">
+              <input type="checkbox" id="allowMediaSignupToggle" onchange="saveMediaSignupSetting(this.checked)">
+              <span class="switch-track"><span class="switch-thumb"></span></span>
+              <span id="allowMediaSignupLabel">جاري التحميل...</span>
+            </label>
+            <p class="input-hint">عند الإيقاف: لا يستطيع أحد إنشاء حساب قائد/مسؤول إعلام جديد (يُرفض من قواعد Firestore نفسها)، وتبقى الحسابات المعتمدة تعمل. الحسابات الجديدة تبقى «بانتظار الموافقة» حتى تقبلها أنت.</p>
+            <p id="mediaSignupMsg" class="error-msg bold-text"></p>
+          </div>
+
           <div class="settings-card">
             <h3><i class="fa-solid fa-envelope"></i> تغيير البريد الإلكتروني</h3>
             <div class="input-box hover-lift">
@@ -339,12 +369,12 @@
       <div class="nav-container">
 
         <a href="#" onclick="showPage('home-page')" class="brand-logo hover-lift">
-          <img src="./logo sma.png" alt="الكشافة الإسلامية الجزائرية" class="nav-logo">
+          <img src="logo%20sma.png" alt="الكشافة الإسلامية الجزائرية" class="nav-logo">
           <div class="brand-text">
             <h1>الكشافة الإسلامية الجزائرية</h1>
             <p>فوج الوحدة</p>
           </div>
-          <img src="./logo elwihda.png" alt="فوج الوحدة الكشفي" class="nav-logo">
+          <img src="logo%20elwihda.png" alt="فوج الوحدة الكشفي" class="nav-logo">
         </a>
 
         <!-- أزرار التنقل الرئيسية -->
@@ -375,18 +405,18 @@
               <i class="fa-solid fa-user-shield"></i> <span>دخول الأدمن</span>
             </button>
           </li>
-          <li class="menu-auth-item mobile-only auth-user-btn" style="display: none;">
+          <li class="menu-auth-item mobile-only auth-user-btn auth-hidden">
             <div class="user-chip full-width-btn" id="mobileUserChip" onclick="scrollToUserCard()">
               <span class="user-chip-avatar" id="mobileUserChipAvatar"><i class="fa-solid fa-circle-user"></i></span>
               <span class="user-chip-name" id="mobileUserChipName">عضو الفوج</span>
             </div>
           </li>
-          <li class="menu-auth-item" id="mobileDashboardReturnItem" style="display: none;">
+          <li class="menu-auth-item mobile-only auth-hidden" id="mobileDashboardReturnItem">
             <button id="mobileDashboardReturnBtn" onclick="returnToDashboard()" class="btn-back-to-site hover-lift border-none-btn full-width-btn">
               <i class="fa-solid fa-gauge"></i> <span>العودة إلى لوحة التعديلات</span>
             </button>
           </li>
-          <li class="menu-auth-item mobile-only auth-user-btn" style="display: none;">
+          <li class="menu-auth-item mobile-only auth-user-btn auth-hidden">
             <button onclick="handleUserLogout()" class="btn-admin-red hover-lift border-none-btn full-width-btn">
               <i class="fa-solid fa-right-from-bracket"></i> <span>تسجيل الخروج</span>
             </button>
@@ -459,7 +489,7 @@
                 <span class="stat-label">كشاف ومشارك</span>
               </div>
               <div class="stat-item hover-lift">
-                <span class="stat-number">+20</span>
+                <span class="stat-number">+300</span>
                 <span class="stat-label">مخيم ونشاط ميداني</span>
               </div>
               <div class="stat-item hover-lift">
@@ -672,7 +702,7 @@
       </button>
       <div class="welcome-box">
         <div class="welcome-overlay hover-lift">
-          <div class="scout-badge-icon hover-lift"><i class="fa-solid fa-users"></i></div>
+          <img src="logo%20elwihda.png" alt="شعار فوج الوحدة الكشفي" class="modal-logo">
           <h3>مرحباً بك</h3>
           <p>حدد صفك الكشفي للمتابعة في المنصة</p>
         </div>
@@ -763,7 +793,7 @@
         </div>
       </div>
       <div class="form-box">
-        <h2>إنشاء حساب قائد جديد</h2>
+        <h2 id="leaderRegModalHeading">إنشاء حساب قائد جديد</h2>
         <p class="step-desc">يرجى إدخال البيانات بدقة لإنشاء حسابك الكشفي القيادي</p>
         <form id="leaderRegisterForm" novalidate>
           <div class="input-box hover-lift">
@@ -1093,12 +1123,12 @@
           <div class="field-group-title mt-10"><i class="fa-solid fa-clock"></i> توقيت النشر (اختياري — بتوقيت الجزائر)</div>
           <div class="input-row">
             <div class="input-box hover-lift">
-              <label class="select-label">وقت البداية (اتركه فارغاً للنشر الفوري)</label>
-              <input type="datetime-local" id="announcementStartAtInput" dir="ltr">
+              <label class="select-label">موعد النشر (اتركه فارغاً للنشر الفوري)</label>
+              <input type="datetime-local" id="announcementStartAtInput" dir="ltr" placeholder="اختر تاريخ ووقت النشر">
             </div>
             <div class="input-box hover-lift">
-              <label class="select-label">وقت الانتهاء (اتركه فارغاً لعدم الانتهاء)</label>
-              <input type="datetime-local" id="announcementEndAtInput" dir="ltr">
+              <label class="select-label">موعد انتهاء العرض (اتركه فارغاً لعدم الانتهاء)</label>
+              <input type="datetime-local" id="announcementEndAtInput" dir="ltr" placeholder="اختر تاريخ ووقت الانتهاء">
             </div>
           </div>
           <p class="input-hint">بتوقيت الجزائر (Africa/Algiers). اتركهما فارغين لإعلان عادي يُنشر فوراً وبلا انتهاء.</p>
@@ -1473,7 +1503,22 @@
           <button type="submit" id="mediaSubmitBtn" class="glow-btn hover-lift">دخول الإعلام والنشر</button>
 
           <p class="forgot-password-link" onclick="closeModal('mediaPortalModal'); openModal('accessRecoveryModal');">هل نسيت الرمز؟</p>
+          <p class="forgot-password-link" onclick="openMediaOfficerSignup()">ليس لديك حساب؟ طلب إنشاء حساب مسؤول إعلام</p>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة: التسجيل مغلق حالياً -->
+  <div id="registrationClosedModal" class="modal-overlay" style="display: none;">
+    <div class="scout-card-container hover-lift">
+      <button class="close-btn hover-lift" onclick="closeModal('registrationClosedModal')" aria-label="إغلاق">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="form-box" style="text-align:center;">
+        <h2><i class="fa-solid fa-lock"></i> التسجيل مغلق</h2>
+        <p class="step-desc" style="font-size:1rem;">إنشاء الحسابات غير متاح حاليًا، يرجى التواصل مع إدارة الفوج.</p>
+        <button type="button" class="glow-btn hover-lift mt-10" onclick="closeModal('registrationClosedModal')">حسناً</button>
       </div>
     </div>
   </div>
@@ -1591,6 +1636,8 @@
     </div>
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/ar.min.js"></script>
   <script src="content-config.js"></script>
   <script src="script.js"></script>
   <script>
@@ -1612,6 +1659,8 @@
       const navMenu = document.getElementById('navMenu');
       if(navMenu) navMenu.classList.remove('active');
 
+      // إن كانت قائمة الهاتف مفتوحة (والصفحة مقفلة)، نطلب العودة للأعلى عند إغلاقها بعد الانتقال
+      if (document.body.classList.contains('menu-scroll-locked')) window.__forceScrollTop = true;
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
       // حفظ الصفحة الحالية في الرابط حتى تبقى نفسها بعد Refresh
