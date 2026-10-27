@@ -20,13 +20,17 @@
 // عدّل هذين السطرين فقط. (أي قيمة تنتهي بـ .png/.jpg تُعتبر خطأً وتُتجاهل تلقائياً.)
 const LOCAL_IMAGE_FOLDERS = {
   announcements: 'assets/images/announcements/',
-  gallery: 'assets/images/gallery/'
+  gallery: 'assets/images/gallery/',
+  units: 'assets/images/units/',
+  activities: 'assets/images/activities/'
 };
 
 // المجلدات الافتراضية الاحتياطية (لا تعدّلها)
 const LOCAL_IMAGE_DEFAULT_FOLDERS = {
   announcements: 'assets/images/announcements/',
-  gallery: 'assets/images/gallery/'
+  gallery: 'assets/images/gallery/',
+  units: 'assets/images/units/',
+  activities: 'assets/images/activities/'
 };
 
 // قائمة اختيارية بأسماء الملفات المتوفرة (اقتراحات تلقائية فقط — ليست شرطاً لظهور الصورة).

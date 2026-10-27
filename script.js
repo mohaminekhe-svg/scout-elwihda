@@ -127,6 +127,8 @@ function switchAdminTab(tabId, btnElement) {
     if (overlay) overlay.classList.remove('active');
   }
 
+  if (tabId === 'units-tab' && window.V3) { V3.loadAdminUnits(); }
+
   // تحميل بيانات الإعلانات عند فتح تبويب الإعلانات
   if (tabId === 'announcements-tab') {
     ensureGoogleDriveConfigLoaded();
@@ -523,7 +525,7 @@ function scrollToUserCard() {
 }
 
 // استعادة قسم لوحة الأدمن من الرابط (#admin-xxx) بعد Refresh — فقط إذا كان المستخدم يملك صلاحية فعلية
-const VALID_ADMIN_TABS = ['welcome-tab', 'leaders-tab', 'scouts-tab', 'announcements-tab', 'gallery-tab', 'statistics-tab', 'settings-tab'];
+const VALID_ADMIN_TABS = ['welcome-tab', 'leaders-tab', 'scouts-tab', 'announcements-tab', 'gallery-tab', 'units-tab', 'statistics-tab', 'settings-tab'];
 
 function setAdminViewActive(active) {
   const fullBlueScreen = document.getElementById('fullAdminBlueScreen');
@@ -645,22 +647,35 @@ function getFriendlyAuthErrorMessage(error) {
   return null; // لا توجد رسالة خاصة؛ استخدم الرسالة العامة المعتادة
 }
 
+let lastResetRequestAt = 0;
 function handleForgotPassword() {
   const emailInput = document.getElementById('userLoginEmail');
   const errorMsg = document.getElementById('userLoginError');
   const email = emailInput ? emailInput.value.trim() : '';
 
-  if (!email) {
-    errorMsg.innerText = 'يرجى كتابة بريدك الإلكتروني في الحقل أعلاه أولاً.';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+    errorMsg.innerText = 'يرجى كتابة بريد إلكتروني صحيح في حقل البريد أعلاه أولاً.';
     return;
   }
+  // حد مبدئي في الواجهة (ليس حماية أمنية؛ الحماية الفعلية من Firebase): طلب واحد كل 60 ثانية
+  const wait = 60000 - (Date.now() - lastResetRequestAt);
+  if (wait > 0) {
+    errorMsg.innerText = 'تم إرسال طلب قبل قليل. انتظر ' + Math.ceil(wait / 1000) + ' ثانية قبل إعادة المحاولة.';
+    return;
+  }
+  lastResetRequestAt = Date.now();
 
   errorMsg.innerText = 'جاري الإرسال...';
-  const genericMsg = 'إذا كان هذا البريد مرتبطاً بحساب، فستصلك رسالة تحتوي على خطوات إعادة تعيين كلمة المرور.';
+  // رسالة موحّدة لا تكشف إن كان البريد مسجلاً أم لا
+  const genericMsg = 'إذا كان هذا البريد مرتبطاً بحساب، فستصلك رسالة بخطوات إعادة تعيين كلمة المرور. تفقّد أيضاً مجلد الرسائل غير المرغوبة (Spam).';
 
   auth.sendPasswordResetEmail(email)
     .then(() => { errorMsg.innerText = genericMsg; })
-    .catch(() => { errorMsg.innerText = genericMsg; });
+    .catch((err) => {
+      if (err && err.code === 'auth/network-request-failed') { errorMsg.innerText = 'تعذّر الاتصال بالإنترنت. حاول مجدداً.'; lastResetRequestAt = 0; return; }
+      if (err && err.code === 'auth/too-many-requests') { errorMsg.innerText = 'طلبات كثيرة. انتظر بعض الوقت ثم أعد المحاولة.'; return; }
+      errorMsg.innerText = genericMsg;
+    });
 }
 
 // مهلة لأي Promise (لمنع بقاء العملية معلّقة للأبد)
@@ -800,7 +815,10 @@ if (scoutParentRegisterForm) {
 
     const roleChoice = document.querySelector('input[name="scoutParentRoleChoice"]:checked');
     const selectedRole = roleChoice ? roleChoice.value : 'scout';
-    const unit = document.getElementById('scoutParentUnit').value;
+    const unitSel = document.getElementById('scoutParentUnit');
+    const unitId = unitSel.value;
+    const unitOpt = unitSel.options[unitSel.selectedIndex];
+    const unit = unitOpt && unitOpt.dataset ? (unitOpt.dataset.name || '') : '';
     const photoFile = document.getElementById('scoutParentPhotoInput').files[0];
     const fullName = sanitizeInput(document.getElementById('scoutParentFullName').value.trim());
     const parentPhone = document.getElementById('scoutParentPhone').value.trim();
@@ -819,7 +837,7 @@ if (scoutParentRegisterForm) {
     errorMsg.innerText = '';
     successMsg.style.display = 'none';
 
-    if (!unit) {
+    if (!unitId || !unit) {
       errorMsg.innerText = 'يرجى اختيار الوحدة.';
       return;
     }
@@ -892,6 +910,7 @@ if (scoutParentRegisterForm) {
           parentPhone: parentPhone,
           scoutPhone: scoutPhone,
           unit: unit,
+          unitId: unitId,
           role: selectedRole,
           accountStatus: 'active',
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -967,7 +986,7 @@ function renderScoutOrLeaderCard(data) {
             <div><i class="fa-solid fa-envelope"></i> <strong>البريد:</strong> ${escHtml(data.email) || 'غير مدخل'}</div>
             ${data.parentPhone ? `<div><i class="fa-solid fa-phone"></i> <strong>هاتف الولي:</strong> ${escHtml(data.parentPhone)}</div>` : ''}
             ${data.scoutPhone ? `<div><i class="fa-solid fa-mobile-screen"></i> <strong>هاتف الابن:</strong> ${escHtml(data.scoutPhone)}</div>` : ''}
-            ${data.unit ? `<div><i class="fa-solid fa-shield-halved"></i> <strong>الوحدة:</strong> ${escHtml(data.unit)}</div>` : ''}
+            ${data.unit ? `<div><i class="fa-solid fa-shield-halved"></i> <strong>الوحدة:</strong> ${escHtml(window.V3 ? V3.unitLabel(data) : data.unit)}</div>` : ''}
             <div><i class="fa-solid fa-flag"></i> <strong>الفوج:</strong> فوج الوحدة الكشفي</div>
             ${statusLabel ? `<div><i class="fa-solid fa-circle-check"></i> <strong>الحالة:</strong> ${statusLabel}</div>` : ''}
           </div>
@@ -1270,7 +1289,7 @@ function renderPublicGallery() {
     unsubscribePublicGalleryListener = null;
   }
 
-  const categoryLabels = { units: 'الوحدات', gatherings: 'التجمعات', camps: 'المخيمات' };
+  const categoryLabels = { units: 'الوحدات', gatherings: 'التجمعات الكشفية', camps: 'المخيمات', trips: 'الرحلات', activities: 'الأنشطة' };
 
   unsubscribePublicGalleryListener = db.collection('gallery').orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
     if (snapshot.empty) {
@@ -1419,6 +1438,12 @@ function applyGalleryFilter(category) {
     const show = category === 'all' || card.getAttribute('data-category') === category;
     card.style.display = show ? 'block' : 'none';
   });
+  const emptyEl = document.getElementById('galleryFilterEmpty');
+  if (emptyEl) {
+    const total = document.querySelectorAll('.gallery-card').length;
+    const visible = Array.from(document.querySelectorAll('.gallery-card')).filter((c) => c.style.display !== 'none').length;
+    emptyEl.style.display = (total > 0 && visible === 0) ? 'block' : 'none';
+  }
 }
 
 function filterGallery(category, btnElement) {
@@ -1683,7 +1708,7 @@ function renderScoutsParentsList(list) {
       <div class="acc-avatar">${photo ? `<img src="${escHtml(photo)}" alt="" loading="lazy" onerror="this.parentNode.innerHTML='<i class=&quot;fa-solid fa-user-graduate&quot;></i>'">` : '<i class="fa-solid fa-user-graduate" aria-hidden="true"></i>'}</div>
       <div class="acc-info">
         <h3>${escHtml(user.fullName) || 'بدون اسم'}</h3>
-        <p><i class="fa-solid ${user.role === 'scout' ? 'fa-user-graduate' : 'fa-user-shield'}"></i> ${user.role === 'scout' ? 'كشاف' : 'ولي'}${user.unit ? ' — ' + escHtml(user.unit) : ''} &nbsp; ${scoutStatusBadge(user)}</p>
+        <p><i class="fa-solid ${user.role === 'scout' ? 'fa-user-graduate' : 'fa-user-shield'}"></i> ${user.role === 'scout' ? 'كشاف' : 'ولي'}${user.unit ? ' — ' + escHtml(window.V3 ? V3.unitLabel(user) : user.unit) : ''} &nbsp; ${scoutStatusBadge(user)}</p>
         <p><i class="fa-solid fa-envelope"></i> <bdi dir="ltr">${escHtml(user.email)}</bdi></p>
         ${user.parentPhone ? `<p><i class="fa-solid fa-phone"></i> ولي الأمر: <bdi dir="ltr">${escHtml(user.parentPhone)}</bdi></p>` : ''}
         ${user.scoutPhone ? `<p><i class="fa-solid fa-mobile-screen"></i> الكشاف: <bdi dir="ltr">${escHtml(user.scoutPhone)}</bdi></p>` : ''}
@@ -3008,6 +3033,7 @@ function tickPublicAnnouncements() {
 
       const card = document.createElement('div');
       card.className = 'public-announcement-card hover-lift';
+      card.setAttribute('data-category', data.category || '');
       card.innerHTML = `
         ${data.category ? `<span class="news-category-badge">${escHtml(newsCategoryLabel(data.category))}</span>` : ''}
         <h3>${escHtml(data.title)}</h3>
@@ -3023,6 +3049,7 @@ function tickPublicAnnouncements() {
       `;
       container.appendChild(card);
     });
+    if (window.V3) V3.applyBulletinFilter();
   }
 
   // تحديث العدّادات في مكانها كل ثانية دون إعادة بناء البطاقات
@@ -3297,7 +3324,7 @@ function loadGalleryAdmin() {
   if (adminGalleryUploadForm) adminGalleryUploadForm.style.display = can('gallery.upload') ? '' : 'none';
 
   container.innerHTML = '<p class="announcements-loading-text"><i class="fa-solid fa-spinner fa-spin"></i> جاري التحميل...</p>';
-  const categoryLabels = { units: 'الوحدات', gatherings: 'التجمعات', camps: 'المخيمات' };
+  const categoryLabels = { units: 'الوحدات', gatherings: 'التجمعات الكشفية', camps: 'المخيمات', trips: 'الرحلات', activities: 'الأنشطة' };
 
   unsubscribeGalleryAdminListener = db.collection('gallery').orderBy('createdAt', 'desc')
     .onSnapshot((snapshot) => {

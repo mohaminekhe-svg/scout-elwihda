@@ -32,8 +32,26 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/themes/dark.min.css">
   <link rel="stylesheet" href="style.css?v=20261024-16">
   <link rel="stylesheet" href="site-extras.css?v=20261026-1">
+  <link rel="stylesheet" href="site-v3.css?v=20261027-1">
 </head>
 <body>
+
+  <script>try{if(sessionStorage.getItem('se_splash_seen')||/^#(news-|admin-|locked)/.test(location.hash))document.documentElement.classList.add('no-splash')}catch(e){}</script>
+  <!-- شاشة الترحيب: تظهر مرة واحدة لكل جلسة، ويمكن تخطيها فوراً -->
+  <div id="splashScreen" class="splash" role="dialog" aria-modal="true" aria-labelledby="splashTitle">
+    <div class="splash-inner">
+      <div class="splash-logos">
+        <img src="logo%20sma.png" alt="شعار الكشافة الإسلامية الجزائرية">
+        <img src="logo%20elwihda.png" alt="شعار فوج الوحدة الكشفي">
+      </div>
+      <p class="splash-org">الكشافة الإسلامية الجزائرية — محافظة ولاية الجزائر</p>
+      <h2 id="splashTitle">أهلاً بكم في فوج الوحدة الكشفي</h2>
+      <p class="splash-sub">تربية - قيادة - مواطنة</p>
+      <div class="splash-progress" role="progressbar" aria-label="جاري تحميل الموقع" aria-valuemin="0" aria-valuemax="100"><span id="splashBar"></span></div>
+      <p class="splash-status" id="splashStatus">جاري تجهيز الموقع...</p>
+      <button type="button" class="splash-skip" id="splashSkip">دخول الموقع الآن</button>
+    </div>
+  </div>
 
   <!-- الشاشة الزرقاء الداكنة الكاملة الخاصة بالأدمن -->
   <div id="fullAdminBlueScreen" class="full-admin-blue-screen" style="display: none;">
@@ -78,6 +96,10 @@
         <button class="admin-nav-btn hover-lift" data-requires-permission="gallery.view" onclick="switchAdminTab('gallery-tab', this)">
           <i class="fa-solid fa-images"></i>
           <span>المعرض الرقمي</span>
+        </button>
+        <button class="admin-nav-btn hover-lift admin-only-nav" onclick="switchAdminTab('units-tab', this)">
+          <i class="fa-solid fa-people-group"></i>
+          <span>الوحدات الكشفية</span>
         </button>
         <button class="admin-nav-btn hover-lift admin-only-nav" onclick="switchAdminTab('statistics-tab', this)">
           <i class="fa-solid fa-chart-simple"></i>
@@ -183,6 +205,26 @@
       </div>
 
       <!-- 4. لوحة إدارة الإعلانات -->
+      <div id="units-tab" class="admin-tab-content">
+        <div class="admin-section-card">
+          <h2><i class="fa-solid fa-people-group"></i> إدارة الوحدات الكشفية</h2>
+          <p>إضافة الوحدات وتعديلها وإخفاؤها وترتيبها، وإدارة نشاطاتها. لا تُنشر معلومات الاتصال إلا بتفعيل خيار النشر صراحةً.</p>
+          <div class="v3-admin-actions">
+            <button type="button" class="glow-btn btn-green hover-lift" onclick="V3.openUnitForm()"><i class="fa-solid fa-plus"></i> إضافة وحدة</button>
+            <button type="button" class="glow-btn hover-lift" onclick="V3.seedDefaultUnits()"><i class="fa-solid fa-seedling"></i> إضافة الوحدات المقترحة (إن كانت القائمة فارغة)</button>
+            <button type="button" class="glow-btn hover-lift" onclick="V3.refreshScoutCounts()"><i class="fa-solid fa-rotate"></i> تحديث أعداد الكشافين</button>
+          </div>
+          <p id="unitsAdminMsg" class="error-msg bold-text" role="status"></p>
+          <div id="unitsAdminList" class="v3-admin-list"><p class="announcements-loading-text"><i class="fa-solid fa-spinner fa-spin"></i> جاري التحميل...</p></div>
+
+          <h3 class="v3-sub-title mt-20"><i class="fa-solid fa-calendar-days"></i> نشاطات الوحدات والتجمعات</h3>
+          <div class="v3-admin-actions">
+            <button type="button" class="glow-btn btn-green hover-lift" onclick="V3.openActivityForm()"><i class="fa-solid fa-plus"></i> إضافة نشاط</button>
+          </div>
+          <div id="activitiesAdminList" class="v3-admin-list"></div>
+        </div>
+      </div>
+
       <div id="announcements-tab" class="admin-tab-content">
         <div class="admin-section-card">
           <h2><i class="fa-solid fa-bullhorn"></i> إدارة الإعلانات والنشرات</h2>
@@ -248,6 +290,8 @@
                 <option value="units">الوحدات</option>
                 <option value="gatherings">التجمعات</option>
                 <option value="camps">المخيمات</option>
+                <option value="trips">الرحلات</option>
+                <option value="activities">الأنشطة</option>
               </select>
             </div>
 
@@ -508,17 +552,44 @@
         </a>
 
         <!-- أزرار التنقل الرئيسية -->
-        <ul class="nav-menu" id="navMenu">
+        <ul class="nav-menu" id="navMenu" aria-label="القائمة الرئيسية">
           <li class="mobile-only nav-menu-close-item"><button type="button" class="menu-close-btn" onclick="toggleMobileMenu()" aria-label="إغلاق القائمة"><i class="fa-solid fa-xmark"></i></button></li>
-          <li><button onclick="showPage('home-page')" class="nav-btn active hover-lift">الرئيسية</button></li>
-          <li><button onclick="showPage('units-page')" class="nav-btn hover-lift">الوحدات</button></li>
-          <li>
-            <button onclick="showPage('bulletin-page')" class="nav-btn nav-link-bulletin hover-lift">
-              <span class="red-dot announcements-dot pulse-glow" title="يوجد إعلانات نشطة"></span> الإعلانات
-            </button>
+          <li class="nav-group" data-page="home-page">
+            <button type="button" class="nav-btn nav-group-btn active hover-lift" data-page="home-page" aria-expanded="false"><span><i class="fa-solid fa-house" aria-hidden="true"></i> الرئيسية</span><i class="fa-solid fa-chevron-down nav-chevron" aria-hidden="true"></i></button>
+            <ul class="nav-sub" hidden>
+              <li><button type="button" class="nav-sub-btn" data-page="home-page" data-anchor="latest-news">آخر الأخبار</button></li>
+              <li><button type="button" class="nav-sub-btn" data-page="home-page" data-anchor="next-activity">التجمع الكشفي القادم</button></li>
+              <li><button type="button" class="nav-sub-btn" data-page="home-page" data-anchor="about-group">التعريف بالفوج</button></li>
+              <li><button type="button" class="nav-sub-btn" data-page="home-page" data-anchor="recent-activities">الأنشطة الأخيرة</button></li>
+            </ul>
           </li>
-          <li><button onclick="showPage('gallery-page')" class="nav-btn hover-lift">المعرض الرقمي</button></li>
-          
+          <li class="nav-group" data-page="bulletin-page">
+            <button type="button" class="nav-btn nav-group-btn nav-link-bulletin hover-lift" data-page="bulletin-page" aria-expanded="false"><span><span class="red-dot announcements-dot pulse-glow" title="يوجد إعلانات نشطة"></span> <i class="fa-solid fa-bullhorn" aria-hidden="true"></i> الإعلانات</span><i class="fa-solid fa-chevron-down nav-chevron" aria-hidden="true"></i></button>
+            <ul class="nav-sub" hidden>
+              <li><button type="button" class="nav-sub-btn" data-page="bulletin-page" data-bfilter="trips">الرحلات والمخيمات</button></li>
+              <li><button type="button" class="nav-sub-btn" data-page="bulletin-page" data-bfilter="scout_gathering">التجمعات الكشفية</button></li>
+              <li><button type="button" class="nav-sub-btn" data-page="bulletin-page" data-bfilter="weekly">الأنشطة الأسبوعية</button></li>
+              <li><button type="button" class="nav-sub-btn" data-page="bulletin-page" data-bfilter="report">تقارير الأنشطة</button></li>
+              <li><button type="button" class="nav-sub-btn" data-page="bulletin-page" data-bfilter="general">الإعلانات العامة</button></li>
+            </ul>
+          </li>
+          <li class="nav-group" data-page="units-page">
+            <button type="button" class="nav-btn nav-group-btn hover-lift" data-page="units-page" aria-expanded="false"><span><i class="fa-solid fa-people-group" aria-hidden="true"></i> الوحدات الكشفية</span><i class="fa-solid fa-chevron-down nav-chevron" aria-hidden="true"></i></button>
+            <ul class="nav-sub" id="navUnitsSub" hidden>
+              <li><span class="nav-sub-note">جاري تحميل الوحدات...</span></li>
+            </ul>
+          </li>
+          <li class="nav-group" data-page="gallery-page">
+            <button type="button" class="nav-btn nav-group-btn hover-lift" data-page="gallery-page" aria-expanded="false"><span><i class="fa-solid fa-images" aria-hidden="true"></i> المعرض الكشفي</span><i class="fa-solid fa-chevron-down nav-chevron" aria-hidden="true"></i></button>
+            <ul class="nav-sub" hidden>
+              <li><button type="button" class="nav-sub-btn" data-page="gallery-page" data-gfilter="all">جميع الصور</button></li>
+              <li><button type="button" class="nav-sub-btn" data-page="gallery-page" data-gfilter="camps">المخيمات</button></li>
+              <li><button type="button" class="nav-sub-btn" data-page="gallery-page" data-gfilter="gatherings">التجمعات الكشفية</button></li>
+              <li><button type="button" class="nav-sub-btn" data-page="gallery-page" data-gfilter="activities">الأنشطة</button></li>
+              <li><button type="button" class="nav-sub-btn" data-page="gallery-page" data-gfilter="trips">الرحلات</button></li>
+            </ul>
+          </li>
+
           <li class="menu-auth-divider mobile-only"></li>
           <li class="menu-auth-item mobile-only auth-guest-btn">
             <button onclick="openModal('roleSelectionModal')" class="btn-scout-space border-none-btn hover-lift full-width-btn">
@@ -642,7 +713,14 @@
         </div>
       </section>
 
-      <section class="about-overview-section container">
+      <section class="next-activity-section container" id="next-activity" aria-labelledby="nextActivityHeading">
+        <div class="latest-news-header">
+          <h2 id="nextActivityHeading"><i class="fa-solid fa-calendar-day" aria-hidden="true"></i> التجمع الكشفي القادم</h2>
+        </div>
+        <div id="nextActivityBox" class="v3-box" aria-live="polite"><div class="news-state-box"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> جاري تحميل النشاط القادم...</div></div>
+      </section>
+
+      <section class="about-overview-section container" id="about-group">
         <div class="about-overview-card hover-lift">
           <div class="overview-header">
             <span class="section-subtitle"><i class="fa-solid fa-shield-halved"></i> أصالة وتاريخ</span>
@@ -709,6 +787,12 @@
           </div>
         </div>
       </section>
+<section class="recent-activities-section container" id="recent-activities" aria-labelledby="recentActivitiesHeading">
+        <div class="latest-news-header">
+          <h2 id="recentActivitiesHeading"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> آخر الأنشطة</h2>
+        </div>
+        <div id="recentActivitiesBox" class="news-grid" aria-live="polite"><div class="news-state-box"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> جاري التحميل...</div></div>
+      </section>
     </div>
 
     <!-- 2. صفحة الوحدات الكشفية -->
@@ -723,28 +807,7 @@
         </div>
 
         <div class="section-body container">
-          <div class="units-grid">
-            <div class="unit-card hover-lift">
-              <div class="unit-badge amber hover-lift">الأشبال</div>
-              <h3>مرحلة الأشبال والزهرات</h3>
-              <p>سيتم الإعلان عن الفتية والتفاصيل قريباً من طرف الإدارة</p>
-            </div>
-            <div class="unit-card hover-lift">
-              <div class="unit-badge green hover-lift">الكشاف</div>
-              <h3>مرحلة الفتيان والكشاف</h3>
-              <p>سيتم الإعلان عن الفتية والتفاصيل قريباً من طرف الإدارة</p>
-            </div>
-            <div class="unit-card hover-lift">
-              <div class="unit-badge red hover-lift">المتقدم</div>
-              <h3>مرحلة الكشاف المتقدم</h3>
-              <p>سيتم الإعلان عن الفتية والتفاصيل قريباً من طرف الإدارة</p>
-            </div>
-            <div class="unit-card hover-lift">
-              <div class="unit-badge blue hover-lift">الجوالة</div>
-              <h3>مرحلة الجوالة والقيادة</h3>
-              <p>سيتم الإعلان عن الفتية والتفاصيل قريباً من طرف الإدارة</p>
-            </div>
-          </div>
+          <div class="units-grid v3-units-grid" id="unitsGrid" aria-live="polite"><div class="news-state-box"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> جاري تحميل الوحدات...</div></div>
         </div>
       </section>
     </div>
@@ -772,6 +835,16 @@
             </div>
           </div>
 
+          <div class="gallery-filters v3-bulletin-filters" id="bulletinFilters" role="group" aria-label="تصفية الإعلانات">
+            <button type="button" class="gallery-filter-btn active hover-lift" data-bfilter="all" onclick="V3.setBulletinFilter('all')">الكل</button>
+            <button type="button" class="gallery-filter-btn hover-lift" data-bfilter="trips" onclick="V3.setBulletinFilter('trips')">الرحلات والمخيمات</button>
+            <button type="button" class="gallery-filter-btn hover-lift" data-bfilter="scout_gathering" onclick="V3.setBulletinFilter('scout_gathering')">التجمعات الكشفية</button>
+            <button type="button" class="gallery-filter-btn hover-lift" data-bfilter="weekly" onclick="V3.setBulletinFilter('weekly')">الأنشطة الأسبوعية</button>
+            <button type="button" class="gallery-filter-btn hover-lift" data-bfilter="report" onclick="V3.setBulletinFilter('report')">تقارير الأنشطة</button>
+            <button type="button" class="gallery-filter-btn hover-lift" data-bfilter="general" onclick="V3.setBulletinFilter('general')">الإعلانات العامة</button>
+          </div>
+          <p id="bulletinFilterEmpty" class="announcements-empty-text" style="display:none;">لا توجد إعلانات منشورة في هذا التصنيف حالياً.</p>
+
           <!-- الإعلانات الحقيقية القادمة من Firestore -->
           <div id="publicAnnouncementsContainer" class="public-announcements-list">
             <p class="announcements-loading-text"><i class="fa-solid fa-spinner fa-spin"></i> جاري تحميل الإعلانات...</p>
@@ -786,7 +859,7 @@
         <div class="section-banner hover-lift">
           <div class="banner-content">
             <span class="section-subtitle">الذكريات والمخيمات</span>
-            <h2>المعرض الرقمي</h2>
+            <h2>المعرض الكشفي</h2>
             <p>صور وفيديوهات لخصت أجمل اللحظات الكشفية للأنشطة والرحلات</p>
           </div>
         </div>
@@ -804,20 +877,15 @@
           </div>
 
           <div id="galleryAuthedContent">
-            <div class="gallery-filters">
-              <button class="gallery-filter-btn active hover-lift" onclick="filterGallery('all', this)">
-                <i class="fa-solid fa-layer-group"></i> الكل
-              </button>
-              <button class="gallery-filter-btn hover-lift" onclick="filterGallery('units', this)">
-                <i class="fa-solid fa-people-group"></i> الوحدات
-              </button>
-              <button class="gallery-filter-btn hover-lift" onclick="filterGallery('gatherings', this)">
-                <i class="fa-solid fa-users"></i> التجمعات
-              </button>
-              <button class="gallery-filter-btn hover-lift" onclick="filterGallery('camps', this)">
-                <i class="fa-solid fa-campground"></i> المخيمات
-              </button>
+            <div class="gallery-filters" role="group" aria-label="تصفية المعرض">
+              <button class="gallery-filter-btn active hover-lift" onclick="filterGallery('all', this)"><i class="fa-solid fa-layer-group"></i> الكل</button>
+              <button class="gallery-filter-btn hover-lift" onclick="filterGallery('camps', this)"><i class="fa-solid fa-campground"></i> المخيمات</button>
+              <button class="gallery-filter-btn hover-lift" onclick="filterGallery('gatherings', this)"><i class="fa-solid fa-users"></i> التجمعات الكشفية</button>
+              <button class="gallery-filter-btn hover-lift" onclick="filterGallery('trips', this)"><i class="fa-solid fa-route"></i> الرحلات</button>
+              <button class="gallery-filter-btn hover-lift" onclick="filterGallery('activities', this)"><i class="fa-solid fa-person-hiking"></i> الأنشطة</button>
+              <button class="gallery-filter-btn hover-lift" onclick="filterGallery('units', this)"><i class="fa-solid fa-people-group"></i> الوحدات</button>
             </div>
+            <p id="galleryFilterEmpty" class="announcements-empty-text" style="display:none;">لا توجد صور منشورة في هذا القسم حالياً.</p>
 
             <div class="gallery-grid" id="galleryContainer">
               <p class="announcements-loading-text"><i class="fa-solid fa-spinner fa-spin"></i> جاري تحميل الصور...</p>
@@ -836,11 +904,7 @@
       <span class="footer-rights">جميع الحقوق محفوظة © 2026</span>
       <span class="footer-sep">•</span>
       <span class="footer-credit">تم تطوير هذا الموقع بواسطة Mohamed Amine Kherfi</span>
-      <span class="footer-sep">•</span>
-      <button type="button" class="privacy-link" onclick="openPrivacyPolicy(event)">سياسة الخصوصية</button>
-      <span class="footer-sep">•</span>
-      <button type="button" class="privacy-link" onclick="openSupportModal()">الدعم الفني</button>
-    </div>
+      </div>
   </footer>
 
   <!-- 1️⃣ نافذة اختيار الصفة: من أنت؟ -->
@@ -1260,7 +1324,9 @@
               <option value="">أخبار (بدون تصنيف)</option>
               <option value="official">إعلان رسمي</option>
               <option value="trips">رحلات ومخيمات</option>
-              <option value="gathering">تجمع أسبوعي</option>
+              <option value="gathering">تجمع أسبوعي (قديم)</option>
+              <option value="scout_gathering">تجمع كشفي</option>
+              <option value="weekly">نشاط أسبوعي</option>
               <option value="unit">نشاط وحدة</option>
               <option value="report">تقرير أسبوعي</option>
               <option value="upcoming">نشاط قادم</option>
@@ -1562,14 +1628,9 @@
           <div class="input-box hover-lift">
             <label class="select-label">الوحدة</label>
             <select id="scoutParentUnit" required>
-              <option value="" disabled selected>اختر الوحدة</option>
-              <option value="اشبال">أشبال</option>
-              <option value="زهرات">زهرات</option>
-              <option value="كشافة">كشافة</option>
-              <option value="مرشدات">مرشدات</option>
-              <option value="جوالة">جوالة</option>
-              <option value="قائدات">قائدات</option>
+              <option value="" disabled selected>جاري تحميل الوحدات...</option>
             </select>
+            <p id="scoutParentUnitHint" class="input-hint" style="display:none;"></p>
           </div>
 
           <div class="field-group-title mt-10"><i class="fa-solid fa-camera"></i> صورة الحساب (اختياري — تظهر في البطاقة)</div>
@@ -1884,6 +1945,75 @@
   </div>
 
   <!-- نافذة المساعدة (علامة الاستفهام) -->
+    <!-- ===== نافذة تفاصيل الوحدة ===== -->
+  <div id="unitDetailModal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="unitDetailTitle">
+    <div class="v3-modal">
+      <button type="button" class="v3-modal-close" onclick="closeModal('unitDetailModal')" aria-label="إغلاق"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      <div id="unitDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- ===== نافذة تفاصيل النشاط ===== -->
+  <div id="activityDetailModal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="activityDetailTitle">
+    <div class="v3-modal">
+      <button type="button" class="v3-modal-close" onclick="closeModal('activityDetailModal')" aria-label="إغلاق"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      <div id="activityDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- ===== نموذج وحدة (أدمن) ===== -->
+  <div id="unitFormModal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="unitFormTitle">
+    <div class="v3-modal">
+      <button type="button" class="v3-modal-close" onclick="closeModal('unitFormModal')" aria-label="إغلاق"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      <h2 id="unitFormTitle">إضافة وحدة</h2>
+      <form id="unitForm" class="v3-form" autocomplete="off" novalidate>
+        <label>اسم الوحدة *<input type="text" id="unitName" maxlength="80" required></label>
+        <label>وصف مختصر<textarea id="unitDesc" rows="3" maxlength="600"></textarea></label>
+        <label>اسم ملف الصورة/الشعار (داخل assets/images/units/)<input type="text" id="unitImageName" maxlength="120" dir="ltr" placeholder="unit-1.jpg"></label>
+        <label>الحالة<select id="unitStatus"><option value="active">نشطة (تظهر للعامة)</option><option value="archived">مؤرشفة (مخفية)</option></select></label>
+        <fieldset class="v3-fieldset"><legend>المسؤولون</legend>
+          <label>قائد الوحدة<input type="text" id="unitLeaderName" maxlength="80"></label>
+          <label>بريد القائد<input type="email" id="unitLeaderEmail" maxlength="120" dir="ltr"></label>
+          <label>هاتف القائد<input type="tel" id="unitLeaderPhone" maxlength="20" dir="ltr"></label>
+          <label>نائب العريف / المسؤول الثاني<input type="text" id="unitSecondName" maxlength="80"></label>
+          <label>هاتف المسؤول الثاني<input type="tel" id="unitSecondPhone" maxlength="20" dir="ltr"></label>
+          <label>العريف الأول<input type="text" id="unitFirstName" maxlength="80"></label>
+          <label>معلومات اتصال العريف الأول<input type="text" id="unitFirstContact" maxlength="120"></label>
+        </fieldset>
+        <label class="v3-check"><input type="checkbox" id="unitPublishNames"> نشر أسماء المسؤولين في الصفحة العامة (بموافقتهم)</label>
+        <label class="v3-check"><input type="checkbox" id="unitPublishContacts"> نشر الهاتف/البريد في الصفحة العامة (بموافقتهم الصريحة)</label>
+        <p id="unitFormError" class="error-msg bold-text" role="alert"></p>
+        <div class="v3-form-actions">
+          <button type="submit" id="unitFormSubmit" class="glow-btn btn-green hover-lift">حفظ</button>
+          <button type="button" class="glow-btn hover-lift" onclick="closeModal('unitFormModal')">إلغاء</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== نموذج نشاط (أدمن) ===== -->
+  <div id="activityFormModal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="activityFormTitle">
+    <div class="v3-modal">
+      <button type="button" class="v3-modal-close" onclick="closeModal('activityFormModal')" aria-label="إغلاق"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      <h2 id="activityFormTitle">إضافة نشاط</h2>
+      <form id="activityForm" class="v3-form" autocomplete="off" novalidate>
+        <label>عنوان النشاط *<input type="text" id="actTitle" maxlength="120" required></label>
+        <label>الوصف<textarea id="actDesc" rows="3" maxlength="1500"></textarea></label>
+        <label>النوع<select id="actKind"><option value="gathering">تجمع كشفي</option><option value="camp">مخيم</option><option value="trip">رحلة</option><option value="weekly">نشاط أسبوعي</option><option value="other">نشاط آخر</option></select></label>
+        <label>الوحدة (اختياري)<select id="actUnit"><option value="">نشاط عام للفوج</option></select></label>
+        <label>التاريخ والساعة *<input type="datetime-local" id="actStart" required></label>
+        <label>المكان<input type="text" id="actLocation" maxlength="150"></label>
+        <label>اسم ملف الصورة (داخل assets/images/activities/)<input type="text" id="actImageName" maxlength="120" dir="ltr" placeholder="activity-1.jpg"></label>
+        <label>الحالة<select id="actStatus"><option value="draft">مسودة (غير منشور)</option><option value="published">منشور</option><option value="archived">مؤرشف</option></select></label>
+        <p id="activityFormError" class="error-msg bold-text" role="alert"></p>
+        <div class="v3-form-actions">
+          <button type="submit" id="activityFormSubmit" class="glow-btn btn-green hover-lift">حفظ</button>
+          <button type="button" class="glow-btn hover-lift" onclick="closeModal('activityFormModal')">إلغاء</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div id="helpModal" class="modal-overlay help-modal-overlay" style="display:none;">
     <div class="scout-card-container help-modal-box">
       <button class="close-btn hover-lift" type="button" onclick="closeHelp()" aria-label="إغلاق">
@@ -1901,5 +2031,6 @@
   <script src="content-config.js?v=20261024-14"></script>
   <script src="script.js?v=20261026-1"></script>
   <script src="site-extras.js?v=20261026-1"></script>
+  <script src="site-v3.js?v=20261027-1"></script>
 </body>
 </html>

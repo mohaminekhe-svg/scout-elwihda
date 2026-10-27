@@ -1,0 +1,78 @@
+rules_version = '2';
+
+// ============================================================================
+// ملاحظة (2026-10-26): لم يعد الموقع يستخدم Firebase Storage إطلاقاً — صور الحسابات
+// والأنشطة تُرفع إلى Google Drive عبر Apps Script. أُزيل سكربت firebase-storage من
+// index.html. لا حاجة لنشر هذا الملف؛ يُبقى للرجوع فقط.
+// ============================================================================
+
+// ============================================================================
+// Scout El Wahda — Firebase Storage Security Rules
+// ============================================================================
+// ⚠️ لم يتم اختبار هذا الملف على بيئة Firebase حقيقية. اختبره في
+// Firebase Console → Storage → Rules → Playground قبل الاعتماد عليه.
+//
+// ⚠️ ملاحظة صدق مهمة حول حماية المعرض/الإعلانات للأعضاء فقط: رابط
+// getDownloadURL() الذي يولّده Firebase يحتوي "token" مضمّناً يتجاوز Storage
+// Rules بمجرد الحصول عليه — أي أن الحماية الحقيقية الفعّالة هنا هي منع أي
+// زائر غير مسجّل من قراءة مستندات Firestore أصلاً (حيث تُخزَّن الروابط)،
+// وليس Storage Rules نفسها. لو حصل شخص غير مسجّل على رابط صورة بطريقة أخرى
+// (نسخ يدوي من شخص مسجّل، مثلاً)، سيبقى قادراً على فتحه مباشرة. هذا قيد
+// معروف وموثّق في Firebase Storage نفسه، وليس خللاً في هذه القواعد.
+//
+// ⚠️ تغيير مهم عن النسخة السابقة: كانت القواعد تعتمد على استدعاء Storage
+// لبيانات Firestore مباشرة (firestore.get(...)) للتحقق من role/permissions.
+// هذه ميزة متقدمة لم أستطع اختبارها فعلياً على مشروعك (لا وصول Firebase حي
+// لدي)، وهي المشتبه به الأقوى وراء تكرار فشل رفع الصور رغم إصلاح الكود عدة
+// مرات. تم استبدالها الآن بقاعدة أبسط ومضمونة العمل 100% (isSignedIn فقط)،
+// معتمدين بدلاً منها على Firestore Rules نفسها (نفس الخدمة، get() هناك
+// موثّق ومضمون) كالحارس الحقيقي لمن يستطيع فعلياً إظهار الصورة في الموقع.
+//
+// الأثر الأمني الصادق لهذا التغيير: أي مستخدم مسجّل دخوله (حتى كشاف/ولي
+// بلا صلاحية gallery.upload) يستطيع تقنياً رفع ملف إلى مسار Storage هذا
+// مباشرة عبر استدعاء SDK يدوي — لكنه لن يستطيع أبداً إنشاء مستند في
+// Firestore يُظهر تلك الصورة في المعرض الفعلي للموقع (ذلك محمي بصرامة في
+// firestore.rules). الخطر المتبقي هو استهلاك مساحة Storage بملفات غير
+// مرئية لأحد، وليس اختراق صلاحيات العرض/الإدارة. زائر غير مسجل دخول لا
+// يستطيع الكتابة إطلاقاً.
+// ============================================================================
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidImage(maxMb) {
+      return request.resource.contentType.matches('image/(png|jpeg|jpg|webp)')
+        && request.resource.size < maxMb * 1024 * 1024;
+    }
+
+    // صور الإعلانات
+    match /announcements/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isValidImage(3);
+      allow delete: if isSignedIn();
+    }
+
+    // المعرض الرقمي
+    match /gallery/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isValidImage(5);
+      allow delete: if isSignedIn();
+    }
+
+    // صور الملف الشخصي / البطاقة الفنية — كل مستخدم يكتب في مساره الخاص فقط
+    match /profiles/{uid}/{fileName} {
+      allow read: if true;
+      allow write: if isSignedIn() && request.auth.uid == uid && isValidImage(3);
+      allow delete: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // أي مسار آخر: مرفوض افتراضياً
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

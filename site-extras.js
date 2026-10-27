@@ -239,6 +239,8 @@ const NEWS_CATEGORY_LABELS = {
   official: 'إعلان رسمي',
   trips: 'رحلات ومخيمات',
   gathering: 'تجمع أسبوعي',
+  scout_gathering: 'تجمع كشفي',
+  weekly: 'نشاط أسبوعي',
   unit: 'نشاط وحدة',
   report: 'تقرير أسبوعي',
   upcoming: 'نشاط قادم'
