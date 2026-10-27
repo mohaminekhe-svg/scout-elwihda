@@ -9,13 +9,13 @@
       كاقتراح تلقائي أثناء الكتابة في لوحة الإدارة.
    3) في لوحة الإدارة اكتب "اسم الملف فقط" (مثال: announcement-001.jpg)
       في خانة «اسم ملف الصورة» — ستخبرك الخانة فوراً إن كان الملف موجوداً أم لا.
-   4) ارفع تعديلات المشروع (بما فيها الصورة) إلى GitHub، فتظهر بنفس التنسيق الموحّد.
+   4) ارفع تعديلات المشروع (بما فيها الصورة) إلى استضافة cPanel (s4a.solution4all.dz)، فتظهر بنفس التنسيق الموحّد.
    لا تحتاج إلى تعديل أي كود أو CSS عند إضافة صورة جديدة.
 
-   ⚠️ GitHub Pages حسّاس لحالة الأحرف: Photo.JPG ≠ photo.jpg. اكتب الاسم تماماً كما هو.
+   ⚠️ خادم الاستضافة (Linux/cPanel) حسّاس لحالة الأحرف: Photo.JPG ≠ photo.jpg. اكتب الاسم تماماً كما هو.
    ========================================================= */
 
-// مجلدات الصور — مسارات نسبية متوافقة مع GitHub Pages (المشروع منشور تحت /scout-elwihda/)
+// مجلدات الصور — مسارات نسبية متوافقة مع الاستضافة (https://s4a.solution4all.dz/)
 // ⚠️ اكتب هنا "اسم المجلد" فقط، وليس اسم ملف صورة. إن كانت صورك في مجلد آخر (مثل Photos/)
 // عدّل هذين السطرين فقط. (أي قيمة تنتهي بـ .png/.jpg تُعتبر خطأً وتُتجاهل تلقائياً.)
 const LOCAL_IMAGE_FOLDERS = {
@@ -80,4 +80,133 @@ function resolveLocalImagePath(kind, fileName) {
   const folder = getImageFolder(kind);
   const clean = cleanLocalImageFileName(fileName, kind);
   return (folder && clean) ? folder + clean : '';
+}
+
+/* =========================================================
+   إعدادات ودوال Google Drive (التخزين السحابي الرئيسي للصور)
+   - يمكن ضبط الإعدادات مباشرة من لوحة الإدارة (تبويب الإعدادات ← إعدادات Google Drive)
+     حيث تُحفظ في Firestore (settings/googleDrive).
+   - القيم أدناه احتياطية افتراضية إن لم تُضبط بعد من لوحة الإدارة.
+   ========================================================= */
+const GOOGLE_DRIVE_DEFAULT_CONFIG = {
+  enabled: true,
+  webAppUrl: '',              // رابط Google Apps Script Web App (يُضبط من لوحة الأدمن)
+  rootFolderId: '',           // معرّف أو رابط المجلد الرئيسي في Google Drive (اختياري)
+  announcementsFolderId: '',  // معرّف أو رابط مجلد صور الإعلانات (اختياري)
+  galleryFolderId: '',        // معرّف أو رابط مجلد صور المعرض (اختياري)
+  secretToken: ''             // رمز حماية اختياري بين الموقع والسكربت
+};
+
+// يستخرج معرّف ملف Google Drive من أي رابط مشاركة أو رابط مباشر أو معرّف خام
+function extractGoogleDriveFileId(input) {
+  if (typeof input !== 'string') return '';
+  const str = input.trim();
+  if (!str) return '';
+
+  // أنماط روابط Google Drive الشائعة:
+  // 1) https://drive.google.com/file/d/FILE_ID/view?usp=sharing
+  // 2) https://drive.google.com/open?id=FILE_ID
+  // 3) https://drive.google.com/uc?id=FILE_ID أو ?export=view&id=FILE_ID
+  // 4) https://drive.google.com/thumbnail?id=FILE_ID&sz=w1600
+  // 5) https://lh3.googleusercontent.com/d/FILE_ID=w1600
+  const fileDMatch = str.match(/\/file\/d\/([a-zA-Z0-9_-]{15,})/);
+  if (fileDMatch) return fileDMatch[1];
+
+  const lh3Match = str.match(/googleusercontent\.com\/d\/([a-zA-Z0-9_-]{15,})/);
+  if (lh3Match) return lh3Match[1];
+
+  const idParamMatch = str.match(/[?&]id=([a-zA-Z0-9_-]{15,})/);
+  if (idParamMatch && (str.indexOf('drive.google.com') !== -1 || str.indexOf('docs.google.com') !== -1)) {
+    return idParamMatch[1];
+  }
+
+  // معرّف Google Drive خام (بدون نقاط امتداد ملفات مثل .jpg وبطول 25-60 حرفاً)
+  if (/^[a-zA-Z0-9_-]{25,60}$/.test(str) && !LOCAL_IMAGE_EXT_PATTERN.test(str)) {
+    return str;
+  }
+
+  return '';
+}
+
+// يستخرج معرّف مجلد Google Drive من رابط مجلد (.../folders/FOLDER_ID) أو معرّف خام
+function extractGoogleDriveFolderId(input) {
+  if (typeof input !== 'string') return '';
+  const str = input.trim();
+  if (!str) return '';
+
+  const folderMatch = str.match(/\/folders\/([a-zA-Z0-9_-]{15,})/);
+  if (folderMatch) return folderMatch[1];
+
+  const idParamMatch = str.match(/[?&]id=([a-zA-Z0-9_-]{15,})/);
+  if (idParamMatch) return idParamMatch[1];
+
+  if (/^[a-zA-Z0-9_-]{18,60}$/.test(str)) return str;
+  return '';
+}
+
+// يبني رابط عرض سريع وموثوق للصورة من Google Drive عبر شبكة CDN الخاصة بجوجل
+function buildGoogleDriveImageUrl(fileId, maxWidth) {
+  const cleanId = extractGoogleDriveFileId(fileId);
+  if (!cleanId) return '';
+  const w = Number(maxWidth) > 0 ? Number(maxWidth) : 1600;
+  return 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(cleanId) + '&sz=w' + w;
+}
+
+// رابط بديل احتياطي من Google CDN في حال تعذّر الرابط الأول على بعض المتصفحات
+function buildGoogleDriveFallbackUrl(fileId, maxWidth) {
+  const cleanId = extractGoogleDriveFileId(fileId);
+  if (!cleanId) return '';
+  const w = Number(maxWidth) > 0 ? Number(maxWidth) : 1600;
+  return 'https://lh3.googleusercontent.com/d/' + encodeURIComponent(cleanId) + '=w' + w;
+}
+
+// رابط تحميل مباشر للصورة من Google Drive
+function buildGoogleDriveDownloadUrl(fileId) {
+  const cleanId = extractGoogleDriveFileId(fileId);
+  if (!cleanId) return '';
+  return 'https://drive.google.com/uc?export=download&id=' + encodeURIComponent(cleanId);
+}
+
+// يحلّل أي مدخل صورة (رابط Google Drive، أو معرّف Drive، أو رابط https مباشر، أو اسم ملف محلي)
+function resolveImageInputSource(rawInput, kind) {
+  const raw = (rawInput || '').trim();
+  if (!raw) return { type: 'none', path: '', driveFileId: '', imageFile: '', imageUrl: '' };
+
+  // 1) هل هو رابط أو معرّف Google Drive؟
+  const driveId = extractGoogleDriveFileId(raw);
+  if (driveId) {
+    const url = buildGoogleDriveImageUrl(driveId, 1600);
+    return {
+      type: 'gdrive',
+      path: url,
+      driveFileId: driveId,
+      imageFile: '',
+      imageUrl: url
+    };
+  }
+
+  // 2) هل هو رابط https خارجي مباشر؟
+  if (/^https:\/\/[^\s"'<>]+$/i.test(raw)) {
+    return {
+      type: 'url',
+      path: raw,
+      driveFileId: '',
+      imageFile: '',
+      imageUrl: raw
+    };
+  }
+
+  // 3) هل هو اسم ملف محلي داخل مجلدات المشروع؟
+  const cleanLocal = cleanLocalImageFileName(raw, kind);
+  if (cleanLocal) {
+    return {
+      type: 'local',
+      path: resolveLocalImagePath(kind, cleanLocal),
+      driveFileId: '',
+      imageFile: cleanLocal,
+      imageUrl: ''
+    };
+  }
+
+  return { type: 'invalid', path: '', driveFileId: '', imageFile: '', imageUrl: '' };
 }

@@ -30,11 +30,31 @@ function getSecondaryAuth() {
 
 const auth = firebase.auth();
 const db = firebase.firestore();
-const storage = firebase.storage();
 
 let pendingDeleteUserId = null;
 let pendingEditAnnouncementId = null;
 let pendingDeleteAnnouncementId = null;
+
+
+// ============ أدوات أمان العرض (منع XSS) ============
+// escHtml: ترميز آمن وغير مزدوج — يفك الترميز السابق (من sanitizeInput) ثم يعيد ترميز النص بالكامل.
+function escHtml(v) {
+  if (v === null || v === undefined) return '';
+  return String(v)
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&amp;/g, '&')
+    .replace(/[&<>"'`]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;', '`': '&#096;' }[m]));
+}
+// safeImgUrl: يقبل فقط روابط https بلا رموز خطرة أو مسارات نسبية داخل assets/، وإلا يرجع ''.
+function safeImgUrl(u) {
+  if (typeof u !== 'string') return '';
+  const t = u.trim();
+  if (!t) return '';
+  if (/^https:\/\/[^\s"'<>`\\]+$/i.test(t)) return t;
+  if (/^assets\/images\/[A-Za-z0-9_\/.\-]+$/.test(t) && t.indexOf('..') === -1) return t;
+  return '';
+}
+// jsArg: وسيط نصي آمن داخل خاصية onclick (سواء بعلامات اقتباس مفردة أو مزدوجة).
+function jsArg(v) { return escHtml(JSON.stringify(String(v === null || v === undefined ? '' : v))); }
 
 // تنقية النصوص وحمايتها من الإدخالات الضارة
 function sanitizeInput(str) {
@@ -57,27 +77,39 @@ function validateAlphaOnly(input) {
 
 // التهيئة عند تحميل الصفحة
 document.addEventListener('DOMContentLoaded', () => {
+  enforcePasswordFieldsMasking();
+  checkAndEnforceLockOnBoot();
   initPhoneInputs();
   initPasswordValidationLeader();
   initPasswordValidationAdminLeader();
   initPasswordValidationScout();
   initHelpButtons();
   initDateTimePickers();
+  initDriveDropzones();
   attachImageFileChecker('announcementImageFileInput', 'announcements');
   attachImageFileChecker('galleryImageFileInput', 'gallery');
   listenToAuthStatus();
-  fetchLeadersList();
-  fetchAllAccountsForDeleteView();
 });
 
 /* --- التبديل بين ألسنة لوحة الأدمن --- */
 function switchAdminTab(tabId, btnElement) {
+  // منع التبديل أو عرض أي تبويب إداري إذا كانت الجلسة مقفلة
+  if (isSessionLocked()) {
+    lockIdleSession(tabId);
+    return;
+  }
+
   const tabs = document.querySelectorAll('.admin-tab-content');
   tabs.forEach(tab => tab.classList.remove('active-tab'));
 
   const targetTab = document.getElementById(tabId);
   if (targetTab) {
     targetTab.classList.add('active-tab');
+  }
+
+  const viewport = document.querySelector('.admin-main-viewport');
+  if (viewport) {
+    viewport.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   const buttons = document.querySelectorAll('.admin-nav-btn');
@@ -97,8 +129,15 @@ function switchAdminTab(tabId, btnElement) {
 
   // تحميل بيانات الإعلانات عند فتح تبويب الإعلانات
   if (tabId === 'announcements-tab') {
+    ensureGoogleDriveConfigLoaded();
     loadAnnouncementsAdmin();
     prefillMarqueeQuickEdit();
+  }
+
+  // تحميل قائمة القادة وحسابات الحذف عند فتح تبويبهم
+  if (tabId === 'leaders-tab') {
+    fetchLeadersList();
+    fetchAllAccountsForDeleteView();
   }
 
   // تحميل قائمة الكشافة والأولياء عند فتح تبويبهم
@@ -108,6 +147,7 @@ function switchAdminTab(tabId, btnElement) {
 
   // تحميل صور المعرض عند فتح تبويبه
   if (tabId === 'gallery-tab') {
+    ensureGoogleDriveConfigLoaded();
     loadGalleryAdmin();
   }
 
@@ -120,8 +160,10 @@ function switchAdminTab(tabId, btnElement) {
     loadStatisticsAdmin();
   }
 
-  // حفظ التبويب الحالي في الرابط حتى يبقى المستخدم فيه بعد Refresh
-  window.location.hash = 'admin-' + tabId;
+  // حفظ التبويب الحالي في الرابط باستخدام replaceState (لتجنب تكديس سجل المتصفح بحالات يمكن الرجوع إليها)
+  if (!isSessionLocked()) {
+    history.replaceState({ adminTab: tabId }, '', window.location.pathname + '#admin-' + tabId);
+  }
 }
 
 /* --- إدارة النوافذ المنبثقة (Modals) --- */
@@ -141,31 +183,35 @@ function closeModal(modalId) {
   const modal = document.getElementById(modalId);
   if (modal) {
     modal.style.display = 'none';
-    document.body.style.overflow = 'auto';
+    if (!document.body.classList.contains('admin-view-open')) {
+      document.body.style.overflow = 'auto';
+    }
   }
 }
 
 window.addEventListener('click', (e) => {
   if (e.target.classList.contains('modal-overlay')) {
     e.target.style.display = 'none';
-    document.body.style.overflow = 'auto';
+    if (!document.body.classList.contains('admin-view-open')) {
+      document.body.style.overflow = 'auto';
+    }
   }
 });
 
-/* --- إظهار / إخفاء كلمة المرور --- */
-function togglePasswordVisibility(iconElement) {
-  const input = iconElement.nextElementSibling;
-  if (input && (input.type === 'password' || input.type === 'text')) {
-    if (input.type === 'password') {
-      input.type = 'text';
-      iconElement.classList.remove('fa-eye');
-      iconElement.classList.add('fa-eye-slash');
-    } else {
-      input.type = 'password';
-      iconElement.classList.remove('fa-eye-slash');
-      iconElement.classList.add('fa-eye');
-    }
-  }
+/* --- إخفاء صارم لكلمات المرور (تم إلغاء إظهار كلمة المرور بالكامل لأسباب أمنية) --- */
+function enforcePasswordFieldsMasking() {
+  // إزالة أي أيقونة عين متبقية ومنع تحويل حقول كلمة المرور إلى نص واضح
+  document.querySelectorAll('.toggle-password').forEach((el) => el.remove());
+  const pwInputs = document.querySelectorAll('input[type="password"]');
+  pwInputs.forEach((input) => {
+    input.setAttribute('autocomplete', input.getAttribute('autocomplete') || 'off');
+    const obs = new MutationObserver(() => {
+      if (input.type !== 'password') {
+        input.type = 'password';
+      }
+    });
+    obs.observe(input, { attributes: true, attributeFilter: ['type'] });
+  });
 }
 
 /* --- التحكم في نافذة "من أنت؟" --- */
@@ -318,22 +364,33 @@ function listenToAuthStatus() {
           currentUserRole = userData.role || null;
           currentUserPermissions = userData.permissions || {};
           currentUserAccountStatus = userData.accountStatus || null;
+          if (currentUserRole === 'admin') { fetchLeadersList(); fetchAllAccountsForDeleteView(); }
 
           renderScoutOrLeaderCard(userData);
           if (cardSection) cardSection.style.display = 'block';
           updateNavUserChip(userData);
           updateDashboardAccessButton(userData);
           syncAuthEmailToFirestore(user, userData);
+
+          // التحقق الصارم من حالة القفل قبل استعادة أي شاشة إدارية بعد التحديث (F5)
+          if (verifySessionLockStateForUser(userData)) {
+            return;
+          }
           restoreAdminRouteIfAny(userData);
         }
       });
     } else {
+      clearPersistedSessionLock();
       guestBtns.forEach(b => setAuthVisible(b, true, 'inline-flex'));
       userBtns.forEach(b => setAuthVisible(b, false, 'inline-flex'));
       if (cardSection) cardSection.style.display = 'none';
       clearNavUserChip();
       updateDashboardAccessButton(null);
       resetCurrentUserPermissionState();
+      closeAllModalsAndOverlays();
+      if (window.location.hash.indexOf('#admin-') === 0 || window.location.hash === '#locked') {
+        history.replaceState(null, '', window.location.pathname + '#home-page');
+      }
     }
   });
 }
@@ -361,24 +418,13 @@ function updateGalleryAccessUI(user) {
 // التحكم في وصول الزوار لصفحة الإعلانات: محجوبة عن غير المسجلين
 // (الشريط العلوي settings/announcements منفصل تماماً ويبقى عاماً للجميع)
 function updateAnnouncementsAccessUI(user) {
+  // الأخبار/الإعلانات المنشورة عامة للجميع (قرار الإدارة). المسودات تبقى محمية بقواعد Firestore.
   const lockBox = document.getElementById('announcementsLoginRequiredBox');
   const container = document.getElementById('publicAnnouncementsContainer');
-  if (!lockBox || !container) return;
-
-  if (user) {
-    lockBox.style.display = 'none';
-    container.style.display = 'flex';
-    renderPublicAnnouncements();
-  } else {
-    lockBox.style.display = 'block';
-    container.style.display = 'none';
-    if (unsubscribePublicAnnouncementsListener) {
-      unsubscribePublicAnnouncementsListener();
-      unsubscribePublicAnnouncementsListener = null;
-    }
-    stopPublicAnnouncementsTicker();
-    publicAnnouncementsCache = [];
-  }
+  if (!container) return;
+  if (lockBox) lockBox.style.display = 'none';
+  container.style.display = 'flex';
+  if (!unsubscribePublicAnnouncementsListener) renderPublicAnnouncements();
 }
 
 // تحديث بطاقة المستخدم المصغّرة في القائمة (اسم حقيقي + صورة حقيقية أو placeholder)
@@ -401,7 +447,7 @@ function updateNavUserChip(userData) {
     if (nameEl) nameEl.innerText = fullName;
     if (avatarEl) {
       avatarEl.innerHTML = photoURL
-        ? `<img src="${photoURL}" alt="${fullName}">`
+        ? (safeImgUrl(photoURL) ? `<img src="${safeImgUrl(photoURL)}" alt="${escHtml(fullName)}">` : `<i class="fa-solid fa-circle-user"></i>`)
         : `<i class="fa-solid fa-circle-user"></i>`;
     }
   });
@@ -417,6 +463,56 @@ function clearNavUserChip() {
   });
 }
 
+/* =========================================================
+   التنقل بين صفحات الموقع العامة والتحكم بالرابط (#hash)
+   ========================================================= */
+const pdfFormUrl = './registration-form.pdf';
+const VALID_SITE_PAGES = ['home-page', 'units-page', 'bulletin-page', 'gallery-page'];
+
+function showPage(pageId) {
+  const pages = document.querySelectorAll('.site-page');
+  pages.forEach((p) => p.classList.remove('active-page'));
+
+  const targetPage = document.getElementById(pageId);
+  if (targetPage) {
+    targetPage.classList.add('active-page');
+  }
+
+  const buttons = document.querySelectorAll('.nav-btn');
+  buttons.forEach((btn) => btn.classList.remove('active'));
+
+  const activeBtn = document.querySelector(`.nav-btn[onclick*="'${pageId}'"]`);
+  if (activeBtn) activeBtn.classList.add('active');
+
+  const navMenu = document.getElementById('navMenu');
+  if (navMenu) navMenu.classList.remove('active');
+
+  if (document.body.classList.contains('menu-scroll-locked')) window.__forceScrollTop = true;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  if (VALID_SITE_PAGES.includes(pageId)) {
+    history.replaceState(null, '', '#' + pageId);
+  }
+}
+
+// استرجاع المكان الصحيح عند تحميل/تحديث الصفحة اعتماداً على الرابط (#hash)
+(function restoreInitialRouteFromHash() {
+  const hash = window.location.hash.replace('#', '');
+  if (!hash) return;
+
+  if (hash === 'locked') {
+    window.__pendingAdminLock = true;
+    return;
+  }
+
+  if (hash.indexOf('admin-') === 0) {
+    // قسم إداري: يُستعاد فقط بعد التحقق من صلاحية المستخدم الحقيقية وعدم قفل الجلسة (انظر restoreAdminRouteIfAny)
+    window.__pendingAdminRoute = hash.replace('admin-', '');
+  } else if (VALID_SITE_PAGES.includes(hash)) {
+    showPage(hash);
+  }
+})();
+
 // الضغط على بطاقة المستخدم المصغّرة ينتقل إلى بطاقته الكاملة في الصفحة الرئيسية
 function scrollToUserCard() {
   showPage('home-page');
@@ -429,6 +525,18 @@ function scrollToUserCard() {
 // استعادة قسم لوحة الأدمن من الرابط (#admin-xxx) بعد Refresh — فقط إذا كان المستخدم يملك صلاحية فعلية
 const VALID_ADMIN_TABS = ['welcome-tab', 'leaders-tab', 'scouts-tab', 'announcements-tab', 'gallery-tab', 'statistics-tab', 'settings-tab'];
 
+function setAdminViewActive(active) {
+  const fullBlueScreen = document.getElementById('fullAdminBlueScreen');
+  if (fullBlueScreen) fullBlueScreen.style.display = active ? 'flex' : 'none';
+  if (active) {
+    document.body.classList.add('admin-view-open');
+    document.documentElement.classList.add('admin-view-open');
+  } else {
+    document.body.classList.remove('admin-view-open');
+    document.documentElement.classList.remove('admin-view-open');
+  }
+}
+
 function restoreAdminRouteIfAny(userData) {
   const pendingTab = window.__pendingAdminRoute;
   if (!pendingTab) return;
@@ -436,8 +544,13 @@ function restoreAdminRouteIfAny(userData) {
 
   if ((userData.role === 'admin' || userData.role === 'leader')
       && userData.accountStatus !== 'suspended' && userData.accountStatus !== 'locked') {
-    const fullBlueScreen = document.getElementById('fullAdminBlueScreen');
-    if (fullBlueScreen) fullBlueScreen.style.display = 'flex';
+    // إذا كانت الجلسة مقفلة أو انتهت مهلة عدم النشاط، يُمنع فتح لوحة الإدارة عند F5 ويُفرض قفل الجلسة فوراً
+    if (isSessionLocked() || hasInactivityExpired()) {
+      lockIdleSession(VALID_ADMIN_TABS.includes(pendingTab) ? pendingTab : 'welcome-tab');
+      return;
+    }
+
+    setAdminViewActive(true);
 
     const tabId = VALID_ADMIN_TABS.includes(pendingTab) ? pendingTab : 'welcome-tab';
     const btnElement = document.querySelector(`.admin-nav-btn[onclick*="'${tabId}'"]`);
@@ -451,9 +564,10 @@ function restoreAdminRouteIfAny(userData) {
 }
 
 function handleUserLogout() {
+  clearPersistedSessionLock();
   auth.signOut().then(() => {
     closeAllModalsAndOverlays();
-    window.location.hash = '';
+    history.replaceState(null, '', window.location.pathname + '#home-page');
     window.location.reload();
   });
 }
@@ -613,6 +727,11 @@ if (leaderRegisterForm) {
       return;
     }
 
+    if (!document.getElementById('leaderRegConsent').checked) {
+      errorMsg.innerText = 'يجب الموافقة على سياسة الخصوصية للمتابعة.';
+      return;
+    }
+
     checkingBox.style.display = 'flex';
     submitBtn.disabled = true;
 
@@ -659,8 +778,8 @@ if (leaderRegisterForm) {
         checkingBox.style.display = 'none';
         submitBtn.disabled = false;
         const closed = (error && (error.code === 'registration/closed' || error.code === 'permission-denied'));
-        // إن أُنشئ حساب Authentication ثم رُفضت كتابة بياناته (التسجيل أُغلق/محاولة تجاوز)، نحذف الحساب اليتيم
-        if (authUserCreated && closed && auth.currentUser) { auth.currentUser.delete().catch(() => {}); }
+        // إن أُنشئ حساب Authentication ثم فشلت كتابة بياناته لأي سبب، نحذف الحساب اليتيم
+        if (authUserCreated && auth.currentUser) { auth.currentUser.delete().catch(() => {}); }
         if (closed) {
           closeModal('leaderRegisterModal');
           showRegistrationClosed();
@@ -720,6 +839,10 @@ if (scoutParentRegisterForm) {
       errorMsg.innerText = 'كلمة المرور يجب أن تحتوي على 8 أحرف على الأقل مع أرقام ورموز!';
       return;
     }
+    if (!document.getElementById('scoutParentConsent').checked) {
+      errorMsg.innerText = 'يجب الموافقة على سياسة الخصوصية للمتابعة.';
+      return;
+    }
     if (photoFile) {
       const allowedTypes = ['image/png', 'image/jpeg', 'image/webp'];
       if (!allowedTypes.includes(photoFile.type)) {
@@ -730,6 +853,10 @@ if (scoutParentRegisterForm) {
         errorMsg.innerText = 'حجم الصورة كبير جداً. الحد الأقصى 3 ميغابايت.';
         return;
       }
+      if (!document.getElementById('scoutParentPhotoConsent').checked) {
+        errorMsg.innerText = 'يرجى الموافقة على رفع الصورة وعرضها، أو أزل الصورة للمتابعة بدونها.';
+        return;
+      }
     }
 
     checkingBox.style.display = 'flex';
@@ -737,28 +864,26 @@ if (scoutParentRegisterForm) {
     submitBtn.disabled = true;
 
     let createdUid = null;
+    let docSaved = false;
     let photoUploadFailed = false;
 
     auth.createUserWithEmailAndPassword(email, password)
       .then((userCredential) => {
         createdUid = userCredential.user.uid;
-        if (!photoFile) return Promise.resolve(null);
+        if (!photoFile) return null;
 
-        if (checkingText) checkingText.innerText = 'جاري رفع الصورة...';
-        // رفع الصورة الشخصية اختياري: إن فشل Storage (غير مفعّل/مهلة) لا نُفشل التسجيل كله
+        if (checkingText) checkingText.innerText = 'جاري رفع الصورة إلى Google Drive...';
+        // الصورة اختيارية: فشلها لا يُفشل التسجيل، لكن لا نُظهر نجاحاً كاذباً (رسالة صريحة) ولا نحفظ رابطاً إلا بعد نجاح الرفع
         return withTimeout(
-          compressImageFile(photoFile, 800, 0.8).then((compressedBlob) => {
-            const photoRef = firebase.storage().ref().child(`profiles/${createdUid}/photo.jpg`);
-            return photoRef.put(compressedBlob).then((snap) => snap.ref.getDownloadURL());
-          }),
-          15000
+          uploadImageToGoogleDrive(photoFile, 'profiles', (m) => { if (checkingText) checkingText.innerText = m; }),
+          60000
         ).catch((photoError) => {
-          console.warn('Profile photo upload failed (non-fatal):', photoError);
+          console.warn('[Scout Elwihda] Profile photo upload failed (non-fatal):', photoError && photoError.message);
           photoUploadFailed = true;
           return null;
         });
       })
-      .then((photoURL) => {
+      .then((media) => {
         if (checkingText) checkingText.innerText = 'جاري حفظ بياناتك...';
         const userData = {
           uid: createdUid,
@@ -772,14 +897,23 @@ if (scoutParentRegisterForm) {
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
-        if (photoURL) userData.photoURL = photoURL;
+        const builtPhotoUrl = (media && media.driveFileId) ? buildGoogleDriveImageUrl(media.driveFileId, 600) : '';
+        if (builtPhotoUrl) {
+          // نحفظ الرابط فقط بعد نجاح الرفع الفعلي واستخراج رابط صالح
+          userData.photoURL = builtPhotoUrl;
+          userData.photoFileId = media.driveFileId;
+        } else if (photoFile) {
+          photoUploadFailed = true;
+        }
         return db.collection('users').doc(createdUid).set(userData);
       })
       .then(() => {
+        docSaved = true;
         checkingBox.style.display = 'none';
         submitBtn.style.display = 'none';
         if (photoUploadFailed) {
-          successMsg.innerText = 'تم إنشاء حسابك بنجاح، لكن تعذّر رفع الصورة الشخصية (خدمة الصور غير متاحة حالياً). يمكنك المتابعة بدونها.';
+          successMsg.innerText = 'تم إنشاء حسابك، لكن تعذّر رفع الصورة الشخصية فلم تُحفظ. يمكنك المتابعة بدونها وإضافتها لاحقاً عبر الإدارة.';
+          showAdminNotification('تم إنشاء الحساب، لكن لم تُرفع الصورة الشخصية.', 'warning');
         }
         successMsg.style.display = 'block';
         doneBtn.style.display = 'block';
@@ -787,6 +921,11 @@ if (scoutParentRegisterForm) {
       .catch((error) => {
         checkingBox.style.display = 'none';
         submitBtn.disabled = false;
+        // حساب Authentication أُنشئ لكن بياناته لم تُحفظ => نحذفه حتى لا يبقى حساب يتيم لا يظهر عند الإدارة
+        if (createdUid && !docSaved && auth.currentUser && auth.currentUser.uid === createdUid) {
+          auth.currentUser.delete().catch((delErr) => console.warn('[Scout Elwihda] تعذر حذف الحساب اليتيم:', delErr && delErr.code));
+        }
+        console.error('[Scout Elwihda] scout registration error:', error && error.code, error && error.message);
         errorMsg.innerText = getRegistrationErrorMessage(error);
       });
   });
@@ -803,32 +942,32 @@ function renderScoutOrLeaderCard(data) {
   const cardTitle = isAdmin ? 'بطاقة الإدارة' : (isLeader ? 'بطاقة القائد' : (isParent ? 'بطاقة الولي' : 'بطاقة الكشاف'));
   const roleBadge = isAdmin ? 'مدير النظام (Admin)' : (data.leaderRoleTitle || (isLeader ? 'قائد كشفي' : (isParent ? 'ولي أمر' : 'كشاف')));
   const fullName = data.fullName || (data.firstName ? `${data.firstName} ${data.lastName}` : 'عضو الفوج');
-  const avatarHtml = data.photoURL
-    ? `<img src="${data.photoURL}" alt="${fullName}" loading="lazy">`
+  const avatarHtml = safeImgUrl(data.photoURL)
+    ? `<img src="${safeImgUrl(data.photoURL)}" alt="${escHtml(fullName)}" loading="lazy">`
     : `<i class="fa-solid ${(isLeader || isAdmin) ? 'fa-user-shield' : 'fa-user-graduate'}"></i>`;
 
   const statusLabel = data.accountStatus === 'active' ? '🟢 نشط'
     : (data.accountStatus === 'pending_verification' ? '🟡 قيد المراجعة'
-    : (data.accountStatus ? '🔴 ' + data.accountStatus : ''));
+    : (data.accountStatus ? '🔴 ' + escHtml(data.accountStatus) : ''));
 
   cardContainer.innerHTML = `
     <div class="digital-scout-card hover-lift">
       <div class="card-header-badge">
         <i class="fa-solid ${isLeader ? 'fa-user-tie' : 'fa-id-card'}"></i>
-        <span>${cardTitle}</span>
+        <span>${escHtml(cardTitle)}</span>
       </div>
       <div class="card-body-content">
         <div class="card-avatar">
           ${avatarHtml}
         </div>
         <div class="card-details">
-          <h3>${fullName}</h3>
-          <p class="role-tag">${roleBadge}</p>
+          <h3>${escHtml(fullName)}</h3>
+          <p class="role-tag">${escHtml(roleBadge)}</p>
           <div class="card-info-grid">
-            <div><i class="fa-solid fa-envelope"></i> <strong>البريد:</strong> ${data.email || 'غير مدخل'}</div>
-            ${data.parentPhone ? `<div><i class="fa-solid fa-phone"></i> <strong>هاتف الولي:</strong> ${data.parentPhone}</div>` : ''}
-            ${data.scoutPhone ? `<div><i class="fa-solid fa-mobile-screen"></i> <strong>هاتف الابن:</strong> ${data.scoutPhone}</div>` : ''}
-            ${data.unit ? `<div><i class="fa-solid fa-shield-halved"></i> <strong>الوحدة:</strong> ${data.unit}</div>` : ''}
+            <div><i class="fa-solid fa-envelope"></i> <strong>البريد:</strong> ${escHtml(data.email) || 'غير مدخل'}</div>
+            ${data.parentPhone ? `<div><i class="fa-solid fa-phone"></i> <strong>هاتف الولي:</strong> ${escHtml(data.parentPhone)}</div>` : ''}
+            ${data.scoutPhone ? `<div><i class="fa-solid fa-mobile-screen"></i> <strong>هاتف الابن:</strong> ${escHtml(data.scoutPhone)}</div>` : ''}
+            ${data.unit ? `<div><i class="fa-solid fa-shield-halved"></i> <strong>الوحدة:</strong> ${escHtml(data.unit)}</div>` : ''}
             <div><i class="fa-solid fa-flag"></i> <strong>الفوج:</strong> فوج الوحدة الكشفي</div>
             ${statusLabel ? `<div><i class="fa-solid fa-circle-check"></i> <strong>الحالة:</strong> ${statusLabel}</div>` : ''}
           </div>
@@ -858,17 +997,15 @@ if (mediaPortalForm) {
       currentUserRole = userData.role || null;
       currentUserPermissions = userData.permissions || {};
       currentUserAccountStatus = userData.accountStatus || null;
+      clearPersistedSessionLock();
+      recordAdminActivity();
 
       setTimeout(() => {
         checkingBox.style.display = 'none';
         submitBtn.disabled = false;
         closeModal('mediaPortalModal');
         mediaPortalForm.reset();
-        
-        const fullBlueScreen = document.getElementById('fullAdminBlueScreen');
-        if (fullBlueScreen) {
-          fullBlueScreen.style.display = 'flex';
-        }
+        setAdminViewActive(true);
         applyAdminPanelUIForRole();
       }, 1500);
     };
@@ -938,17 +1075,15 @@ if (adminLoginForm) {
       currentUserRole = userData.role || null;
       currentUserPermissions = userData.permissions || {};
       currentUserAccountStatus = userData.accountStatus || null;
+      clearPersistedSessionLock();
+      recordAdminActivity();
 
       setTimeout(() => {
         checkingBox.style.display = 'none';
         submitBtn.disabled = false;
         closeModal('adminLoginModal');
         adminLoginForm.reset();
-        
-        const fullBlueScreen = document.getElementById('fullAdminBlueScreen');
-        if (fullBlueScreen) {
-          fullBlueScreen.style.display = 'flex';
-        }
+        setAdminViewActive(true);
         applyAdminPanelUIForRole();
       }, 1500);
     };
@@ -994,8 +1129,7 @@ function closeAllModalsAndOverlays() {
   const navMenu = document.getElementById('navMenu');
   if (navMenu) navMenu.classList.remove('active');
 
-  const fullBlueScreen = document.getElementById('fullAdminBlueScreen');
-  if (fullBlueScreen) fullBlueScreen.style.display = 'none';
+  setAdminViewActive(false);
 }
 
 // إرسال طلب استعادة الوصول (كتابة فقط، آمنة حتى لغير المسجلين حسب Rules)
@@ -1050,10 +1184,15 @@ function updateDashboardAccessButton(userData) {
   if (mobileItem) setAuthVisible(mobileItem, canAccess, 'block');
 }
 
-// العودة إلى لوحة التعديلات دون الحاجة لإعادة تسجيل الدخول — الجلسة فعّالة أصلاً
+// العودة إلى لوحة التعديلات — يتحقق أولاً من عدم قفل الجلسة أو انتهاء مهلة عدم النشاط
 function returnToDashboard() {
-  const fullBlueScreen = document.getElementById('fullAdminBlueScreen');
-  if (fullBlueScreen) fullBlueScreen.style.display = 'flex';
+  if (isSessionLocked() || hasInactivityExpired()) {
+    lockIdleSession('welcome-tab');
+    return;
+  }
+
+  recordAdminActivity();
+  setAdminViewActive(true);
 
   const navMenu = document.getElementById('navMenu');
   if (navMenu) navMenu.classList.remove('active');
@@ -1063,20 +1202,25 @@ function returnToDashboard() {
   applyAdminPanelUIForRole();
 }
 
-// العودة إلى الموقع العام دون تسجيل الخروج — الجلسة تبقى فعّالة تماماً
+// العودة إلى الموقع العام دون تسجيل الخروج — الجلسة تبقى فعّالة تماماً (ما لم تكن مقفلة)
 function backToSiteFromAdmin() {
+  if (isSessionLocked()) {
+    lockIdleSession();
+    return;
+  }
   closeAllModalsAndOverlays();
   showPage('home-page');
 }
 
 function logoutAdmin() {
+  clearPersistedSessionLock();
   auth.signOut().then(() => {
     closeAllModalsAndOverlays();
-    window.location.hash = '';
+    history.replaceState(null, '', window.location.pathname + '#home-page');
     window.location.reload();
   }).catch(() => {
     closeAllModalsAndOverlays();
-    window.location.hash = '';
+    history.replaceState(null, '', window.location.pathname + '#home-page');
     window.location.reload();
   });
 }
@@ -1138,17 +1282,20 @@ function renderPublicGallery() {
       const data = doc.data();
       const path = getItemImagePath('gallery', data);
       const displayTitle = data.title || categoryLabels[data.category] || 'صورة';
-      const downloadName = path ? path.split('/').pop() : '';
+      const driveId = data.driveFileId || extractGoogleDriveFileId(data.imageUrl || data.imageFile || '');
+      const downloadName = driveId
+        ? ((data.title || 'scout-gallery').replace(/[^a-zA-Z0-9_\u0600-\u06FF-]/g, '_') + '.jpg')
+        : (path ? path.split('/').pop().split('?')[0] : 'image.jpg');
 
       const card = document.createElement('div');
       card.className = 'gallery-card hover-lift';
       card.setAttribute('data-category', data.category || 'units');
       card.innerHTML = `
-        <h3>${displayTitle}</h3>
+        <h3>${escHtml(displayTitle)}</h3>
         ${buildImageAreaHtml('gallery', data, displayTitle, true)}
-        <span class="gallery-tag">${categoryLabels[data.category] || data.category || ''}</span>
+        <span class="gallery-tag">${escHtml(categoryLabels[data.category] || data.category || '')}</span>
         ${data.description ? buildExpandableHtml(data.description, 'gallery-desc') : ''}
-        ${path ? `<button type="button" class="gallery-download-btn hover-lift" data-src="${path}" data-name="${downloadName}" onclick="downloadGalleryImage(this)">
+        ${path ? `<button type="button" class="gallery-download-btn hover-lift" data-src="${escHtml(path)}" data-drive-id="${escHtml(driveId || '')}" data-name="${escHtml(downloadName)}" onclick="downloadGalleryImage(this)">
           <i class="fa-solid fa-download"></i> تحميل الصورة
         </button>` : ''}
       `;
@@ -1161,10 +1308,25 @@ function renderPublicGallery() {
   });
 }
 
-// تحميل الصورة فعلياً (fetch + blob من نفس الموقع). إن منع المتصفح ذلك نفتحها في تبويب جديد.
+// تحميل الصورة فعلياً (يدعم التحميل المباشر من Google Drive أو من استضافة الموقع)
 function downloadGalleryImage(btn) {
   const src = btn.getAttribute('data-src');
+  const driveId = btn.getAttribute('data-drive-id') || extractGoogleDriveFileId(src || '');
   const name = btn.getAttribute('data-name') || 'image.jpg';
+
+  if (driveId) {
+    const dlUrl = buildGoogleDriveDownloadUrl(driveId);
+    const link = document.createElement('a');
+    link.href = dlUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    return;
+  }
+
   fetch(src)
     .then((res) => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.blob(); })
     .then((blob) => {
@@ -1181,18 +1343,75 @@ function downloadGalleryImage(btn) {
 }
 
 // Lightbox بسيط لعرض الصورة بحجم كامل
+function getLightboxSources() {
+  return Array.from(document.querySelectorAll('.gallery-card .media-frame[data-lightbox]'))
+    .filter((el) => { const c = el.closest('.gallery-card'); return !c || c.style.display !== 'none'; })
+    .map((el) => el.getAttribute('data-lightbox'));
+}
+
+let lightboxList = [];
+let lightboxIndex = 0;
+
+function showLightboxAt(i) {
+  if (!lightboxList.length) return;
+  lightboxIndex = (i + lightboxList.length) % lightboxList.length;
+  const img = document.getElementById('galleryLightboxImg');
+  const msg = document.getElementById('galleryLightboxMsg');
+  const counter = document.getElementById('galleryLightboxCounter');
+  msg.style.display = 'none'; img.style.display = '';
+  img.onerror = () => { img.style.display = 'none'; msg.style.display = 'block'; };
+  img.src = lightboxList[lightboxIndex];
+  counter.textContent = (lightboxIndex + 1) + ' / ' + lightboxList.length;
+  const multi = lightboxList.length > 1;
+  document.getElementById('galleryLightboxPrev').style.display = multi ? '' : 'none';
+  document.getElementById('galleryLightboxNext').style.display = multi ? '' : 'none';
+}
+
+function closeGalleryLightbox() {
+  const lb = document.getElementById('galleryLightboxOverlay');
+  if (lb) lb.style.display = 'none';
+}
+
 function openGalleryLightbox(imageUrl) {
   let lightbox = document.getElementById('galleryLightboxOverlay');
   if (!lightbox) {
     lightbox = document.createElement('div');
     lightbox.id = 'galleryLightboxOverlay';
     lightbox.className = 'gallery-lightbox-overlay';
-    lightbox.onclick = () => { lightbox.style.display = 'none'; };
-    lightbox.innerHTML = '<img id="galleryLightboxImg" src="" alt="">';
+    lightbox.setAttribute('role', 'dialog');
+    lightbox.setAttribute('aria-modal', 'true');
+    lightbox.setAttribute('aria-label', 'عرض الصورة');
+    lightbox.innerHTML =
+      '<button type="button" id="galleryLightboxClose" class="lb-btn lb-close" aria-label="إغلاق">✕</button>' +
+      '<button type="button" id="galleryLightboxPrev" class="lb-btn lb-prev" aria-label="الصورة السابقة">›</button>' +
+      '<img id="galleryLightboxImg" src="" alt="">' +
+      '<p id="galleryLightboxMsg" class="lb-msg" style="display:none;">تعذّر تحميل هذه الصورة.</p>' +
+      '<button type="button" id="galleryLightboxNext" class="lb-btn lb-next" aria-label="الصورة التالية">‹</button>' +
+      '<span id="galleryLightboxCounter" class="lb-counter"></span>';
+    lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeGalleryLightbox(); });
     document.body.appendChild(lightbox);
+    document.getElementById('galleryLightboxClose').onclick = closeGalleryLightbox;
+    document.getElementById('galleryLightboxPrev').onclick = (e) => { e.stopPropagation(); showLightboxAt(lightboxIndex - 1); };
+    document.getElementById('galleryLightboxNext').onclick = (e) => { e.stopPropagation(); showLightboxAt(lightboxIndex + 1); };
+    document.addEventListener('keydown', (e) => {
+      if (lightbox.style.display === 'none') return;
+      if (e.key === 'Escape') closeGalleryLightbox();
+      else if (e.key === 'ArrowLeft') showLightboxAt(lightboxIndex + 1);   // RTL: اليسار = التالي
+      else if (e.key === 'ArrowRight') showLightboxAt(lightboxIndex - 1);
+    });
+    let touchX = null;
+    lightbox.addEventListener('touchstart', (e) => { touchX = e.touches[0].clientX; }, { passive: true });
+    lightbox.addEventListener('touchend', (e) => {
+      if (touchX === null) return;
+      const dx = e.changedTouches[0].clientX - touchX; touchX = null;
+      if (Math.abs(dx) > 60) showLightboxAt(lightboxIndex + (dx < 0 ? 1 : -1));
+    }, { passive: true });
   }
-  document.getElementById('galleryLightboxImg').src = imageUrl;
+  lightboxList = getLightboxSources();
+  const idx = lightboxList.indexOf(imageUrl);
+  if (idx === -1) lightboxList = [imageUrl];
   lightbox.style.display = 'flex';
+  showLightboxAt(idx === -1 ? 0 : idx);
 }
 
 function applyGalleryFilter(category) {
@@ -1422,12 +1641,28 @@ function loadScoutsParentsAdmin() {
     .then((snapshot) => {
       allScoutsParentsCache = [];
       snapshot.forEach((doc) => allScoutsParentsCache.push({ id: doc.id, ...doc.data() }));
-      renderScoutsParentsList(allScoutsParentsCache);
+      allScoutsParentsCache.sort((a, b) => {
+        const am = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
+        const bm = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
+        return bm - am;
+      });
+      applyScoutsFilters();
     })
     .catch((error) => {
-      container.innerHTML = '<p class="announcements-empty-text">حدث خطأ أثناء جلب الحسابات.</p>';
-      console.error('loadScoutsParentsAdmin error:', error);
+      const denied = error && error.code === 'permission-denied';
+      container.innerHTML = '<p class="announcements-empty-text">' + (denied
+        ? 'تعذر جلب الحسابات: ليست لديك صلاحية القراءة، أو أن قواعد Firestore المحدّثة لم تُنشر بعد.'
+        : 'حدث خطأ أثناء جلب الحسابات. حاول مرة أخرى.') + '</p>';
+      console.error('loadScoutsParentsAdmin error:', error && error.code, error && error.message);
     });
+}
+
+function scoutStatusBadge(user) {
+  const st = user.accountStatus;
+  if (st === 'active') return '<span class="status-badge status-verified"><i class="fa-solid fa-circle-check"></i> نشط</span>';
+  if (st === 'pending_verification') return '<span class="status-badge status-pending"><i class="fa-solid fa-hourglass-half"></i> قيد المراجعة</span>';
+  if (st === 'suspended' || st === 'locked') return '<span class="status-badge status-rejected"><i class="fa-solid fa-ban"></i> موقوف</span>';
+  return '<span class="status-badge status-pending">' + escHtml(st || 'غير محدد') + '</span>';
 }
 
 function renderScoutsParentsList(list) {
@@ -1435,34 +1670,44 @@ function renderScoutsParentsList(list) {
   if (!container) return;
 
   if (list.length === 0) {
-    container.innerHTML = '<p class="announcements-empty-text">لا توجد حسابات كشافة/أولياء حالياً.</p>';
+    container.innerHTML = '<p class="announcements-empty-text">لا توجد حسابات مطابقة حالياً.</p>';
     return;
   }
 
   container.innerHTML = '';
   list.forEach((user) => {
-    const card = document.createElement('div');
-    card.className = 'leader-item-card hover-lift';
-    card.innerHTML = `
-      <div class="leader-card-info">
-        <h3>${user.fullName || 'بدون اسم'}</h3>
-        <p><i class="fa-solid ${user.role === 'scout' ? 'fa-user-graduate' : 'fa-user-shield'}"></i> ${user.role === 'scout' ? 'كشاف' : 'ولي'}${user.unit ? ' — ' + user.unit : ''}</p>
-        <p><i class="fa-solid fa-envelope"></i> ${user.email || ''}</p>
+    const photo = safeImgUrl(user.photoURL);
+    const row = document.createElement('div');
+    row.className = 'account-row hover-lift';
+    row.innerHTML = `
+      <div class="acc-avatar">${photo ? `<img src="${escHtml(photo)}" alt="" loading="lazy" onerror="this.parentNode.innerHTML='<i class=&quot;fa-solid fa-user-graduate&quot;></i>'">` : '<i class="fa-solid fa-user-graduate" aria-hidden="true"></i>'}</div>
+      <div class="acc-info">
+        <h3>${escHtml(user.fullName) || 'بدون اسم'}</h3>
+        <p><i class="fa-solid ${user.role === 'scout' ? 'fa-user-graduate' : 'fa-user-shield'}"></i> ${user.role === 'scout' ? 'كشاف' : 'ولي'}${user.unit ? ' — ' + escHtml(user.unit) : ''} &nbsp; ${scoutStatusBadge(user)}</p>
+        <p><i class="fa-solid fa-envelope"></i> <bdi dir="ltr">${escHtml(user.email)}</bdi></p>
+        ${user.parentPhone ? `<p><i class="fa-solid fa-phone"></i> ولي الأمر: <bdi dir="ltr">${escHtml(user.parentPhone)}</bdi></p>` : ''}
+        ${user.scoutPhone ? `<p><i class="fa-solid fa-mobile-screen"></i> الكشاف: <bdi dir="ltr">${escHtml(user.scoutPhone)}</bdi></p>` : ''}
       </div>
-    `;
-    container.appendChild(card);
+      <div class="acc-actions">
+        <button type="button" class="btn-delete" onclick="confirmDeleteUser(${jsArg(user.id)})"><i class="fa-solid fa-trash-can"></i> حذف</button>
+      </div>`;
+    container.appendChild(row);
   });
 }
 
-function filterScoutsParentsList(query) {
-  const q = sanitizeInput(query.trim().toLowerCase());
-  if (!q) { renderScoutsParentsList(allScoutsParentsCache); return; }
+function applyScoutsFilters() {
+  const q = ((document.getElementById('scoutsSearchInput') || {}).value || '').trim().toLowerCase();
+  const role = (document.getElementById('scoutsRoleFilter') || {}).value || '';
   const filtered = allScoutsParentsCache.filter((u) =>
-    (u.fullName || '').toLowerCase().indexOf(q) !== -1 ||
-    (u.email || '').toLowerCase().indexOf(q) !== -1
+    (!role || u.role === role) &&
+    (!q || (u.fullName || '').toLowerCase().indexOf(q) !== -1 || (u.email || '').toLowerCase().indexOf(q) !== -1)
   );
+  const count = document.getElementById('scoutsCountLabel');
+  if (count) count.textContent = filtered.length + ' من ' + allScoutsParentsCache.length;
   renderScoutsParentsList(filtered);
 }
+
+function filterScoutsParentsList() { applyScoutsFilters(); }
 
 // إحصائيات حقيقية من Firestore — بدون أي أرقام وهمية
 // ملاحظة أداء: تُستخدم .get().size وهي كافية بحجم الفوج الحالي، لكنها تقرأ
@@ -1557,9 +1802,21 @@ function saveLeaderPermissions() {
   });
 }
 
+function applyLeadersFilter() {
+  const q = ((document.getElementById('leadersSearchInput') || {}).value || '').trim().toLowerCase();
+  const st = (document.getElementById('leadersStatusFilter') || {}).value || '';
+  document.querySelectorAll('#leadersListContainer .leader-item-card').forEach((card) => {
+    const textOk = !q || card.textContent.toLowerCase().indexOf(q) !== -1;
+    const stOk = !st || card.getAttribute('data-status') === st;
+    card.style.display = (textOk && stOk) ? '' : 'none';
+  });
+}
+
 function fetchLeadersList() {
   const container = document.getElementById('leadersListContainer');
   if (!container) return;
+  // القائمة للإدارة فقط: لا نطلبها قبل تسجيل الدخول أو لغير الأدمن (القواعد سترفضها أصلاً)
+  if (!auth.currentUser || currentUserRole !== 'admin') return;
 
   db.collection('leaders').get().then((snapshot) => {
     container.innerHTML = '';
@@ -1577,6 +1834,7 @@ function fetchLeadersList() {
 
       const card = document.createElement('div');
       card.className = 'leader-item-card hover-lift';
+      card.setAttribute('data-status', isPending ? 'pending' : (isRejected ? 'rejected' : ((leader.accountStatus === 'suspended' || leader.accountStatus === 'locked') ? 'suspended' : 'active')));
 
       let statusBadge = '<span class="status-badge status-verified"><i class="fa-solid fa-circle-check"></i> نشط</span>';
       if (isPending) statusBadge = '<span class="status-badge status-pending"><i class="fa-solid fa-hourglass-half"></i> قيد المراجعة</span>';
@@ -1594,25 +1852,27 @@ function fetchLeadersList() {
 
       card.innerHTML = `
         <div class="leader-card-info">
-          <h3>${leader.fullName}</h3>
-          <p><i class="fa-solid fa-user-shield"></i> ${leader.leaderRoleTitle || 'قائد كشفي'}</p>
-          <p><i class="fa-solid fa-envelope"></i> ${leader.email || ''}</p>
+          <h3>${escHtml(leader.fullName)}</h3>
+          <p><i class="fa-solid fa-user-shield"></i> ${escHtml(leader.leaderRoleTitle) || 'قائد كشفي'}</p>
+          <p><i class="fa-solid fa-envelope"></i> ${escHtml(leader.email)}</p>
           <p>${statusBadge} ${sourceBadge}</p>
         </div>
         ${isPending ? `
         <div class="announcement-card-actions">
-          <button class="btn-edit" style="background: rgba(34,197,94,0.2); color:#22c55e;" onclick="approveLeaderVerification('${uid}', ${leader.signupType === 'media_officer'})"><i class="fa-solid fa-check"></i> قبول</button>
-          <button class="btn-delete" onclick="rejectLeaderVerification('${uid}')"><i class="fa-solid fa-xmark"></i> رفض</button>
+          <button class="btn-edit" style="background: rgba(241,207,121,0.15); color: var(--accent-gold);" onclick="openLeaderDetailsModal(${jsArg(uid)})"><i class="fa-solid fa-id-card"></i> الملف</button>
+          <button class="btn-edit" style="background: rgba(34,197,94,0.2); color:#22c55e;" onclick="approveLeaderVerification(${jsArg(uid)}, ${leader.signupType === 'media_officer'})"><i class="fa-solid fa-check"></i> قبول</button>
+          <button class="btn-delete" onclick="rejectLeaderVerification(${jsArg(uid)})"><i class="fa-solid fa-xmark"></i> رفض</button>
         </div>` : `
         <div class="announcement-card-actions">
-          <button class="btn-edit" onclick='openEditPermissionsModal("${uid}", ${JSON.stringify(leader.fullName || '')})'><i class="fa-solid fa-key"></i> الصلاحيات</button>
+          <button class="btn-edit" style="background: rgba(241,207,121,0.15); color: var(--accent-gold);" onclick="openLeaderDetailsModal(${jsArg(uid)})"><i class="fa-solid fa-id-card"></i> الملف</button>
+          <button class="btn-edit" onclick="openEditPermissionsModal(${jsArg(uid)}, ${jsArg(leader.fullName || '')})"><i class="fa-solid fa-key"></i> الصلاحيات</button>
         </div>`}
       `;
 
       container.appendChild(card);
     });
   }).catch((error) => {
-    container.innerHTML = '<p class="announcements-empty-text">حدث خطأ أثناء جلب قائمة القادة: ' + error.message + '</p>';
+    container.innerHTML = '<p class="announcements-empty-text">حدث خطأ أثناء جلب قائمة القادة: ' + escHtml(error.message) + '</p>';
     console.error('fetchLeadersList error:', error);
   });
 }
@@ -1702,18 +1962,18 @@ function loadSecurityRequests() {
       card.className = 'leader-item-card hover-lift';
       card.innerHTML = `
         <div class="leader-card-info" style="flex:1;">
-          <h3><i class="fa-solid fa-envelope"></i> ${data.email || ''}</h3>
-          <p><i class="fa-solid fa-calendar"></i> ${dateText}</p>
+          <h3><i class="fa-solid fa-envelope"></i> ${escHtml(data.email)}</h3>
+          <p><i class="fa-solid fa-calendar"></i> ${escHtml(dateText)}</p>
           <p>${statusBadge}</p>
         </div>
         <div class="announcement-card-actions">
-          <button class="btn-edit" onclick="viewSecurityRequest('${doc.id}')"><i class="fa-solid fa-eye"></i> عرض المشكلة</button>
+          <button class="btn-edit" onclick="viewSecurityRequest(${jsArg(doc.id)})"><i class="fa-solid fa-eye"></i> عرض المشكلة</button>
         </div>
       `;
       container.appendChild(card);
     });
   }).catch((error) => {
-    container.innerHTML = '<p class="announcements-empty-text">حدث خطأ: ' + error.message + '</p>';
+    container.innerHTML = '<p class="announcements-empty-text">حدث خطأ: ' + escHtml(error.message) + '</p>';
     console.error('loadSecurityRequests error:', error);
   });
 }
@@ -1787,7 +2047,7 @@ function loadSuspiciousAccounts() {
 
     renderSuspiciousAccountsList(suspiciousList);
   }).catch((error) => {
-    container.innerHTML = '<p class="announcements-empty-text">حدث خطأ أثناء جلب البيانات: ' + error.message + '</p>';
+    container.innerHTML = '<p class="announcements-empty-text">حدث خطأ أثناء جلب البيانات: ' + escHtml(error.message) + '</p>';
     console.error('loadSuspiciousAccounts error:', error);
   });
 }
@@ -1808,22 +2068,22 @@ function renderSuspiciousAccountsList(list) {
     card.className = 'leader-item-card suspicious-account-card hover-lift';
     card.innerHTML = `
       <div class="leader-card-info" style="flex:1;">
-        <h3><i class="fa-solid fa-user"></i> ${item.data.fullName || 'بدون اسم'}</h3>
-        <p><i class="fa-solid fa-envelope"></i> ${item.data.email || ''}</p>
+        <h3><i class="fa-solid fa-user"></i> ${escHtml(item.data.fullName) || 'بدون اسم'}</h3>
+        <p><i class="fa-solid fa-envelope"></i> ${escHtml(item.data.email)}</p>
         <p>${isBlocked
           ? '<span class="status-badge status-rejected"><i class="fa-solid fa-ban"></i> محظور</span>'
           : '<span class="status-badge status-pending"><i class="fa-solid fa-triangle-exclamation"></i> نشط — يحتاج مراجعة</span>'}
         </p>
-        <p class="suspicious-reason-text"><i class="fa-solid fa-circle-info"></i> سبب الاشتباه: ${item.reason}</p>
+        <p class="suspicious-reason-text"><i class="fa-solid fa-circle-info"></i> سبب الاشتباه: ${escHtml(item.reason)}</p>
         <div class="suspicious-actions-row">
           <button class="btn-warn-email" disabled title="يحتاج خدمة بريد إلكتروني حقيقية — غير متاحة حالياً ضمن Firebase Client">
             <i class="fa-solid fa-envelope"></i> إرسال رسالة تحذير (NEEDS EMAIL SERVICE)
           </button>
           ${isBlocked ? `
-          <button class="btn-restore-account" onclick="confirmRestoreSuspiciousAccount('${item.uid}', ${JSON.stringify(item.data.fullName || '')})">
+          <button class="btn-restore-account" onclick="confirmRestoreSuspiciousAccount(${jsArg(item.uid)}, ${jsArg(item.data.fullName || '')})">
             <i class="fa-solid fa-rotate-left"></i> إعادة الحساب للخدمة
           </button>` : ''}
-          <button class="btn-delete" onclick="confirmDeleteUser('${item.uid}')">
+          <button class="btn-delete" onclick="confirmDeleteUser(${jsArg(item.uid)})">
             <i class="fa-solid fa-trash-can"></i> حذف الحساب
           </button>
         </div>
@@ -1972,12 +2232,12 @@ function fetchAllAccountsForDeleteView() {
             <i class="fa-solid fa-user"></i>
           </div>
           <div>
-            <h3 style="color: #fff; margin: 0 0 5px 0; font-size: 1.1rem;">${nameText}</h3>
-            <p style="color: rgba(255,255,255,0.7); margin: 0; font-size: 0.9rem;"><i class="fa-solid fa-envelope"></i> ${userData.email || 'بدون إيميل'} | <span style="color: var(--accent-gold);">${roleText}</span></p>
+            <h3 style="color: #fff; margin: 0 0 5px 0; font-size: 1.1rem;">${escHtml(nameText)}</h3>
+            <p style="color: rgba(255,255,255,0.7); margin: 0; font-size: 0.9rem;"><i class="fa-solid fa-envelope"></i> ${escHtml(userData.email) || 'بدون إيميل'} | <span style="color: var(--accent-gold);">${escHtml(roleText)}</span></p>
           </div>
         </div>
         <div class="account-action-part">
-          <button class="btn-action-red hover-lift" onclick="confirmDeleteUser('${userId}')" style="padding: 8px 16px; border-radius: 8px; border: none; background: #ef4444; color: #fff; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 6px;">
+          <button class="btn-action-red hover-lift" onclick="confirmDeleteUser(${jsArg(userId)})" style="padding: 8px 16px; border-radius: 8px; border: none; background: #ef4444; color: #fff; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 6px;">
             <i class="fa-solid fa-trash-can"></i> حذف
           </button>
         </div>
@@ -2014,10 +2274,23 @@ function executeDeleteLeader() {
   buttonsRow.style.display = 'none';
   checkingBox.style.display = 'flex';
 
-  // نقرأ البريد أولاً لنعرضه في تعليمات الحذف اليدوي من Authentication
+  if (auth.currentUser && uidToDelete === auth.currentUser.uid) {
+    buttonsRow.style.display = 'flex'; checkingBox.style.display = 'none';
+    showAdminNotification('لا يمكنك حذف حسابك الحالي.', 'error');
+    return;
+  }
+
+  // نقرأ الوثيقة أولاً: نمنع حذف أي حساب بدور admin (المالك/الأدمن)، ونأخذ البريد لتعليمات الحذف اليدوي
   db.collection('users').doc(uidToDelete).get()
-    .then((snap) => (snap.exists ? (snap.data().email || '') : ''))
-    .catch(() => '')
+    .then((snap) => {
+      const d = snap.exists ? snap.data() : {};
+      if (d.role === 'admin') {
+        const e = new Error('لا يمكن حذف حساب الأدمن/المالك من هذه الواجهة.');
+        e.code = 'app/protected-account';
+        throw e;
+      }
+      return d.email || '';
+    })
     .then((email) => {
       // حذف مستندات Firestore (users + leaders). حذف حساب الدخول من Authentication
       // لا يمكن تنفيذه من المتصفح بأمان (يحتاج Admin SDK على خادم موثوق).
@@ -2030,7 +2303,7 @@ function executeDeleteLeader() {
       checkingBox.style.display = 'none';
       successMsg.innerHTML = 'تم حذف <strong>بيانات</strong> الحساب من الموقع (Firestore) بنجاح.<br>'
         + '<span style="color:#fbbf24;">⚠️ حساب الدخول نفسه ما زال موجوداً في Firebase Authentication، '
-        + 'ولن يستطيع صاحب البريد' + (email ? ' <bdi dir="ltr">' + email + '</bdi>' : '') + ' إعادة التسجيل به قبل حذفه يدوياً:</span><br>'
+        + 'ولن يستطيع صاحب البريد' + (email ? ' <bdi dir="ltr">' + escHtml(email) + '</bdi>' : '') + ' إعادة التسجيل به قبل حذفه يدوياً:</span><br>'
         + '<small>Firebase Console ← Authentication ← Users ← ابحث عن البريد ← ⋮ ← Delete account.</small>';
       successMsg.style.display = 'block';
       pendingDeleteUserId = null;
@@ -2042,55 +2315,9 @@ function executeDeleteLeader() {
     .catch((error) => {
       checkingBox.style.display = 'none';
       buttonsRow.style.display = 'flex';
-      alert('حدث خطأ أثناء محاولة حذف الحساب: ' + error.message + ' (الكود: ' + error.code + ')');
+      showAdminNotification(error && error.code === 'app/protected-account' ? error.message : 'تعذّر حذف الحساب. تحقق من صلاحياتك وحاول مرة أخرى.', 'error');
       console.error('executeDeleteLeader error:', error);
     });
-}
-// جلب جميع القادة من Firestore وعرضهم في لوحة الأدمن
-function loadLeadersForAdmin() {
-  const container = document.getElementById('leadersListContainer');
-  container.innerHTML = '<div class="spinner"></div>'; // تحميل
-
-  db.collection('leaders').get().then((querySnapshot) => {
-    container.innerHTML = '';
-    querySnapshot.forEach((doc) => {
-      const leader = doc.data();
-      const leaderId = doc.id;
-
-      // بناء الكرت تاع كل قائد
-      const card = `
-        <div class="leader-card-item hover-lift">
-          <div class="leader-info">
-            <i class="fa-solid fa-user-tie" style="color: var(--accent-gold);"></i>
-            <strong>${leader.fullName}</strong> - <span class="text-sm opacity-70">${leader.role}</span>
-          </div>
-          <div class="leader-actions">
-            <!-- زر التجميد (المخيف) -->
-            <button class="btn-action-suspicious" onclick="toggleLeaderStatus('${leaderId}', '${leader.status}')">
-              <i class="fa-solid fa-${leader.status === 'active' ? 'pause' : 'play'}"></i>
-              ${leader.status === 'active' ? 'تجميد' : 'تفعيل'}
-            </button>
-            <!-- زر الحذف -->
-            <button class="btn-action-red" onclick="confirmDeleteLeader('${leaderId}')">
-              <i class="fa-solid fa-trash"></i>
-            </button>
-          </div>
-        </div>
-      `;
-      container.innerHTML += card;
-    });
-  });
-}
-
-// وظيفة تجميد/تفعيل حساب القائد (مسؤول الإعلام مثلاً)
-function toggleLeaderStatus(leaderId, currentStatus) {
-  const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
-  db.collection('leaders').doc(leaderId).update({
-    status: newStatus
-  }).then(() => {
-    showAdminNotification(`تم ${newStatus === 'active' ? 'تفعيل' : 'تجميد'} الحساب بنجاح!`, 'success');
-    loadLeadersForAdmin(); // تحديث القائمة
-  });
 }
 // مستويات أهمية الإعلان — قابلة للتوسع مستقبلاً
 const ANNOUNCEMENT_LEVELS = {
@@ -2254,11 +2481,26 @@ function unescapeSanitized(str) {
             .replace(/&#039;/g, "'").replace(/&amp;/g, '&');
 }
 
-// يحدد مصدر الصورة: ملف محلي (imageFile) أولاً، ثم رابط قديم محفوظ سابقاً (imageUrl) إن كان https
+// يحدد مصدر الصورة: معرّف Google Drive (driveFileId) أو رابط (imageUrl) أو ملف/رابط في imageFile
 function getItemImagePath(kind, data) {
-  const local = resolveLocalImagePath(kind, data.imageFile);
-  if (local) return local;
-  if (typeof data.imageUrl === 'string' && data.imageUrl.indexOf('https://') === 0) return data.imageUrl;
+  return safeImgUrl(getItemImagePathRaw(kind, data));
+}
+
+function getItemImagePathRaw(kind, data) {
+  if (!data) return '';
+  if (typeof data.driveFileId === 'string' && data.driveFileId.trim()) {
+    const driveUrl = buildGoogleDriveImageUrl(data.driveFileId.trim(), 1600);
+    if (driveUrl) return driveUrl;
+  }
+  if (typeof data.imageUrl === 'string' && data.imageUrl.trim()) {
+    const driveIdFromUrl = extractGoogleDriveFileId(data.imageUrl);
+    if (driveIdFromUrl) return buildGoogleDriveImageUrl(driveIdFromUrl, 1600);
+    if (data.imageUrl.indexOf('https://') === 0) return data.imageUrl.trim();
+  }
+  if (typeof data.imageFile === 'string' && data.imageFile.trim()) {
+    const resolved = resolveImageInputSource(data.imageFile, kind);
+    if (resolved && resolved.path) return resolved.path;
+  }
   return '';
 }
 
@@ -2266,18 +2508,35 @@ function getItemImagePath(kind, data) {
 // لا تُعرض صورة مكسورة أبداً، ولا يختفي محتوى البطاقة بسبب الصورة.
 function buildImageAreaHtml(kind, data, altText, clickable) {
   const path = getItemImagePath(kind, data);
-  const safeAlt = (altText || '').replace(/"/g, '&quot;');
+  const safeAlt = escHtml(altText || '');
   if (!path) {
     return '<div class="media-frame"><div class="image-unavailable">الصورة غير متاحة حاليًا.</div></div>';
   }
-  const clickAttr = clickable ? ` data-lightbox="${path}"` : '';
+  const driveId = (data && data.driveFileId) || extractGoogleDriveFileId(path);
+  const driveAttr = driveId ? ` data-drive-id="${escHtml(driveId)}"` : '';
+  const clickAttr = clickable ? ` data-lightbox="${escHtml(path)}"` : '';
   return `<div class="media-frame${clickable ? ' is-clickable' : ''}"${clickAttr}>
-    <img src="${path}" alt="${safeAlt}" loading="lazy" onerror="handleImageLoadError(this)">
+    <img src="${escHtml(path)}"${driveAttr} alt="${safeAlt}" loading="lazy" onerror="handleImageLoadError(this)">
     <div class="image-unavailable is-hidden">الصورة غير متاحة حاليًا.</div>
   </div>`;
 }
 
 function handleImageLoadError(img) {
+  // إذا كانت الصورة من Google Drive، نجرب الرابط البديل (lh3.googleusercontent.com) قبل إعلان الفشل
+  const driveId = img.getAttribute('data-drive-id') || extractGoogleDriveFileId(img.src || '');
+  if (driveId && !img.getAttribute('data-tried-fallback')) {
+    img.setAttribute('data-tried-fallback', '1');
+    const fallbackUrl = buildGoogleDriveFallbackUrl(driveId, 1600);
+    if (fallbackUrl && fallbackUrl !== img.src) {
+      img.src = fallbackUrl;
+      const frame = img.parentElement;
+      if (frame && frame.hasAttribute('data-lightbox')) {
+        frame.setAttribute('data-lightbox', fallbackUrl);
+      }
+      return;
+    }
+  }
+
   console.warn('[الصور] تعذّر تحميل الصورة (404 أو مسار خاطئ): ' + img.src);
   img.style.display = 'none';
   const frame = img.parentElement;
@@ -2289,13 +2548,39 @@ function handleImageLoadError(img) {
   }
 }
 
+function handleThumbImageError(img) {
+  const driveId = extractGoogleDriveFileId(img.src || '');
+  if (driveId && !img.getAttribute('data-tried-fallback')) {
+    img.setAttribute('data-tried-fallback', '1');
+    const fallbackUrl = buildGoogleDriveFallbackUrl(driveId, 800);
+    if (fallbackUrl && fallbackUrl !== img.src) {
+      img.src = fallbackUrl;
+      return;
+    }
+  }
+  img.style.display = 'none';
+}
+
 // نص قابل للطي: يظهر الزر فقط إن كان النص طويلاً، وكل بطاقة مستقلة عن غيرها
 const EXPANDABLE_TEXT_LIMIT = 200;
 function buildExpandableHtml(text, extraClass) {
   const body = text || '';
+  // الوصف الطويل في المعرض: معاينة من 6 كلمات (قطع عند حدود الكلمات فقط، آمن للعربية) + «عرض المزيد»
+  if (extraClass === 'gallery-desc') {
+    const clean = unescapeSanitized(String(body)).trim();
+    const words = clean.split(/\s+/).filter(Boolean);
+    if (words.length > 6) {
+      const short = words.slice(0, 6).join(' ') + '…';
+      return `<div class="expandable-wrap">
+    <p class="expandable-body gallery-desc" data-short="${escHtml(short)}" data-full="${escHtml(clean)}">${escHtml(short)}</p>
+    <button type="button" class="read-more-btn" aria-expanded="false" onclick="toggleExpandable(this)">عرض المزيد</button>
+  </div>`;
+    }
+    return `<div class="expandable-wrap"><p class="expandable-body gallery-desc">${escHtml(clean)}</p></div>`;
+  }
   const needsToggle = body.length > EXPANDABLE_TEXT_LIMIT || (body.match(/\n/g) || []).length > 4;
   return `<div class="expandable-wrap">
-    <p class="expandable-body ${extraClass || ''} ${needsToggle ? 'is-collapsed' : ''}">${body}</p>
+    <p class="expandable-body ${escHtml(extraClass || '')} ${needsToggle ? 'is-collapsed' : ''}">${escHtml(body)}</p>
     ${needsToggle ? '<button type="button" class="read-more-btn" onclick="toggleExpandable(this)">عرض المزيد</button>' : ''}
   </div>`;
 }
@@ -2303,6 +2588,14 @@ function buildExpandableHtml(text, extraClass) {
 function toggleExpandable(btn) {
   const body = btn.previousElementSibling;
   if (!body) return;
+  if (body.hasAttribute('data-short')) {
+    // طيّ/فتح بالنص الكامل دون مغادرة الصفحة (textContent: بلا حقن HTML)
+    const expanded = btn.getAttribute('aria-expanded') === 'true';
+    body.textContent = expanded ? body.getAttribute('data-short') : body.getAttribute('data-full');
+    btn.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+    btn.innerText = expanded ? 'عرض المزيد' : 'عرض أقل';
+    return;
+  }
   const collapsed = body.classList.toggle('is-collapsed');
   btn.innerText = collapsed ? 'عرض المزيد' : 'عرض أقل';
 }
@@ -2326,6 +2619,7 @@ function openAnnouncementModal(mode, id) {
   const successMsg = document.getElementById('announcementSuccess');
 
   form.reset();
+  clearSelectedDriveFile('announcements');
   setPickerValue('announcementStartAtInput', '');
   setPickerValue('announcementEndAtInput', '');
   errorMsg.innerText = '';
@@ -2342,8 +2636,10 @@ function openAnnouncementModal(mode, id) {
         const data = doc.data();
         titleInput.value = unescapeSanitized(data.title || '');
         contentInput.value = unescapeSanitized(data.content || '');
-        imageFileInput.value = data.imageFile || '';
+        imageFileInput.value = data.imageFile || (data.driveFileId ? ('https://drive.google.com/file/d/' + data.driveFileId + '/view') : (data.imageUrl || ''));
         draftCheckbox.checked = data.published === false;
+        const catEl = document.getElementById('announcementCategoryInput');
+        if (catEl) catEl.value = data.category || '';
         setPickerValue('announcementStartAtInput',
           data.startAt && data.startAt.toDate ? dateToAlgiersLocalInputValue(data.startAt.toDate()) : '');
         setPickerValue('announcementEndAtInput',
@@ -2409,7 +2705,7 @@ function compressImageFile(file, maxDimension, quality) {
   });
 }
 
-// حفظ إعلان صفحة الموقع (إنشاء/تعديل). لا يوجد رفع صور: الصورة اختيارية وتُربط باسم ملف محلي.
+// حفظ إعلان صفحة الموقع (إنشاء/تعديل) — يدعم الرفع المباشر إلى Google Drive أو رابط Google Drive أو ملف محلي
 const adminAnnouncementForm = document.getElementById('adminAnnouncementForm');
 if (adminAnnouncementForm) {
   adminAnnouncementForm.addEventListener('submit', (e) => {
@@ -2418,6 +2714,7 @@ if (adminAnnouncementForm) {
     const title = sanitizeInput(document.getElementById('announcementTitleInput').value.trim());
     const content = sanitizeInput(document.getElementById('announcementContentInput').value.trim());
     const rawImageName = document.getElementById('announcementImageFileInput').value.trim();
+    const selectedFile = getSelectedDriveFile('announcements');
     const isDraft = document.getElementById('announcementDraftCheckbox').checked;
 
     const checkingBox = document.getElementById('announcementCheckingBox');
@@ -2434,10 +2731,10 @@ if (adminAnnouncementForm) {
       return;
     }
 
-    // اسم ملف الصورة: اختياري، وصيغته مقيّدة (لا مسارات ولا روابط)
-    const imageFile = cleanLocalImageFileName(rawImageName, 'announcements');
-    if (rawImageName && !imageFile) {
-      errorMsg.innerText = 'اسم ملف الصورة غير صالح. اكتب اسم الملف فقط مع امتداده (مثال: announcement-001.jpg).';
+    // تحليل حقل الرابط / اسم الملف إن لم يكن هناك ملف مختار للرفع المباشر
+    const resolvedInput = resolveImageInputSource(rawImageName, 'announcements');
+    if (!selectedFile && rawImageName && resolvedInput.type === 'invalid') {
+      errorMsg.innerText = 'صيغة الصورة غير صالحة. اختر صورة للرفع إلى Google Drive، أو الصق رابط مشاركة Google Drive، أو اكتب اسم ملف محلي (مثل announcement-001.jpg).';
       return;
     }
 
@@ -2450,7 +2747,7 @@ if (adminAnnouncementForm) {
 
     submitBtn.disabled = true;
     checkingBox.style.display = 'flex';
-    checkingText.innerText = 'جاري حفظ الإعلان...';
+    checkingText.innerText = selectedFile ? 'جاري ضغط الصورة ورفعها إلى Google Drive...' : 'جاري حفظ الإعلان...';
 
     const isEditing = !!pendingEditAnnouncementId;
 
@@ -2461,34 +2758,49 @@ if (adminAnnouncementForm) {
       checkingBox.style.display = 'none';
       submitBtn.disabled = false;
       errorMsg.innerText = 'استغرقت العملية وقتاً طويلاً بلا استجابة. تحقق من اتصالك وحاول مرة أخرى.';
-    }, 20000);
+    }, 45000);
 
-    const data = {
-      title: title,
-      content: content,
-      imageFile: imageFile,
-      published: !isDraft,
-      startAt: startAtDate ? firebase.firestore.Timestamp.fromDate(startAtDate) : null,
-      endAt: endAtDate ? firebase.firestore.Timestamp.fromDate(endAtDate) : null,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    };
+    const uploadStepPromise = selectedFile
+      ? uploadImageToGoogleDrive(selectedFile, 'announcements', (msg) => { checkingText.innerText = msg; })
+      : Promise.resolve({
+          driveFileId: resolvedInput.driveFileId || '',
+          imageUrl: resolvedInput.imageUrl || '',
+          imageFile: resolvedInput.imageFile || ''
+        });
 
-    let writePromise;
-    if (isEditing) {
-      writePromise = db.collection('announcements').doc(pendingEditAnnouncementId).update(data);
-    } else {
-      data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-      data.createdBy = auth.currentUser ? auth.currentUser.uid : null;
-      writePromise = db.collection('announcements').add(data);
-    }
+    uploadStepPromise
+      .then((mediaInfo) => {
+        if (timedOut) return;
+        checkingText.innerText = 'جاري حفظ بيانات الإعلان في قاعدة البيانات...';
 
-    writePromise
+        const data = {
+          title: title,
+          content: content,
+          imageFile: mediaInfo.imageFile || '',
+          imageUrl: mediaInfo.imageUrl || '',
+          driveFileId: mediaInfo.driveFileId || '',
+          published: !isDraft,
+          category: (document.getElementById('announcementCategoryInput') || {}).value || '',
+          startAt: startAtDate ? firebase.firestore.Timestamp.fromDate(startAtDate) : null,
+          endAt: endAtDate ? firebase.firestore.Timestamp.fromDate(endAtDate) : null,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        if (isEditing) {
+          return db.collection('announcements').doc(pendingEditAnnouncementId).update(data);
+        } else {
+          data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+          data.createdBy = auth.currentUser ? auth.currentUser.uid : null;
+          return db.collection('announcements').add(data);
+        }
+      })
       .then(() => {
         if (timedOut) return;
         clearTimeout(safetyTimeout);
         checkingBox.style.display = 'none';
         submitBtn.disabled = false;
         successMsg.style.display = 'block';
+        clearSelectedDriveFile('announcements');
         showAdminNotification(isEditing ? 'تم تعديل الإعلان بنجاح!' : (isDraft ? 'تم حفظ الإعلان كمسودة.' : 'تم حفظ الإعلان بنجاح!'), 'success');
         setTimeout(() => {
           closeModal('adminAnnouncementModal');
@@ -2500,7 +2812,7 @@ if (adminAnnouncementForm) {
         clearTimeout(safetyTimeout);
         checkingBox.style.display = 'none';
         submitBtn.disabled = false;
-        errorMsg.innerText = 'حدث خطأ أثناء الحفظ: ' + error.message + (error.code ? ' (الكود: ' + error.code + ')' : '');
+        errorMsg.innerText = 'حدث خطأ أثناء الحفظ: ' + (error && error.message ? error.message : String(error)) + (error && error.code ? ' (الكود: ' + error.code + ')' : '');
       });
   });
 }
@@ -2558,17 +2870,17 @@ function loadAnnouncementsAdmin() {
         const card = document.createElement('div');
         card.className = 'announcement-card-item hover-lift';
         card.innerHTML = `
-          ${getItemImagePath('announcements', data) ? `<img src="${getItemImagePath('announcements', data)}" class="announcement-card-thumb" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}
+          ${getItemImagePath('announcements', data) ? `<img src="${escHtml(getItemImagePath('announcements', data))}" class="announcement-card-thumb" alt="" loading="lazy" onerror="handleThumbImageError(this)">` : ''}
           <div class="announcement-card-info" style="flex:1;">
-            <h3>${data.title || 'بدون عنوان'}</h3>
-            <p class="announcement-excerpt">${(data.content || '').slice(0, 120)}</p>
+            <h3>${escHtml(data.title) || 'بدون عنوان'}</h3>
+            <p class="announcement-excerpt">${escHtml(unescapeSanitized(data.content || '').slice(0, 120))}</p>
             <p style="margin-top:4px;">${timingBadge}</p>
             ${timingDetails}
             <p style="color:#94a3b8; font-size:0.75rem; margin-top:4px;"><i class="fa-solid fa-calendar"></i> ${dateText}</p>
           </div>
           <div class="announcement-card-actions">
-            ${can('announcements.edit') ? `<button class="btn-edit" onclick="openAnnouncementModal('edit', '${id}')"><i class="fa-solid fa-pen"></i> تعديل</button>` : ''}
-            ${can('announcements.delete') ? `<button class="btn-delete" onclick="confirmDeleteAnnouncement('${id}')"><i class="fa-solid fa-trash-can"></i> حذف</button>` : ''}
+            ${can('announcements.edit') ? `<button class="btn-edit" onclick="openAnnouncementModal('edit', ${jsArg(id)})"><i class="fa-solid fa-pen"></i> تعديل</button>` : ''}
+            ${can('announcements.delete') ? `<button class="btn-delete" onclick="confirmDeleteAnnouncement(${jsArg(id)})"><i class="fa-solid fa-trash-can"></i> حذف</button>` : ''}
           </div>
         `;
         container.appendChild(card);
@@ -2588,7 +2900,7 @@ function confirmDeleteAnnouncement(id) {
   openModal('deleteAnnouncementConfirmModal');
 }
 
-// تنفيذ حذف الإعلان فعلياً
+// تنفيذ حذف الإعلان فعلياً (مع حذف الصورة من Google Drive إن كان الخيار مفعّلاً)
 function executeDeleteAnnouncement() {
   if (!pendingDeleteAnnouncementId) return;
 
@@ -2599,7 +2911,15 @@ function executeDeleteAnnouncement() {
   buttonsRow.style.display = 'none';
   checkingBox.style.display = 'flex';
 
-  db.collection('announcements').doc(pendingDeleteAnnouncementId).delete()
+  const docRef = db.collection('announcements').doc(pendingDeleteAnnouncementId);
+  docRef.get()
+    .then((doc) => {
+      const data = doc.exists ? doc.data() : null;
+      const driveId = data ? (data.driveFileId || extractGoogleDriveFileId(data.imageUrl || data.imageFile || '')) : '';
+      return docRef.delete().then(() => {
+        if (driveId) deleteFileFromGoogleDriveIfEnabled(driveId);
+      });
+    })
     .then(() => {
       checkingBox.style.display = 'none';
       successMsg.style.display = 'block';
@@ -2671,6 +2991,7 @@ function tickPublicAnnouncements() {
 
   if (key !== publicAnnouncementsLastKey) {
     publicAnnouncementsLastKey = key;
+    if (typeof renderHomeNews === 'function') renderHomeNews(visibleItems);
 
     if (visibleItems.length === 0) {
       container.innerHTML = '<p class="announcements-empty-text">لا توجد إعلانات منشورة حالياً.</p>';
@@ -2688,8 +3009,9 @@ function tickPublicAnnouncements() {
       const card = document.createElement('div');
       card.className = 'public-announcement-card hover-lift';
       card.innerHTML = `
-        <h3>${data.title || ''}</h3>
-        <p class="announcement-date"><i class="fa-solid fa-calendar"></i> ${dateText}</p>
+        ${data.category ? `<span class="news-category-badge">${escHtml(newsCategoryLabel(data.category))}</span>` : ''}
+        <h3>${escHtml(data.title)}</h3>
+        <p class="announcement-date"><i class="fa-solid fa-calendar"></i> ${escHtml(dateText)}</p>
         ${buildImageAreaHtml('announcements', data, data.title, false)}
         ${buildExpandableHtml(data.content || '', 'announcement-body')}
         ${endMillis ? `
@@ -2746,6 +3068,8 @@ function renderPublicAnnouncements() {
       }
     }, (error) => {
       container.innerHTML = '<p class="announcements-empty-text">تعذر تحميل الإعلانات حالياً.</p>';
+      const newsGrid = document.getElementById('latestNewsGrid');
+      if (newsGrid) newsGrid.innerHTML = '<div class="news-state-box">تعذر تحميل الأخبار حالياً. حاول تحديث الصفحة بعد قليل.</div>';
       console.error('renderPublicAnnouncements error:', error);
     });
 }
@@ -2753,13 +3077,14 @@ function renderPublicAnnouncements() {
 
 // رفع صورة للمعرض
 /* =========================================================
-   إدارة المعرض الرقمي من لوحة الأدمن — بدون رفع صور (الصور محلية)
+   إدارة المعرض الرقمي من لوحة الأدمن — رفع مباشر إلى Google Drive أو رابط/ملف
    ========================================================= */
 let pendingEditGalleryId = null;
 
 function resetGalleryForm() {
   const form = document.getElementById('adminGalleryUploadForm');
   if (form) form.reset();
+  clearSelectedDriveFile('gallery');
   pendingEditGalleryId = null;
   const text = document.getElementById('galleryUploadSubmitText');
   if (text) text.innerText = 'حفظ العنصر';
@@ -2781,47 +3106,162 @@ if (adminGalleryUploadForm) {
     const title = sanitizeInput(document.getElementById('galleryUploadTitle').value.trim());
     const description = sanitizeInput(document.getElementById('galleryUploadDescription').value.trim());
     const rawImageName = document.getElementById('galleryImageFileInput').value.trim();
+    const filesToUpload = getSelectedDriveFiles('gallery');
     const errorMsg = document.getElementById('galleryUploadError');
     const submitBtn = document.getElementById('galleryUploadSubmitBtn');
+    const submitText = document.getElementById('galleryUploadSubmitText');
 
     errorMsg.innerText = '';
 
     if (!category) { errorMsg.innerText = 'يرجى اختيار التصنيف.'; return; }
-    if (!title) { errorMsg.innerText = 'يرجى كتابة عنوان للصورة.'; return; }
+    if (!title) { errorMsg.innerText = 'يرجى كتابة عنوان للصورة أو الألبوم.'; return; }
 
-    const imageFile = cleanLocalImageFileName(rawImageName, 'gallery');
-    if (rawImageName && !imageFile) {
-      errorMsg.innerText = 'اسم ملف الصورة غير صالح. اكتب اسم الملف فقط مع امتداده (مثال: gallery-001.jpg).';
+    const isEditing = !!pendingEditGalleryId;
+    const totalFiles = filesToUpload.length;
+    const originalBtnLabel = isEditing ? 'حفظ التعديلات' : (totalFiles > 1 ? ('حفظ ' + totalFiles + ' صور في المعرض') : 'حفظ العنصر');
+
+    if (totalFiles === 0 && !rawImageName) {
+      errorMsg.innerText = 'يرجى اختيار صورة واحدة على الأقل لرفعها إلى Google Drive، أو لصق رابط مشاركة.';
       return;
     }
 
-    const isEditing = !!pendingEditGalleryId;
+    const resolvedInput = resolveImageInputSource(rawImageName, 'gallery');
+    if (totalFiles === 0 && rawImageName && resolvedInput.type === 'invalid') {
+      errorMsg.innerText = 'صيغة الصورة غير صالحة. اختر صورة للرفع إلى Google Drive، أو الصق رابط مشاركة Google Drive، أو اكتب اسم ملف محلي (مثل gallery-001.jpg).';
+      return;
+    }
+
+    submitBtn.disabled = true;
+
+    // 1) وضع التعديل (عنصر واحد محدد)
+    if (isEditing) {
+      const editFile = filesToUpload[0];
+      const uploadStepPromise = editFile
+        ? uploadImageToGoogleDrive(editFile, 'gallery', (msg) => { if (submitText) submitText.innerText = msg; })
+        : Promise.resolve({
+            driveFileId: resolvedInput.driveFileId || '',
+            imageUrl: resolvedInput.imageUrl || '',
+            imageFile: resolvedInput.imageFile || ''
+          });
+
+      uploadStepPromise
+        .then((mediaInfo) => {
+          if (submitText) submitText.innerText = 'جاري حفظ التعديلات...';
+          const data = {
+            category: category,
+            title: title,
+            description: description,
+            imageFile: mediaInfo.imageFile || '',
+            imageUrl: mediaInfo.imageUrl || '',
+            driveFileId: mediaInfo.driveFileId || '',
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          };
+          return db.collection('gallery').doc(pendingEditGalleryId).update(data);
+        })
+        .then(() => {
+          submitBtn.disabled = false;
+          showAdminNotification('تم تعديل عنصر المعرض بنجاح!', 'success');
+          resetGalleryForm();
+        })
+        .catch((error) => {
+          submitBtn.disabled = false;
+          if (submitText) submitText.innerText = originalBtnLabel;
+          errorMsg.innerText = 'حدث خطأ أثناء الحفظ: ' + (error && error.message ? error.message : String(error));
+        });
+      return;
+    }
+
+    // 2) رفع عدة صور (أو صورة واحدة) محددة من الجهاز إلى Google Drive
+    if (totalFiles > 0) {
+      let currentIndex = 0;
+
+      const uploadNext = () => {
+        if (currentIndex >= totalFiles) {
+          submitBtn.disabled = false;
+          showAdminNotification(
+            totalFiles === 1
+              ? 'تم رفع وحفظ صورة المعرض بنجاح!'
+              : ('تم رفع وحفظ جميع الصور (' + totalFiles + ' صور) في المعرض بنجاح!'),
+            'success'
+          );
+          resetGalleryForm();
+          return;
+        }
+
+        const currentFile = filesToUpload[currentIndex];
+        const fileNum = currentIndex + 1;
+        const progressPrefix = totalFiles > 1 ? ('[' + fileNum + '/' + totalFiles + '] ') : '';
+
+        if (submitText) {
+          submitText.innerText = totalFiles === 1
+            ? 'جاري الرفع إلى Google Drive...'
+            : ('جاري رفع الصورة (' + fileNum + ' من ' + totalFiles + ')...');
+        }
+
+        uploadImageToGoogleDrive(currentFile, 'gallery', (msg) => {
+          if (submitText) submitText.innerText = progressPrefix + msg;
+        })
+          .then((mediaInfo) => {
+            if (submitText) {
+              submitText.innerText = totalFiles === 1
+                ? 'جاري الحفظ في المعرض...'
+                : ('جاري حفظ الصورة (' + fileNum + ' من ' + totalFiles + ')...');
+            }
+            const itemTitle = totalFiles > 1 ? (title + ' (' + fileNum + ')') : title;
+            const data = {
+              category: category,
+              title: itemTitle,
+              description: description,
+              imageFile: mediaInfo.imageFile || '',
+              imageUrl: mediaInfo.imageUrl || '',
+              driveFileId: mediaInfo.driveFileId || '',
+              createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+              uploadedBy: auth.currentUser ? auth.currentUser.uid : null
+            };
+            return db.collection('gallery').add(data);
+          })
+          .then(() => {
+            currentIndex++;
+            uploadNext();
+          })
+          .catch((error) => {
+            submitBtn.disabled = false;
+            if (submitText) submitText.innerText = originalBtnLabel;
+            errorMsg.innerText = 'توقف الرفع عند الصورة ' + fileNum + ' من ' + totalFiles + ': ' + (error && error.message ? error.message : String(error));
+          });
+      };
+
+      uploadNext();
+      return;
+    }
+
+    // 3) الحفظ بواسطة رابط خارجي أو اسم ملف محلي مكتوب في الحقل النصي
+    if (submitText) submitText.innerText = 'جاري الحفظ...';
+
     const data = {
       category: category,
       title: title,
       description: description,
-      imageFile: imageFile,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      imageFile: resolvedInput.imageFile || '',
+      imageUrl: resolvedInput.imageUrl || '',
+      driveFileId: resolvedInput.driveFileId || '',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      uploadedBy: auth.currentUser ? auth.currentUser.uid : null
     };
 
-    submitBtn.disabled = true;
-    let write;
-    if (isEditing) {
-      write = db.collection('gallery').doc(pendingEditGalleryId).update(data);
-    } else {
-      data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-      data.uploadedBy = auth.currentUser ? auth.currentUser.uid : null;
-      write = db.collection('gallery').add(data);
-    }
-
-    write.then(() => {
-      submitBtn.disabled = false;
-      showAdminNotification(isEditing ? 'تم تعديل عنصر المعرض بنجاح!' : 'تم حفظ عنصر المعرض بنجاح!', 'success');
-      resetGalleryForm();
-    }).catch((error) => {
-      submitBtn.disabled = false;
-      errorMsg.innerText = 'حدث خطأ أثناء الحفظ: ' + error.message + (error.code ? ' (الكود: ' + error.code + ')' : '');
-    });
+    db.collection('gallery').add(data)
+      .then(() => {
+        submitBtn.disabled = false;
+        showAdminNotification('تم حفظ عنصر المعرض بنجاح!', 'success');
+        resetGalleryForm();
+      })
+      .catch((error) => {
+        submitBtn.disabled = false;
+        if (submitText) submitText.innerText = originalBtnLabel;
+        errorMsg.innerText = 'حدث خطأ أثناء الحفظ: ' + (error && error.message ? error.message : String(error));
+      });
   });
 }
 
@@ -2830,10 +3270,11 @@ function editGalleryItem(id) {
     if (!doc.exists) return;
     const data = doc.data();
     pendingEditGalleryId = id;
+    clearSelectedDriveFile('gallery');
     document.getElementById('galleryUploadCategory').value = data.category || '';
     document.getElementById('galleryUploadTitle').value = unescapeSanitized(data.title || '');
     document.getElementById('galleryUploadDescription').value = unescapeSanitized(data.description || '');
-    document.getElementById('galleryImageFileInput').value = data.imageFile || '';
+    document.getElementById('galleryImageFileInput').value = data.imageFile || (data.driveFileId ? ('https://drive.google.com/file/d/' + data.driveFileId + '/view') : (data.imageUrl || ''));
     document.getElementById('galleryUploadSubmitText').innerText = 'حفظ التعديلات';
     document.getElementById('galleryCancelEditBtn').style.display = 'inline-flex';
     adminGalleryUploadForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -2868,105 +3309,144 @@ function loadGalleryAdmin() {
       snapshot.forEach((doc) => {
         const data = doc.data();
         const path = getItemImagePath('gallery', data);
+        const isDrive = !!(data.driveFileId || extractGoogleDriveFileId(data.imageUrl || data.imageFile || ''));
+        const sourceTag = path ? (isDrive ? ' — <i class="fa-brands fa-google-drive"></i> Google Drive' : ' — ملف محلي') : ' — بلا صورة';
         const card = document.createElement('div');
         card.className = 'announcement-card-item hover-lift';
         card.innerHTML = `
-          ${path ? `<img src="${path}" class="announcement-card-thumb" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}
+          ${path ? `<img src="${escHtml(path)}" class="announcement-card-thumb" alt="" loading="lazy" onerror="handleThumbImageError(this)">` : ''}
           <div class="announcement-card-info" style="flex:1;">
-            <h3>${data.title || 'بدون عنوان'}</h3>
-            <p class="announcement-excerpt">${categoryLabels[data.category] || data.category || ''}${path ? '' : ' — بلا صورة'}</p>
+            <h3>${escHtml(data.title) || 'بدون عنوان'}</h3>
+            <p class="announcement-excerpt">${escHtml(categoryLabels[data.category] || data.category || '')}${sourceTag}</p>
           </div>
           <div class="announcement-card-actions">
-            ${can('gallery.manage') ? `<button class="btn-edit" onclick="editGalleryItem('${doc.id}')"><i class="fa-solid fa-pen"></i> تعديل</button>` : ''}
-            ${can('gallery.manage') ? `<button class="btn-delete" onclick="deleteGalleryImage('${doc.id}')"><i class="fa-solid fa-trash-can"></i> حذف</button>` : ''}
+            ${can('gallery.manage') ? `<button class="btn-edit" onclick="editGalleryItem(${jsArg(doc.id)})"><i class="fa-solid fa-pen"></i> تعديل</button>` : ''}
+            ${can('gallery.manage') ? `<button class="btn-delete" onclick="deleteGalleryImage(${jsArg(doc.id)})"><i class="fa-solid fa-trash-can"></i> حذف</button>` : ''}
           </div>
         `;
         container.appendChild(card);
       });
     }, (error) => {
-      container.innerHTML = '<p class="announcements-empty-text">حدث خطأ أثناء جلب العناصر: ' + error.message + '</p>';
+      container.innerHTML = '<p class="announcements-empty-text">حدث خطأ أثناء جلب العناصر: ' + escHtml(error.message) + '</p>';
       console.error('loadGalleryAdmin error:', error);
     });
 }
 
-// حذف سجل المعرض من Firestore فقط — ملف الصورة نفسه يبقى في مجلد المشروع حتى تحذفه أنت يدوياً.
+// حذف سجل المعرض من Firestore (ومع حذف الصورة تلقائياً من Google Drive إن كان الخيار مفعّلاً)
 function deleteGalleryImage(id) {
-  if (!confirm('هل أنت متأكد من حذف هذا العنصر من المعرض؟ (ملف الصورة يبقى في مجلد المشروع)')) return;
-  db.collection('gallery').doc(id).delete()
+  if (!confirm('هل أنت متأكد من حذف هذا العنصر من المعرض؟')) return;
+  const docRef = db.collection('gallery').doc(id);
+  docRef.get()
+    .then((doc) => {
+      const data = doc.exists ? doc.data() : null;
+      const driveId = data ? (data.driveFileId || extractGoogleDriveFileId(data.imageUrl || data.imageFile || '')) : '';
+      return docRef.delete().then(() => {
+        if (driveId) deleteFileFromGoogleDriveIfEnabled(driveId);
+      });
+    })
     .then(() => showAdminNotification('تم حذف العنصر من المعرض.', 'success'))
     .catch((error) => showAdminNotification('حدث خطأ أثناء الحذف: ' + error.message, 'error'));
 }
 
-function showAdminNotification(message, type) {
-  const notif = document.createElement('div');
-  notif.className = `admin-toast-notification ${type}`;
-  notif.innerHTML = `<i class="fa-solid fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}`;
-  document.body.appendChild(notif);
+// showAdminNotification: معرّفة الآن في site-extras.js (نظام إشعارات متاح للقراءة الآلية).
 
-  // يبان ويختفي في 3 ثواني
-  setTimeout(() => {
-    notif.classList.add('fade-out');
-    setTimeout(() => notif.remove(), 500);
-  }, 3000);
-}
-// عرض كروت القادة
-function loadLeaders() {
-  const list = document.getElementById('leadersListContainer');
-  list.innerHTML = ''; // نحياو القديم بسلاسة
+function openLeaderDetailsModal(leaderId) {
+  const modal = document.getElementById('leaderDetailsModal');
+  if (!modal) return;
 
-  db.collection('leaders').get().then(snapshot => {
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      list.innerHTML += `
-        <div class="leader-card-item glass-card hover-lift">
-          <div class="leader-info">
-            <i class="fa-solid fa-user-tie" style="color:var(--scout-blue)"></i>
-            <strong>${data.fullName}</strong> <span class="role-badge">${data.role}</span>
-          </div>
-          <div class="leader-actions">
-            <button class="btn-suspend" onclick="suspendLeader('${doc.id}')"><i class="fa-solid fa-ban"></i> تجميد</button>
-            <button class="btn-delete" onclick="deleteLeader('${doc.id}')"><i class="fa-solid fa-trash"></i></button>
-          </div>
-        </div>
-      `;
-    });
-  });
-}
-// بحث ذكي (Real-time search)
-function smartSearch() {
-  const query = document.getElementById('smartSearchInput').value.toLowerCase();
-  const cards = document.querySelectorAll('.scout-card-item');
-  
-  cards.forEach(card => {
-    const name = card.getAttribute('data-name').toLowerCase();
-    // إظهار أو إخفاء بسلاسة
-    if(name.includes(query)) {
-      card.style.display = 'flex';
-      card.style.opacity = '1';
-    } else {
-      card.style.display = 'none';
-      card.style.opacity = '0';
-    }
-  });
-}
+  const nameEl = document.getElementById('viewLeaderName');
+  const emailEl = document.getElementById('viewLeaderEmail');
+  const roleEl = document.getElementById('viewLeaderRole');
+  const dateEl = document.getElementById('viewLeaderDate');
+  const pdfBtn = document.getElementById('downloadLeaderPdfBtn');
 
-// طباعة بطاقة الكشاف (PDF أو Print)
-function printScoutCard(scoutId) {
-  // جلب البيانات من Firestore وطبعها في نافذة صغيرة
-  db.collection('scouts').doc(scoutId).get().then(doc => {
+  if (nameEl) nameEl.innerText = 'جاري التحميل...';
+  if (emailEl) emailEl.innerText = '...';
+  if (roleEl) roleEl.innerText = '...';
+  if (dateEl) dateEl.innerText = '...';
+  if (pdfBtn) pdfBtn.href = typeof pdfFormUrl !== 'undefined' ? pdfFormUrl : './registration-form.pdf';
+
+  openModal('leaderDetailsModal');
+
+  db.collection('leaders').doc(leaderId).get().then((doc) => {
+    if (!doc.exists) return;
     const data = doc.data();
-    const printWindow = window.open('', '', 'width=400,height=600');
-    printWindow.document.write(`
-      <h2 style="color:var(--scout-blue); text-align:center;">بطاقة الكشاف - فوج الوحدة</h2>
-      <hr>
-      <p><strong>الاسم:</strong> ${data.fullName}</p>
-      <p><strong>الهاتف:</strong> ${data.phone}</p>
-      <!-- باقي المعلومات... -->
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
+    if (nameEl) nameEl.innerText = data.fullName || 'قائد كشفي';
+    if (emailEl) emailEl.innerText = data.email || '—';
+    if (roleEl) roleEl.innerText = data.leaderRoleTitle || data.role || 'مسؤول إعلام';
+    let formattedDate = '—';
+    if (data.createdAt && typeof data.createdAt.toDate === 'function') {
+      formattedDate = data.createdAt.toDate().toLocaleDateString('ar-DZ', { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+    if (dateEl) dateEl.innerText = formattedDate;
+  }).catch((err) => {
+    console.error('openLeaderDetailsModal error:', err);
   });
+}
+
+// طباعة بطاقة القائد الكشفي
+function printLeaderProfileCard() {
+  const rawName = document.getElementById('viewLeaderName') ? document.getElementById('viewLeaderName').innerText : 'القائد';
+  const rawEmail = document.getElementById('viewLeaderEmail') ? document.getElementById('viewLeaderEmail').innerText : '—';
+  const rawRole = document.getElementById('viewLeaderRole') ? document.getElementById('viewLeaderRole').innerText : '—';
+  const rawDate = document.getElementById('viewLeaderDate') ? document.getElementById('viewLeaderDate').innerText : '—';
+
+  // نرمّز القيم قبل كتابتها في نافذة الطباعة (نفس الأصل، فالحقن هنا يعني تنفيذ كود)
+  const name = escHtml(rawName), email = escHtml(rawEmail), role = escHtml(rawRole), date = escHtml(rawDate);
+
+  const printWindow = window.open('', '_blank', 'width=700,height=800');
+  if (!printWindow) {
+    window.print();
+    return;
+  }
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html lang="ar" dir="rtl">
+    <head>
+      <meta charset="UTF-8">
+      <title>ملف القائد الكشفي - ${name}</title>
+      <style>
+        body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; padding: 35px; direction: rtl; text-align: right; background: #fff; color: #1e293b; }
+        .print-header { text-align: center; margin-bottom: 25px; border-bottom: 3px solid #003f87; padding-bottom: 15px; }
+        .print-header h1 { color: #003f87; margin: 0 0 5px; font-size: 1.55rem; }
+        .print-header p { color: #64748b; margin: 0; font-size: 0.95rem; }
+        .info-card { border: 1px solid #cbd5e1; border-radius: 12px; padding: 20px; background: #f8fafc; margin-top: 20px; }
+        .info-row { padding: 12px 14px; margin-bottom: 10px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 1rem; display: flex; justify-content: space-between; }
+        .info-row strong { color: #003f87; }
+        .stamp-box { margin-top: 40px; display: flex; justify-content: space-between; padding: 0 20px; }
+        .stamp-item { text-align: center; color: #475569; font-weight: bold; }
+        @media print {
+          body { padding: 0; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="print-header">
+        <h1>الكشافة الإسلامية الجزائرية - محافظة ولاية الجزائر</h1>
+        <h2>فوج الوحدة الكشفي (مركب المنار - الحميز)</h2>
+        <p>بطاقة اعتماد قائد كشفي رسمي</p>
+      </div>
+      <div class="info-card">
+        <div class="info-row"><span><strong>الاسم واللقب:</strong> ${name}</span></div>
+        <div class="info-row"><span><strong>البريد الإلكتروني:</strong> ${email}</span></div>
+        <div class="info-row"><span><strong>الصفة / المهام:</strong> ${role}</span></div>
+        <div class="info-row"><span><strong>تاريخ الاعتماد:</strong> ${date}</span></div>
+        <div class="info-row"><span><strong>الحالة:</strong> حساب معتمد وموثق</span></div>
+      </div>
+      <div class="stamp-box">
+        <div class="stamp-item">توقيع مسؤول الفوج<br><br>_________________</div>
+        <div class="stamp-item">ختم الإدارة<br><br>_________________</div>
+      </div>
+      <script>
+        window.onload = function() {
+          window.focus();
+          window.print();
+        };
+      <\/script>
+    </body>
+    </html>
+  `);
+  printWindow.document.close();
 }
 
 /* =========================================================
@@ -2981,12 +3461,15 @@ function refreshSettingsTab() {
   const roleLabels = { admin: 'أدمن', leader: 'قائد', scout: 'كشاف', parent: 'ولي أمر' };
   const summary = document.getElementById('settingsAccountSummary');
   if (summary) {
-    summary.innerHTML = 'الحساب الحالي: <bdi dir="ltr">' + (user.email || '') + '</bdi> — الدور: ' + (roleLabels[currentUserRole] || '—');
+    summary.innerHTML = 'الحساب الحالي: <bdi dir="ltr">' + escHtml(user.email || '') + '</bdi> — الدور: ' + (roleLabels[currentUserRole] || '—');
   }
   const select = document.getElementById('idleLockSelect');
   if (select) select.value = String(getIdleLockSeconds());
-  if (currentUserRole === 'admin') loadMediaSignupSetting();
-  ['settingsEmailMsg', 'settingsPasswordMsg'].forEach((id) => { const el = document.getElementById(id); if (el) el.innerText = ''; });
+  if (currentUserRole === 'admin') {
+    loadMediaSignupSetting();
+    loadGoogleDriveSettingsAdmin();
+  }
+  ['settingsEmailMsg', 'settingsPasswordMsg', 'gdriveSettingsMsg'].forEach((id) => { const el = document.getElementById(id); if (el) el.innerText = ''; });
 }
 
 function mapAccountActionError(error) {
@@ -3079,72 +3562,288 @@ function changeAccountPassword() {
     });
 }
 
-/* ---------- القفل التلقائي بعد عدم النشاط ---------- */
-// ⚠️ هذا القفل واجهة راحة وأمان على الجهاز: الجلسة نفسها تبقى صالحة في Firebase،
-// ومن يعبث بأدوات المتصفح يستطيع إزالة الشاشة. الحماية الحقيقية للبيانات هي Firestore Rules.
-const IDLE_LOCK_STORAGE_KEY = 'scoutIdleLockSeconds'; // مدة فقط، ليست بيانات حساسة
-let lastActivityAt = Date.now();
+/* =========================================================
+   نظام القفل الأمني للجلسة وحمايتها ضد التحديث (F5) والرجوع للخلف (Back / bfcache)
+   - يُحفظ وضع القفل (scoutAdminSessionLocked) ووقت آخر نشاط (scoutAdminLastActivityAt)
+     في localStorage و sessionStorage معاً، فلا يمكن لتحديث الصفحة (F5) تجاوز القفل أبداً.
+   - عند تفعيل القفل:
+     1) تُخفى شاشة الإدارة (#fullAdminBlueScreen) فوراً وتُغلق أي نافذة إدارية مفتوحة.
+     2) يُضاف حاجز في سجل المتصفح (history.pushState / popstate) يمنع زر الرجوع للخلف
+        من استعادة الشاشة السابقة قبل إدخال كلمة المرور والتحقق منها عبر خادم Firebase.
+     3) يُفحص حدث pageshow (لمنع استرجاع نسخة مخزنة في الذاكرة المخبئية bfcache).
+   ========================================================= */
+const IDLE_LOCK_STORAGE_KEY = 'scoutIdleLockSeconds';
+const IDLE_LOCK_STATE_KEY = 'scoutAdminSessionLocked';
+const IDLE_LOCK_LAST_TAB_KEY = 'scoutAdminLockedReturnTab';
+const IDLE_LAST_ACTIVITY_KEY = 'scoutAdminLastActivityAt';
+
 let idleLocked = false;
+let lastActivityAt = Date.now();
 
 function getIdleLockSeconds() {
   const stored = localStorage.getItem(IDLE_LOCK_STORAGE_KEY);
   if (stored !== null) return Number(stored) || 0;
-  return currentUserRole === 'admin' ? 900 : 0; // افتراضي: 15 دقيقة للأدمن، معطّل لغيره
+  return currentUserRole === 'admin' ? 900 : 0; // افتراضي: 15 دقيقة للأدمن
+}
+
+function isSessionLocked() {
+  if (idleLocked) return true;
+  try {
+    return localStorage.getItem(IDLE_LOCK_STATE_KEY) === '1'
+      || sessionStorage.getItem(IDLE_LOCK_STATE_KEY) === '1';
+  } catch (_) {
+    return idleLocked;
+  }
+}
+
+function setPersistedSessionLock(locked, returnTab) {
+  idleLocked = !!locked;
+  try {
+    if (locked) {
+      localStorage.setItem(IDLE_LOCK_STATE_KEY, '1');
+      sessionStorage.setItem(IDLE_LOCK_STATE_KEY, '1');
+      if (returnTab && VALID_ADMIN_TABS.includes(returnTab)) {
+        localStorage.setItem(IDLE_LOCK_LAST_TAB_KEY, returnTab);
+      }
+    } else {
+      localStorage.removeItem(IDLE_LOCK_STATE_KEY);
+      sessionStorage.removeItem(IDLE_LOCK_STATE_KEY);
+      localStorage.removeItem(IDLE_LOCK_LAST_TAB_KEY);
+    }
+  } catch (_) {}
+}
+
+function clearPersistedSessionLock() {
+  setPersistedSessionLock(false);
+  document.body.classList.remove('admin-session-locked');
+  const overlay = document.getElementById('idleLockOverlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function recordAdminActivity() {
+  if (isSessionLocked()) return;
+  lastActivityAt = Date.now();
+  try {
+    localStorage.setItem(IDLE_LAST_ACTIVITY_KEY, String(lastActivityAt));
+  } catch (_) {}
+}
+
+function getLastRecordedActivity() {
+  try {
+    const stored = Number(localStorage.getItem(IDLE_LAST_ACTIVITY_KEY));
+    if (stored && stored > 0) return stored;
+  } catch (_) {}
+  return lastActivityAt;
+}
+
+function hasInactivityExpired() {
+  const seconds = getIdleLockSeconds();
+  if (!seconds || seconds <= 0) return false;
+  const last = getLastRecordedActivity();
+  return (Date.now() - last) >= seconds * 1000;
 }
 
 function saveIdleLockSetting(value) {
   localStorage.setItem(IDLE_LOCK_STORAGE_KEY, String(Number(value) || 0));
-  lastActivityAt = Date.now();
+  recordAdminActivity();
   showAdminNotification(Number(value) ? 'تم حفظ مدة القفل التلقائي.' : 'تم تعطيل القفل التلقائي.', 'success');
 }
 
+// تحديث وقت النشاط بمعدل معتدل (كل ثانيتين كحد أقصى) لتجنب الكتابة المفرطة في localStorage
+let lastActivityWriteTs = 0;
 ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'wheel', 'click'].forEach((evt) => {
-  document.addEventListener(evt, () => { if (!idleLocked) lastActivityAt = Date.now(); }, { passive: true });
+  document.addEventListener(evt, () => {
+    if (isSessionLocked()) return;
+    const now = Date.now();
+    lastActivityAt = now;
+    if (now - lastActivityWriteTs > 2000) {
+      lastActivityWriteTs = now;
+      try { localStorage.setItem(IDLE_LAST_ACTIVITY_KEY, String(now)); } catch (_) {}
+    }
+  }, { passive: true });
 });
 
-function lockIdleSession() {
-  idleLocked = true;
-  document.getElementById('idleLockPassword').value = '';
-  document.getElementById('idleLockError').innerText = '';
-  document.getElementById('idleLockOverlay').style.display = 'flex';
-  setTimeout(() => { const i = document.getElementById('idleLockPassword'); if (i) i.focus(); }, 100);
+// تحييد سجل المتصفح (History Trap) لمنع الرجوع للخلف أثناء القفل
+function pushLockedHistoryTrap() {
+  try {
+    history.replaceState({ adminLocked: true }, '', window.location.pathname + '#locked');
+    history.pushState({ adminLocked: true }, '', window.location.pathname + '#locked');
+  } catch (_) {}
+}
+
+function lockIdleSession(preferredReturnTab) {
+  // تحديد التبويب الحالي لحفظه إلى ما بعد فتح القفل بنجاح
+  const activeTabEl = document.querySelector('.admin-tab-content.active-tab');
+  const currentTabId = preferredReturnTab
+    || window.__pendingAdminRoute
+    || (activeTabEl && activeTabEl.id)
+    || localStorage.getItem(IDLE_LOCK_LAST_TAB_KEY)
+    || 'welcome-tab';
+
+  window.__pendingAdminRoute = null;
+  setPersistedSessionLock(true, currentTabId);
+
+  // إخفاء لوحة التحكم بالكامل وإغلاق أي نوافذ إدارية مفتوحة لمنع تسرب البيانات في الخلفية
+  document.body.classList.add('admin-session-locked');
+  setAdminViewActive(false);
+
+  document.querySelectorAll('.modal-overlay').forEach((m) => {
+    if (m.id !== 'idleLockOverlay') m.style.display = 'none';
+  });
+
+  const pwInput = document.getElementById('idleLockPassword');
+  const errEl = document.getElementById('idleLockError');
+  const overlay = document.getElementById('idleLockOverlay');
+
+  if (pwInput) {
+    pwInput.type = 'password';
+    pwInput.value = '';
+  }
+  if (errEl) errEl.innerText = '';
+  if (overlay) overlay.style.display = 'flex';
+
+  pushLockedHistoryTrap();
+  setTimeout(() => { if (pwInput) pwInput.focus(); }, 100);
+}
+
+// فحص فوري عند إقلاع الصفحة (قبل انتهاء جلب Firebase) لمنع ظهور أي محتوى عند الضغط على F5
+function checkAndEnforceLockOnBoot() {
+  if (window.__pendingAdminLock || isSessionLocked()) {
+    window.__pendingAdminLock = false;
+    lockIdleSession();
+  }
+}
+
+// فحص حالة القفل بعد التحقق من هوية المستخدم في Firebase (عند F5 أو فتح الصفحة)
+function verifySessionLockStateForUser(userData) {
+  const isPrivileged = userData && (userData.role === 'admin' || userData.role === 'leader');
+  if (!isPrivileged) {
+    clearPersistedSessionLock();
+    return false;
+  }
+
+  const wantsAdminRoute = !!window.__pendingAdminRoute || window.location.hash === '#locked';
+  if (isSessionLocked() || (wantsAdminRoute && hasInactivityExpired())) {
+    lockIdleSession(window.__pendingAdminRoute || localStorage.getItem(IDLE_LOCK_LAST_TAB_KEY) || 'welcome-tab');
+    return true;
+  }
+
+  recordAdminActivity();
+  return false;
 }
 
 function unlockIdleSession() {
   const input = document.getElementById('idleLockPassword');
   const errorEl = document.getElementById('idleLockError');
   const btn = document.getElementById('idleLockUnlockBtn');
-  if (!input.value) { errorEl.innerText = 'يرجى إدخال كلمة المرور.'; return; }
+  if (!input || !input.value) {
+    if (errorEl) errorEl.innerText = 'يرجى إدخال كلمة المرور.';
+    return;
+  }
+
+  // إذا انتهت جلسة Firebase بالكامل أثناء القفل، نوجّه لتسجيل الدخول من جديد
+  if (!auth.currentUser) {
+    logoutFromIdleLock();
+    return;
+  }
+
+  const returnTab = localStorage.getItem(IDLE_LOCK_LAST_TAB_KEY) || 'welcome-tab';
 
   btn.disabled = true;
   errorEl.innerText = '';
   reauthenticateCurrentUser(input.value)
     .then(() => {
-      document.getElementById('idleLockOverlay').style.display = 'none';
-      idleLocked = false;
-      lastActivityAt = Date.now();
+      // التحقق مجدداً من صلاحية الحساب في Firestore قبل إعادة فتح اللوحة
+      return db.collection('users').doc(auth.currentUser.uid).get();
     })
-    .catch((error) => { errorEl.innerText = mapAccountActionError(error); })
-    .then(() => { input.value = ''; btn.disabled = false; });
+    .then((doc) => {
+      if (!doc.exists || (doc.data().role !== 'admin' && doc.data().role !== 'leader')
+          || doc.data().accountStatus === 'suspended' || doc.data().accountStatus === 'locked') {
+        throw { code: 'auth/user-disabled', message: 'لم يعد هذا الحساب يملك صلاحية الوصول.' };
+      }
+
+      clearPersistedSessionLock();
+      recordAdminActivity();
+
+      setAdminViewActive(true);
+
+      const validTab = VALID_ADMIN_TABS.includes(returnTab) ? returnTab : 'welcome-tab';
+      const btnElement = document.querySelector(`.admin-nav-btn[onclick*="'${validTab}'"]`);
+      switchAdminTab(validTab, btnElement);
+      applyAdminPanelUIForRole();
+    })
+    .catch((error) => {
+      errorEl.innerText = mapAccountActionError(error);
+      pushLockedHistoryTrap();
+    })
+    .then(() => {
+      input.value = '';
+      btn.disabled = false;
+    });
 }
 
 function logoutFromIdleLock() {
-  idleLocked = false;
-  document.getElementById('idleLockOverlay').style.display = 'none';
+  clearPersistedSessionLock();
   handleUserLogout();
 }
 
-document.addEventListener('keydown', (e) => {
-  if (idleLocked && e.key === 'Enter' && document.activeElement && document.activeElement.id === 'idleLockPassword') unlockIdleSession();
+// اعتراض زر الرجوع للخلف / التقدم في المتصفح (popstate & hashchange)
+window.addEventListener('popstate', () => {
+  if (isSessionLocked()) {
+    pushLockedHistoryTrap();
+    setAdminViewActive(false);
+    const overlay = document.getElementById('idleLockOverlay');
+    if (overlay) overlay.style.display = 'flex';
+    return;
+  }
+
+  // إذا لم يكن المستخدم مسجلاً دخوله وحاول الرجوع عبر التاريخ إلى رابط #admin-
+  if (!auth.currentUser && (window.location.hash.indexOf('#admin-') === 0 || window.location.hash === '#locked')) {
+    closeAllModalsAndOverlays();
+    history.replaceState(null, '', window.location.pathname + '#home-page');
+    showPage('home-page');
+  }
 });
 
+window.addEventListener('hashchange', () => {
+  if (isSessionLocked() && window.location.hash !== '#locked') {
+    pushLockedHistoryTrap();
+  }
+});
+
+// منع استرجاع نسخة مخبأة من الذاكرة (Back-Forward Cache / bfcache) عند الضغط على زر الرجوع
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) {
+    setAdminViewActive(false);
+    if (isSessionLocked() || hasInactivityExpired()) {
+      lockIdleSession();
+    } else if (!auth.currentUser) {
+      closeAllModalsAndOverlays();
+    }
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (isSessionLocked()) {
+    // منع اختصار Escape من إغلاق شاشة القفل
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    if (e.key === 'Enter' && document.activeElement && document.activeElement.id === 'idleLockPassword') {
+      unlockIdleSession();
+    }
+  }
+}, true);
+
 setInterval(() => {
-  if (idleLocked) return;
+  if (isSessionLocked()) return;
   const seconds = getIdleLockSeconds();
   if (!seconds || !auth.currentUser) return;
   const panel = document.getElementById('fullAdminBlueScreen');
-  if (!panel || panel.style.display !== 'flex') return; // يعمل فقط أثناء فتح لوحة الإدارة/النشر
-  if (Date.now() - lastActivityAt >= seconds * 1000) lockIdleSession();
+  if (!panel || panel.style.display !== 'flex') return; // يعمل أثناء فتح لوحة الإدارة/النشر
+  if (hasInactivityExpired()) lockIdleSession();
 }, 1000);
 
 /* =========================================================
@@ -3174,11 +3873,11 @@ const HELP_CONTENT = {
   },
   'announcement-form': {
     title: 'إنشاء إعلان',
-    html: '<ul><li>اكتب العنوان والمحتوى (إلزاميان).</li><li><strong>الصورة (اختيارية):</strong> انسخ الصورة إلى المجلد <bdi dir="ltr">assets/images/announcements/</bdi> ثم اكتب اسم الملف فقط (مثل <bdi dir="ltr">announcement-001.jpg</bdi>) ورفع الصورة مباشرة غير متاح.</li><li><strong>الجدولة:</strong> حدد وقت البداية والانتهاء بتوقيت الجزائر، أو اتركهما فارغين للنشر الفوري بلا انتهاء.</li><li><strong>مسودة:</strong> فعّل الخيار ليُحفظ الإعلان دون ظهوره للزوار.</li><li>بعد انتهاء المدة يختفي الإعلان من الصفحة العامة ويبقى محفوظاً هنا بحالة «منتهي».</li></ul>'
+    html: '<ul><li>اكتب العنوان والمحتوى (إلزاميان).</li><li><strong>الصورة (اختيارية):</strong> يمكنك الضغط على مربع الرفع لاختيار صورة من جهازك (تُضغط وتُرفع تلقائياً إلى Google Drive)، أو لصق رابط مشاركة من Google Drive مباشرةً.</li><li><strong>الجدولة:</strong> حدد وقت البداية والانتهاء بتوقيت الجزائر، أو اتركهما فارغين للنشر الفوري بلا انتهاء.</li><li><strong>مسودة:</strong> فعّل الخيار ليُحفظ الإعلان دون ظهوره للزوار.</li><li>بعد انتهاء المدة يختفي الإعلان من الصفحة العامة ويبقى محفوظاً هنا بحالة «منتهي».</li></ul>'
   },
   'gallery-form': {
     title: 'إضافة عنصر للمعرض الرقمي',
-    html: '<ul><li>اختر التصنيف واكتب عنواناً (إلزامي) ووصفاً (اختياري).</li><li>انسخ الصورة إلى المجلد <bdi dir="ltr">assets/images/gallery/</bdi> ثم اكتب اسم الملف فقط (مثل <bdi dir="ltr">gallery-001.jpg</bdi>). لا يوجد رفع مباشر.</li><li>ارفع تعديلات المشروع إلى GitHub لتظهر الصورة على الموقع.</li><li>حذف العنصر يحذف سجله فقط؛ ملف الصورة يبقى في المشروع.</li></ul>'
+    html: '<ul><li>اختر التصنيف واكتب عنواناً (إلزامي) ووصفاً (اختياري).</li><li><strong>رفع الصورة إلى Google Drive:</strong> اضغط على مربع اختيار الصورة أو اسحبها إليه ليتم ضغطها ورفعها تلقائياً إلى مجلد المعرض في Google Drive.</li><li><strong>أو عبر رابط:</strong> يمكنك أيضاً لصق رابط مشاركة صورة من Google Drive أو كتابة اسم ملف محلي موجود على استضافة الموقع (cPanel).</li><li>عند حذف العنصر من المعرض، تُنقل صورته تلقائياً إلى سلة مهملات Google Drive (إن كان الخيار مفعّلاً في إعدادات الأدمن).</li></ul>'
   },
   'create-leader': {
     title: 'إنشاء حساب قائد (من الأدمن)',
@@ -3189,8 +3888,8 @@ const HELP_CONTENT = {
     html: '<ul><li>اكتب بريدك ووصف مشكلتك (نسيت البيانات، لا أستطيع الدخول...).</li><li>يُحفظ الطلب ويراه الأدمن في «الحسابات المشبوهة ← طلبات الدعم الأمني».</li><li>لا يصلك بريد تلقائي؛ سيتواصل معك الأدمن.</li></ul>'
   },
   'account-settings': {
-    title: 'إعدادات الحساب',
-    html: '<ul><li><strong>تغيير البريد:</strong> يُطلب منك كلمة المرور الحالية، ثم يصل رابط تأكيد للبريد الجديد؛ لا يتغير قبل الضغط عليه.</li><li><strong>تغيير كلمة المرور:</strong> أدخل الحالية ثم الجديدة مرتين (8 أحرف مع أرقام ورموز).</li><li><strong>القفل التلقائي:</strong> اختر المدة؛ بعد عدم النشاط تُطلب كلمة المرور من جديد. الاختيار محفوظ على هذا الجهاز فقط.</li></ul>'
+    title: 'إعدادات الحساب و Google Drive',
+    html: '<ul><li><strong>إعدادات Google Drive (للأدمن):</strong> اربط حسابك على Google Drive بوضع رابط تطبيق الويب (Web App URL) ومجلدات الحفظ، ثم اضغط «اختبار الاتصال». يمكنك عرض ونسخ كود الربط مباشرةً من الزر المخصص.</li><li><strong>تغيير البريد:</strong> يُطلب منك كلمة المرور الحالية، ثم يصل رابط تأكيد للبريد الجديد؛ لا يتغير قبل الضغط عليه.</li><li><strong>تغيير كلمة المرور:</strong> أدخل الحالية ثم الجديدة مرتين (8 أحرف مع أرقام ورموز).</li><li><strong>القفل التلقائي:</strong> اختر المدة؛ بعد عدم النشاط تُطلب كلمة المرور من جديد.</li></ul>'
   }
 };
 
@@ -3319,8 +4018,8 @@ function syncMenuScrollLock() {
 
 
 /* =========================================================
-   فحص فوري لاسم ملف الصورة في نماذج الإدارة + اقتراحات من LOCAL_IMAGE_LIBRARY
-   يُظهر ✔ إن كان الملف موجوداً فعلاً على الموقع، أو تحذيراً بالمسار الذي بُحث عنه.
+   فحص فوري لرابط Google Drive أو اسم ملف الصورة في نماذج الإدارة
+   يُظهر ✔ إن كانت الصورة صالحة ومتاحة للعرض، أو تحذيراً واضحاً.
    ========================================================= */
 function attachImageFileChecker(inputId, kind) {
   const input = document.getElementById(inputId);
@@ -3349,12 +4048,49 @@ function attachImageFileChecker(inputId, kind) {
     status.className = 'image-check-msg';
     status.innerText = '';
     if (!raw) return;
-    const clean = cleanLocalImageFileName(raw, kind);
-    if (!clean) { status.classList.add('is-bad'); status.innerText = '✖ اسم غير صالح. اكتب اسم الملف فقط مع امتداده (jpg/png/webp/gif).'; return; }
-    const path = resolveLocalImagePath(kind, clean);
+
+    const resolved = resolveImageInputSource(raw, kind);
+    if (resolved.type === 'invalid') {
+      status.classList.add('is-bad');
+      status.innerText = '✖ صيغة غير صالحة. الصق رابط مشاركة Google Drive أو اكتب اسم ملف محلي مع امتداده (jpg/png/webp/gif).';
+      return;
+    }
+
+    if (resolved.type === 'gdrive') {
+      const probe = new Image();
+      probe.onload = () => {
+        status.classList.add('is-ok');
+        status.innerText = '✔ صورة Google Drive متاحة وجاهزة للعرض (معرّف: ' + resolved.driveFileId + ')';
+      };
+      probe.onerror = () => {
+        // تجربة الرابط البديل من Google CDN
+        const fallbackProbe = new Image();
+        fallbackProbe.onload = () => {
+          status.classList.add('is-ok');
+          status.innerText = '✔ صورة Google Drive متاحة وجاهزة للعرض (معرّف: ' + resolved.driveFileId + ')';
+        };
+        fallbackProbe.onerror = () => {
+          status.classList.add('is-bad');
+          status.innerText = '⚠ تعذّر الوصول إلى صورة Google Drive (معرّف: ' + resolved.driveFileId + ') — تأكد أن مشاركة الملف مضبوطة على «أي شخص لديه الرابط» (Anyone with the link).';
+        };
+        fallbackProbe.src = buildGoogleDriveFallbackUrl(resolved.driveFileId, 800);
+      };
+      probe.src = resolved.path;
+      return;
+    }
+
+    if (resolved.type === 'url') {
+      const probe = new Image();
+      probe.onload = () => { status.classList.add('is-ok'); status.innerText = '✔ الرابط الخارجي للصورة يعمل بنجاح.'; };
+      probe.onerror = () => { status.classList.add('is-bad'); status.innerText = '⚠ تعذّر تحميل الصورة من هذا الرابط الخارجي.'; };
+      probe.src = resolved.path;
+      return;
+    }
+
+    const path = resolved.path;
     const probe = new Image();
-    probe.onload = () => { status.classList.add('is-ok'); status.innerText = '✔ الصورة موجودة: ' + path; };
-    probe.onerror = () => { status.classList.add('is-bad'); status.innerText = '⚠ الملف غير موجود على الموقع المنشور في: ' + path + ' — تأكد من رفعه إلى GitHub ومن تطابق الأحرف الكبيرة/الصغيرة.'; };
+    probe.onload = () => { status.classList.add('is-ok'); status.innerText = '✔ الصورة المحلية موجودة: ' + path; };
+    probe.onerror = () => { status.classList.add('is-bad'); status.innerText = '⚠ الملف غير موجود على الموقع المنشور في: ' + path + ' — تأكد من رفعه إلى الاستضافة (cPanel) أو استخدم الرفع المباشر إلى Google Drive أعلاه.'; };
     probe.src = path + '?v=' + Date.now();
   };
   input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(check, 400); });
@@ -3471,4 +4207,780 @@ function setPickerValue(id, value) {
   } else {
     el.value = value || '';
   }
+}
+
+/* =========================================================
+   إدارة التخزين السحابي الرئيسي (Google Drive) من لوحة الأدمن
+   - الإعدادات محفوظة في Firestore: settings/googleDrive
+   - تدعم:
+     1) الرفع المباشر للصور (بعد ضغطها تلقائياً عبر Canvas) إلى مجلدات Google Drive
+     2) اختبار الاتصال وتوليد المجلدات تلقائياً من لوحة الأدمن
+     3) الحذف التلقائي للصورة من Google Drive عند حذف الإعلان أو عنصر المعرض
+   ========================================================= */
+const GDRIVE_LOCAL_CACHE_KEY = 'scout_gdrive_config_v1';
+let googleDriveConfigCache = null;
+let selectedDriveFiles = {
+  announcements: null,
+  gallery: []
+};
+
+function getCachedGoogleDriveConfig() {
+  if (googleDriveConfigCache) return googleDriveConfigCache;
+  try {
+    const raw = localStorage.getItem(GDRIVE_LOCAL_CACHE_KEY);
+    if (raw) {
+      googleDriveConfigCache = Object.assign({}, GOOGLE_DRIVE_DEFAULT_CONFIG, JSON.parse(raw));
+      delete googleDriveConfigCache.secretToken;
+      return googleDriveConfigCache;
+    }
+  } catch (_) {}
+  return Object.assign({}, GOOGLE_DRIVE_DEFAULT_CONFIG);
+}
+
+function setCachedGoogleDriveConfig(cfg) {
+  googleDriveConfigCache = Object.assign({}, GOOGLE_DRIVE_DEFAULT_CONFIG, cfg || {});
+  delete googleDriveConfigCache.secretToken; // لا نحتفظ بأي رمز سري في المتصفح (حتى لو بقي قديماً في Firestore)
+  try {
+    localStorage.setItem(GDRIVE_LOCAL_CACHE_KEY, JSON.stringify(googleDriveConfigCache));
+  } catch (_) {}
+  updateGoogleDriveStatusBadge(googleDriveConfigCache);
+  updateGoogleDriveDirectLinks(googleDriveConfigCache);
+}
+
+function ensureGoogleDriveConfigLoaded() {
+  if (!auth.currentUser) return Promise.resolve(getCachedGoogleDriveConfig());
+  return db.collection('settings').doc('googleDrive').get()
+    .then((doc) => {
+      if (doc.exists) {
+        setCachedGoogleDriveConfig(doc.data());
+      } else {
+        updateGoogleDriveStatusBadge(getCachedGoogleDriveConfig());
+      }
+      return getCachedGoogleDriveConfig();
+    })
+    .catch(() => getCachedGoogleDriveConfig());
+}
+
+function updateGoogleDriveStatusBadge(cfg) {
+  const badge = document.getElementById('gdriveConfigStatusBadge');
+  if (!badge) return;
+  const hasWebApp = !!(cfg && typeof cfg.webAppUrl === 'string' && cfg.webAppUrl.trim().indexOf('https://script.google.com/') === 0);
+
+  if (hasWebApp) {
+    badge.className = 'status-badge status-verified';
+    badge.innerHTML = '<i class="fa-solid fa-circle-check"></i> جاهز للرفع المباشر إلى Google Drive';
+  } else {
+    badge.className = 'status-badge status-pending';
+    badge.innerHTML = '<i class="fa-solid fa-link"></i> وضع الروابط السريعة (أضف رابط Web App لتفعيل الرفع المباشر)';
+  }
+}
+
+function updateGoogleDriveDirectLinks(cfg) {
+  const rootFolderId = cfg && (cfg.rootFolderId || cfg.rootFolderRaw) ? (cfg.rootFolderId || extractGoogleDriveFolderId(cfg.rootFolderRaw)) : '';
+  const galFolderId = cfg && (cfg.galleryFolderId || cfg.galleryFolderRaw) ? (cfg.galleryFolderId || extractGoogleDriveFolderId(cfg.galleryFolderRaw)) : rootFolderId;
+  const annFolderId = cfg && (cfg.announcementsFolderId || cfg.announcementsFolderRaw) ? (cfg.announcementsFolderId || extractGoogleDriveFolderId(cfg.announcementsFolderRaw)) : rootFolderId;
+
+  const rootUrl = rootFolderId ? `https://drive.google.com/drive/folders/${rootFolderId}` : 'https://drive.google.com/';
+  const galUrl = galFolderId ? `https://drive.google.com/drive/folders/${galFolderId}` : rootUrl;
+  const annUrl = annFolderId ? `https://drive.google.com/drive/folders/${annFolderId}` : rootUrl;
+
+  const settingsBtn = document.getElementById('settingsOpenDriveBtn');
+  const galleryLink = document.getElementById('galleryOpenDriveLink');
+  const annLink = document.getElementById('announcementOpenDriveLink');
+
+  if (settingsBtn) settingsBtn.href = rootUrl;
+  if (galleryLink) galleryLink.href = galUrl;
+  if (annLink) annLink.href = annUrl;
+}
+
+function loadGoogleDriveSettingsAdmin() {
+  const webAppInput = document.getElementById('gdriveWebAppUrlInput');
+  if (!webAppInput) return;
+
+  ensureGoogleDriveConfigLoaded().then((cfg) => {
+    webAppInput.value = cfg.webAppUrl || '';
+    const rootInput = document.getElementById('gdriveRootFolderInput');
+    const annInput = document.getElementById('gdriveAnnouncementsFolderInput');
+    const galInput = document.getElementById('gdriveGalleryFolderInput');
+    const autoDelToggle = document.getElementById('gdriveAutoDeleteToggle');
+
+    if (rootInput) rootInput.value = cfg.rootFolderRaw || cfg.rootFolderId || '';
+    if (annInput) annInput.value = cfg.announcementsFolderRaw || cfg.announcementsFolderId || '';
+    if (galInput) galInput.value = cfg.galleryFolderRaw || cfg.galleryFolderId || '';
+    if (autoDelToggle) autoDelToggle.checked = cfg.autoDeleteFromDrive !== false;
+    updateGoogleDriveStatusBadge(cfg);
+    updateGoogleDriveDirectLinks(cfg);
+  });
+}
+
+function readGoogleDriveFormInputs() {
+  const webAppUrl = (document.getElementById('gdriveWebAppUrlInput')?.value || '').trim();
+  const rootFolderRaw = (document.getElementById('gdriveRootFolderInput')?.value || '').trim();
+  const announcementsFolderRaw = (document.getElementById('gdriveAnnouncementsFolderInput')?.value || '').trim();
+  const galleryFolderRaw = (document.getElementById('gdriveGalleryFolderInput')?.value || '').trim();
+  const autoDeleteFromDrive = document.getElementById('gdriveAutoDeleteToggle')
+    ? document.getElementById('gdriveAutoDeleteToggle').checked
+    : true;
+
+  return {
+    webAppUrl: webAppUrl,
+    rootFolderRaw: rootFolderRaw,
+    rootFolderId: extractGoogleDriveFolderId(rootFolderRaw),
+    announcementsFolderRaw: announcementsFolderRaw,
+    announcementsFolderId: extractGoogleDriveFolderId(announcementsFolderRaw),
+    galleryFolderRaw: galleryFolderRaw,
+    galleryFolderId: extractGoogleDriveFolderId(galleryFolderRaw),
+    autoDeleteFromDrive: autoDeleteFromDrive
+  };
+}
+
+function saveGoogleDriveSettings() {
+  const msg = document.getElementById('gdriveSettingsMsg');
+  const btn = document.getElementById('gdriveSaveBtn');
+  if (!msg || !btn) return;
+
+  msg.style.color = '';
+  msg.innerText = '';
+
+  const formCfg = readGoogleDriveFormInputs();
+
+  if (formCfg.webAppUrl && formCfg.webAppUrl.indexOf('https://script.google.com/macros/s/') !== 0) {
+    msg.innerText = '✖ رابط Web App غير صالح. يجب أن يبدأ بـ https://script.google.com/macros/s/ وينتهي بـ /exec';
+    return;
+  }
+  if (formCfg.rootFolderRaw && !formCfg.rootFolderId) {
+    msg.innerText = '✖ رابط أو معرّف المجلد الرئيسي غير صالح.';
+    return;
+  }
+  if (formCfg.announcementsFolderRaw && !formCfg.announcementsFolderId) {
+    msg.innerText = '✖ رابط أو معرّف مجلد الإعلانات غير صالح.';
+    return;
+  }
+  if (formCfg.galleryFolderRaw && !formCfg.galleryFolderId) {
+    msg.innerText = '✖ رابط أو معرّف مجلد المعرض غير صالح.';
+    return;
+  }
+
+  btn.disabled = true;
+  const payload = Object.assign({}, formCfg, {
+    secretToken: firebase.firestore.FieldValue.delete(), // يمسح أي رمز قديم محفوظ (القواعد تمنع تخزينه)
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedBy: auth.currentUser ? auth.currentUser.uid : null
+  });
+
+  db.collection('settings').doc('googleDrive').set(payload, { merge: true })
+    .then(() => {
+      setCachedGoogleDriveConfig(formCfg);
+      msg.style.color = '#22c55e';
+      msg.innerText = '✔ تم حفظ إعدادات Google Drive بنجاح!';
+      showAdminNotification('تم حفظ إعدادات Google Drive بنجاح!', 'success');
+    })
+    .catch((error) => {
+      msg.style.color = '';
+      msg.innerText = 'تعذّر حفظ الإعدادات: ' + error.message;
+    })
+    .then(() => { btn.disabled = false; });
+}
+
+function testGoogleDriveConnection() {
+  const msg = document.getElementById('gdriveSettingsMsg');
+  const testBtn = document.getElementById('gdriveTestBtn');
+  if (!msg || !testBtn) return;
+
+  const formCfg = readGoogleDriveFormInputs();
+  if (!formCfg.webAppUrl || formCfg.webAppUrl.indexOf('https://script.google.com/macros/s/') !== 0) {
+    msg.style.color = '';
+    msg.innerText = '✖ يرجى إدخال رابط Google Apps Script Web App الصحيح أولاً (ينتهي بـ /exec). اضغط «كود الربط وطريقة الإعداد» لمعرفة الطريقة.';
+    return;
+  }
+
+  testBtn.disabled = true;
+  msg.style.color = '#fbbf24';
+  msg.innerText = '⏳ جاري الاتصال بـ Google Drive والتحقق من المجلدات...';
+
+  (auth.currentUser ? auth.currentUser.getIdToken() : Promise.reject(new Error('سجّل الدخول كأدمن أولاً.')))
+    .then((idToken) => fetch(formCfg.webAppUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'ping',
+        idToken: idToken,
+        rootFolderId: formCfg.rootFolderId,
+        announcementsFolderId: formCfg.announcementsFolderId,
+        galleryFolderId: formCfg.galleryFolderId
+      })
+    }))
+    .then((res) => res.text().then((txt) => {
+      try { return JSON.parse(txt); } catch (_) {
+        throw new Error('استجابة غير متوقعة من السكربت (ليست JSON). تأكد من النشر بصلاحية «أي شخص» وأنك نشرت أحدث إصدار.');
+      }
+    }))
+    .then((result) => {
+      if (!result || !result.ok) {
+        throw new Error((result && result.error) || 'فشل الاتصال بالسكربت.');
+      }
+      // تعبئة معرّفات المجلدات التي أنشأها أو تحقق منها السكربت تلقائياً
+      const rootInput = document.getElementById('gdriveRootFolderInput');
+      const annInput = document.getElementById('gdriveAnnouncementsFolderInput');
+      const galInput = document.getElementById('gdriveGalleryFolderInput');
+      if (rootInput && !rootInput.value.trim() && result.rootFolderId) rootInput.value = result.rootFolderId;
+      if (annInput && !annInput.value.trim() && result.announcementsFolderId) annInput.value = result.announcementsFolderId;
+      if (galInput && !galInput.value.trim() && result.galleryFolderId) galInput.value = result.galleryFolderId;
+
+      msg.style.color = '#22c55e';
+      msg.innerText = '✔ متصل بنجاح! المجلد الرئيسي في Google Drive: «' + (result.rootFolderName || 'Scout_ElWihda_Media') + '». جاري حفظ الإعدادات...';
+      saveGoogleDriveSettings();
+    })
+    .catch((err) => {
+      msg.style.color = '';
+      msg.innerText = '✖ تعذّر الاتصال بـ Google Drive: ' + (err && err.message ? err.message : String(err)) + ' — تأكد من نشر السكربت بصلاحية «أي شخص (Anyone)».';
+    })
+    .then(() => { testBtn.disabled = false; });
+}
+
+// اختيار وسحب وإفلات ملفات الصور للرفع المباشر إلى Google Drive
+function triggerDriveFileInput(inputId) {
+  const input = document.getElementById(inputId);
+  if (input) input.click();
+}
+
+function handleDriveFileSelect(kind, inputEl) {
+  if (!inputEl || !inputEl.files || inputEl.files.length === 0) return;
+  if (kind === 'gallery') {
+    addSelectedGalleryFiles(Array.from(inputEl.files));
+    inputEl.value = '';
+  } else {
+    setSelectedDriveFile(kind, inputEl.files[0]);
+  }
+}
+
+function addSelectedGalleryFiles(files) {
+  if (!Array.isArray(selectedDriveFiles.gallery)) {
+    selectedDriveFiles.gallery = [];
+  }
+  const errorEl = document.getElementById('galleryUploadError');
+  if (errorEl) errorEl.innerText = '';
+
+  const isEditing = !!pendingEditGalleryId;
+  if (isEditing) {
+    const firstValid = files.find((f) => f.type && /^image\/(jpeg|jpg|png|webp|gif)$/i.test(f.type));
+    if (!firstValid) {
+      if (errorEl) errorEl.innerText = 'يرجى اختيار ملف صورة صالح (JPG أو PNG أو WEBP أو GIF).';
+      return;
+    }
+    if (firstValid.size > 25 * 1024 * 1024) {
+      if (errorEl) errorEl.innerText = 'حجم الصورة كبير جداً (الأقصى 25 ميغابايت).';
+      return;
+    }
+    selectedDriveFiles.gallery = [firstValid];
+  } else {
+    let invalidCount = 0;
+    let oversizeCount = 0;
+    files.forEach((f) => {
+      if (!f.type || !/^image\/(jpeg|jpg|png|webp|gif)$/i.test(f.type)) {
+        invalidCount++;
+        return;
+      }
+      if (f.size > 25 * 1024 * 1024) {
+        oversizeCount++;
+        return;
+      }
+      const duplicate = selectedDriveFiles.gallery.some(
+        (existing) => existing.name === f.name && existing.size === f.size && existing.lastModified === f.lastModified
+      );
+      if (!duplicate) {
+        selectedDriveFiles.gallery.push(f);
+      }
+    });
+
+    if (invalidCount > 0 && errorEl) {
+      errorEl.innerText = 'تم تجاهل ' + invalidCount + ' ملف(ات) غير صالحة. يُقبل فقط JPG, PNG, WEBP, GIF.';
+    } else if (oversizeCount > 0 && errorEl) {
+      errorEl.innerText = 'تم تجاهل ' + oversizeCount + ' ملف(ات) يتجاوز حجمها 25 ميغابايت.';
+    }
+  }
+
+  renderGalleryPreviews();
+}
+
+function removeSelectedGalleryFile(index) {
+  if (Array.isArray(selectedDriveFiles.gallery) && index >= 0 && index < selectedDriveFiles.gallery.length) {
+    selectedDriveFiles.gallery.splice(index, 1);
+    renderGalleryPreviews();
+  }
+}
+
+function renderGalleryPreviews() {
+  const promptEl = document.getElementById('galleryUploadPrompt');
+  const previewWrap = document.getElementById('galleryUploadPreviewWrap');
+  const grid = document.getElementById('galleryMultiPreviewGrid');
+  const countText = document.getElementById('galleryUploadCountText');
+  const submitText = document.getElementById('galleryUploadSubmitText');
+  const isEditing = !!pendingEditGalleryId;
+
+  const files = Array.isArray(selectedDriveFiles.gallery) ? selectedDriveFiles.gallery : [];
+  const count = files.length;
+
+  if (count === 0) {
+    if (promptEl) promptEl.style.display = 'flex';
+    if (previewWrap) previewWrap.style.display = 'none';
+    if (grid) grid.innerHTML = '';
+    if (submitText) submitText.innerText = isEditing ? 'حفظ التعديلات' : 'حفظ العنصر';
+    return;
+  }
+
+  if (promptEl) promptEl.style.display = 'none';
+  if (previewWrap) previewWrap.style.display = 'flex';
+
+  if (countText) {
+    countText.innerText = count === 1 ? 'صورة واحدة مختارة' : (count + ' صور مختارة للرفع');
+  }
+
+  if (submitText) {
+    if (isEditing) {
+      submitText.innerText = 'حفظ التعديلات';
+    } else if (count > 1) {
+      submitText.innerText = 'حفظ ' + count + ' صور في المعرض';
+    } else {
+      submitText.innerText = 'حفظ الصورة في المعرض';
+    }
+  }
+
+  if (grid) {
+    grid.innerHTML = '';
+    files.forEach((file, idx) => {
+      const card = document.createElement('div');
+      card.className = 'gdrive-multi-thumb-card hover-lift';
+      const sizeKb = Math.max(1, Math.round(file.size / 1024));
+      const sizeLabel = sizeKb > 1024 ? (sizeKb / 1024).toFixed(1) + ' MB' : sizeKb + ' KB';
+
+      const img = document.createElement('img');
+      img.className = 'gdrive-multi-thumb-img';
+      img.alt = file.name;
+      const url = URL.createObjectURL(file);
+      img.onload = () => URL.revokeObjectURL(url);
+      img.src = url;
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'gdrive-thumb-remove-btn hover-lift';
+      removeBtn.title = 'إزالة هذه الصورة';
+      removeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+      removeBtn.onclick = (e) => {
+        e.stopPropagation();
+        removeSelectedGalleryFile(idx);
+      };
+
+      const info = document.createElement('div');
+      info.className = 'gdrive-multi-thumb-info';
+      info.dir = 'ltr';
+      info.innerText = sizeLabel;
+
+      card.appendChild(img);
+      card.appendChild(removeBtn);
+      card.appendChild(info);
+      grid.appendChild(card);
+    });
+  }
+}
+
+function setSelectedDriveFile(kind, file) {
+  if (kind === 'gallery') {
+    addSelectedGalleryFiles([file]);
+    return;
+  }
+
+  const prefix = 'announcement';
+  const errorEl = document.getElementById('announcementError');
+
+  if (!file.type || !/^image\/(jpeg|jpg|png|webp|gif)$/i.test(file.type)) {
+    if (errorEl) errorEl.innerText = 'يرجى اختيار ملف صورة صالح (JPG أو PNG أو WEBP أو GIF).';
+    return;
+  }
+  if (file.size > 25 * 1024 * 1024) {
+    if (errorEl) errorEl.innerText = 'حجم الصورة كبير جداً (الأقصى 25 ميغابايت قبل الضغط التلقائي).';
+    return;
+  }
+  if (errorEl) errorEl.innerText = '';
+
+  selectedDriveFiles.announcements = file;
+
+  const promptEl = document.getElementById(prefix + 'UploadPrompt');
+  const previewWrap = document.getElementById(prefix + 'UploadPreviewWrap');
+  const previewImg = document.getElementById(prefix + 'UploadPreviewImg');
+  const previewName = document.getElementById(prefix + 'UploadPreviewName');
+
+  if (promptEl) promptEl.style.display = 'none';
+  if (previewWrap) previewWrap.style.display = 'flex';
+  if (previewName) {
+    const sizeKb = Math.max(1, Math.round(file.size / 1024));
+    previewName.innerText = file.name + ' (' + (sizeKb > 1024 ? (sizeKb / 1024).toFixed(1) + ' MB' : sizeKb + ' KB') + ' — سيُضغط تلقائياً قبل الرفع)';
+  }
+  if (previewImg) {
+    const url = URL.createObjectURL(file);
+    previewImg.onload = () => URL.revokeObjectURL(url);
+    previewImg.src = url;
+  }
+}
+
+function clearSelectedDriveFile(kind) {
+  if (kind === 'gallery') {
+    selectedDriveFiles.gallery = [];
+    const fileInput = document.getElementById('galleryFileUploadInput');
+    if (fileInput) fileInput.value = '';
+    renderGalleryPreviews();
+  } else {
+    selectedDriveFiles.announcements = null;
+    const fileInput = document.getElementById('announcementFileUploadInput');
+    const promptEl = document.getElementById('announcementUploadPrompt');
+    const previewWrap = document.getElementById('announcementUploadPreviewWrap');
+    const previewImg = document.getElementById('announcementUploadPreviewImg');
+
+    if (fileInput) fileInput.value = '';
+    if (promptEl) promptEl.style.display = 'flex';
+    if (previewWrap) previewWrap.style.display = 'none';
+    if (previewImg) previewImg.src = '';
+  }
+}
+
+function getSelectedDriveFile(kind) {
+  if (kind === 'gallery') {
+    return (Array.isArray(selectedDriveFiles.gallery) && selectedDriveFiles.gallery[0]) || null;
+  }
+  return selectedDriveFiles.announcements || null;
+}
+
+function getSelectedDriveFiles(kind) {
+  if (kind === 'gallery') {
+    return Array.isArray(selectedDriveFiles.gallery) ? selectedDriveFiles.gallery : [];
+  }
+  return selectedDriveFiles.announcements ? [selectedDriveFiles.announcements] : [];
+}
+
+function initDriveDropzones() {
+  [
+    { id: 'announcementDriveDropzone', kind: 'announcements' },
+    { id: 'galleryDriveDropzone', kind: 'gallery' }
+  ].forEach((item) => {
+    const zone = document.getElementById(item.id);
+    if (!zone) return;
+    ['dragenter', 'dragover'].forEach((evt) => {
+      zone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        zone.classList.add('is-dragover');
+      });
+    });
+    ['dragleave', 'drop'].forEach((evt) => {
+      zone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        zone.classList.remove('is-dragover');
+      });
+    });
+    zone.addEventListener('drop', (e) => {
+      const files = e.dataTransfer && e.dataTransfer.files;
+      if (!files || files.length === 0) return;
+      if (item.kind === 'gallery') {
+        addSelectedGalleryFiles(Array.from(files));
+      } else {
+        setSelectedDriveFile(item.kind, files[0]);
+      }
+    });
+  });
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const res = String(reader.result || '');
+      const commaIdx = res.indexOf(',');
+      resolve(commaIdx !== -1 ? res.slice(commaIdx + 1) : res);
+    };
+    reader.onerror = () => reject(new Error('تعذّر قراءة ملف الصورة.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function uploadImageToGoogleDrive(file, kind, onProgress) {
+  const notify = (m) => { if (onProgress) onProgress(m); };
+  const user = auth.currentUser;
+  if (!user) return Promise.reject(new Error('يجب تسجيل الدخول قبل رفع الصور.'));
+  let cfg = null;
+
+  return ensureGoogleDriveConfigLoaded().then((loaded) => {
+    cfg = loaded;
+    if (!cfg || !cfg.webAppUrl || cfg.webAppUrl.indexOf('https://script.google.com/macros/s/') !== 0) {
+      throw new Error('لم يتم ضبط رابط Google Drive Web App بعد. يضبطه الأدمن من «الإعدادات ← إعدادات Google Drive».');
+    }
+    notify('جاري ضغط الصورة لتحسين السرعة...');
+    return compressImageFile(file, kind === 'profiles' ? 600 : 1600, 0.82);
+  }).then((compressedBlob) => {
+    notify('جاري رفع الصورة إلى Google Drive...');
+    return Promise.all([blobToBase64(compressedBlob), user.getIdToken()]);
+  }).then((parts) => {
+    const cleanBase = (file.name || (kind + '-photo')).replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 60) || kind;
+    const finalName = cleanBase + '-' + Date.now() + '.jpg';
+    return fetch(cfg.webAppUrl.trim(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'upload',
+        kind: kind,
+        fileName: finalName,
+        mimeType: 'image/jpeg',
+        base64Data: parts[0],
+        idToken: parts[1], // يتحقق منه السكربت لدى Google؛ لا يوجد أي سر ثابت في المتصفح
+        rootFolderId: cfg.rootFolderId || '',
+        announcementsFolderId: cfg.announcementsFolderId || '',
+        galleryFolderId: cfg.galleryFolderId || ''
+      })
+    });
+  }).then((res) => res.text().then((txt) => {
+    let json = null;
+    try { json = JSON.parse(txt); } catch (_) { json = null; }
+    if (!json) {
+      // السبب الشائع للصفحة الغريبة/الخطأ: السكربت منشور بصلاحية «أنا فقط» أو تعديل لم يُنشر كإصدار جديد
+      console.error('[Scout Elwihda] استجابة غير JSON من Apps Script (HTTP ' + res.status + '):', String(txt).slice(0, 200));
+      throw new Error('استجاب Google Apps Script بصفحة غير متوقعة بدل نتيجة الرفع. تأكد أن السكربت منشور كتطبيق ويب بصلاحية «أي شخص» وأنك نشرت أحدث إصدار منه.');
+    }
+    return json;
+  })).then((result) => {
+    if (!result || !result.ok || !result.fileId) {
+      throw new Error((result && result.error) || 'فشل رفع الصورة إلى Google Drive.');
+    }
+    return {
+      driveFileId: result.fileId,
+      imageUrl: buildGoogleDriveImageUrl(result.fileId, 1600),
+      imageFile: ''
+    };
+  });
+}
+
+function deleteFileFromGoogleDriveIfEnabled(driveFileId) {
+  const cleanId = extractGoogleDriveFileId(driveFileId);
+  if (!cleanId) return;
+  ensureGoogleDriveConfigLoaded().then((cfg) => {
+    if (!cfg || cfg.autoDeleteFromDrive === false || !cfg.webAppUrl || !auth.currentUser) return;
+    return auth.currentUser.getIdToken().then((idToken) => fetch(cfg.webAppUrl.trim(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'delete', fileId: cleanId, idToken: idToken })
+    }));
+  }).catch((e) => console.warn('[Scout Elwihda] تعذر حذف الملف من Drive:', e && e.message));
+}
+
+// نافذة عرض ونسخ كود Google Apps Script مباشرة من لوحة الأدمن
+const GOOGLE_APPS_SCRIPT_BRIDGE_CODE = `/**
+ * ============================================================================
+ * Scout El Wihda — Google Drive Storage Bridge (Google Apps Script) — الإصدار 2
+ * ============================================================================
+ * ما الجديد (أمان): لم يعد الرابط وحده كافياً للرفع. كل طلب يجب أن يحمل
+ * «رمز هوية Firebase» (idToken) لمستخدم مسجّل دخوله، ويتحقق السكربت منه بنفسه
+ * عبر Google Identity Toolkit، ثم يقرأ صلاحيات المستخدم من Firestore بنفس الرمز
+ * (تُطبَّق قواعد Firestore عليه). لا يوجد أي رمز سري في المتصفح أو في Firestore.
+ *
+ * طريقة التثبيت/التحديث:
+ * 1. افتح https://script.google.com وافتح مشروع السكربت الحالي (أو مشروعاً جديداً).
+ * 2. امسح الكود القديم والصق هذا الكود بالكامل، ثم احفظ.
+ * 3. نشر (Deploy) ← «إدارة عمليات النشر» ← تعديل (قلم) ← الإصدار: «إصدار جديد» ← نشر.
+ *    (أو «نشر جديد» ← تطبيق ويب). التنفيذ بصفتي (Me) — من لديه حق الوصول: أي شخص (Anyone).
+ *    ⚠️ إن لم تُنشر نسخة جديدة فسيبقى الرابط يشغّل الكود القديم.
+ * 4. عند أول تشغيل وافق على الصلاحيات (Drive + الاتصال بخدمة خارجية UrlFetch).
+ * 5. الرابط (/exec) لا يتغير عند «إصدار جديد» لنفس النشر.
+ * ============================================================================
+ */
+
+// قيمتان عامتان (ليستا سرّيتين): تطابقان firebaseConfig في script.js
+const FIREBASE_API_KEY = 'AIzaSyCOI6oGNz7D56fSodL3Ijcd6pIrWpnBszI';
+const FIREBASE_PROJECT_ID = 'elwihda-scout';
+
+const DEFAULT_ROOT_FOLDER_NAME = 'Scout_ElWihda_Media';
+const MAX_BASE64_LENGTH = 4200000;            // ≈ 3MB بعد فك الترميز
+const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp'];
+
+function doGet(e) {
+  return jsonResponse({ ok: true, service: 'Scout El Wihda — Google Drive Bridge', version: 2, status: 'ready' });
+}
+
+function doPost(e) {
+  try {
+    const raw = (e && e.postData && e.postData.contents) ? e.postData.contents : '{}';
+    const body = JSON.parse(raw);
+    const action = body.action || 'upload';
+
+    // 1) هوية المستخدم من Firebase (إلزامية لكل الإجراءات)
+    const caller = verifyFirebaseUser(body.idToken);
+    if (!caller) return jsonResponse({ ok: false, error: 'تعذر التحقق من هويتك. سجّل الدخول من جديد ثم أعد المحاولة.' });
+    const profile = readUserProfile(caller.uid, body.idToken); // قد يكون null أثناء التسجيل (الوثيقة لم تُنشأ بعد)
+    const isAdmin = !!(profile && profile.role === 'admin' && profile.accountStatus !== 'suspended' && profile.accountStatus !== 'locked');
+    const perms = (profile && profile.accountStatus === 'active') ? (profile.permissions || {}) : {};
+
+    if (action === 'ping') {
+      if (!isAdmin) return jsonResponse({ ok: false, error: 'اختبار الاتصال للأدمن فقط.' });
+      const f = ensureFolders(body.rootFolderId, body.announcementsFolderId, body.galleryFolderId, true);
+      return jsonResponse({
+        ok: true, message: 'تم الاتصال بـ Google Drive بنجاح!',
+        rootFolderName: f.root.getName(), rootFolderId: f.root.getId(),
+        announcementsFolderId: f.announcements.getId(), galleryFolderId: f.gallery.getId()
+      });
+    }
+
+    if (action === 'upload') {
+      const kind = body.kind === 'announcements' ? 'announcements' : (body.kind === 'profiles' ? 'profiles' : 'gallery');
+      // 2) الصلاحية حسب نوع الرفع
+      let allowed = false;
+      if (kind === 'profiles') allowed = true; // أي مستخدم مسجّل (الصورة الشخصية)
+      else if (kind === 'gallery') allowed = isAdmin || perms['gallery.upload'] === true;
+      else allowed = isAdmin || perms['announcements.create'] === true || perms['announcements.edit'] === true;
+      if (!allowed) return jsonResponse({ ok: false, error: 'ليست لديك صلاحية رفع هذا النوع من الصور.' });
+
+      const base64Data = body.base64Data;
+      if (!base64Data || typeof base64Data !== 'string') return jsonResponse({ ok: false, error: 'لم يتم إرسال بيانات الصورة.' });
+      if (base64Data.length > MAX_BASE64_LENGTH) return jsonResponse({ ok: false, error: 'حجم الصورة كبير جداً.' });
+      const mimeType = ALLOWED_MIME.indexOf(body.mimeType) !== -1 ? body.mimeType : 'image/jpeg';
+      const safeName = String(body.fileName || (kind + '-' + new Date().getTime() + '.jpg')).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
+
+      // المجلدات المخصصة من الواجهة تُقبل من الأدمن فقط؛ غيره يُرفع إلى المجلدات الافتراضية
+      const f = ensureFolders(isAdmin ? body.rootFolderId : '', isAdmin ? body.announcementsFolderId : '', isAdmin ? body.galleryFolderId : '', false);
+      const target = kind === 'announcements' ? f.announcements : (kind === 'profiles' ? f.profiles : f.gallery);
+
+      const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, safeName);
+      const file = target.createFile(blob);
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      const fileId = file.getId();
+      return jsonResponse({
+        ok: true, fileId: fileId, fileName: file.getName(), folderId: target.getId(),
+        imageUrl: 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1600',
+        fallbackUrl: 'https://lh3.googleusercontent.com/d/' + fileId + '=w1600',
+        downloadUrl: 'https://drive.google.com/uc?export=download&id=' + fileId
+      });
+    }
+
+    if (action === 'delete') {
+      const mayDelete = isAdmin || perms['gallery.manage'] === true || perms['announcements.delete'] === true || perms['announcements.edit'] === true;
+      if (!mayDelete) return jsonResponse({ ok: false, error: 'ليست لديك صلاحية حذف الصور.' });
+      const fileId = String(body.fileId || '');
+      if (!/^[a-zA-Z0-9_-]{15,80}$/.test(fileId)) return jsonResponse({ ok: false, error: 'معرّف الملف غير صالح.' });
+      const file = DriveApp.getFileById(fileId);
+      // لا نحذف إلا ملفات داخل مجلدات الوسائط الخاصة بالموقع
+      const f = ensureFolders('', '', '', false);
+      const okParents = [f.announcements.getId(), f.gallery.getId(), f.profiles.getId()];
+      if (isAdmin && body.rootFolderId) okParents.push(String(body.rootFolderId));
+      let inside = false;
+      const it = file.getParents();
+      while (it.hasNext()) { if (okParents.indexOf(it.next().getId()) !== -1) inside = true; }
+      if (!inside && !isAdmin) return jsonResponse({ ok: false, error: 'هذا الملف خارج مجلدات الموقع.' });
+      file.setTrashed(true);
+      return jsonResponse({ ok: true, deletedFileId: fileId });
+    }
+
+    return jsonResponse({ ok: false, error: 'إجراء غير معروف.' });
+  } catch (err) {
+    return jsonResponse({ ok: false, error: err && err.message ? err.message : String(err) });
+  }
+}
+
+// يتحقق من رمز هوية Firebase لدى Google ويرجع {uid,email} أو null
+function verifyFirebaseUser(idToken) {
+  if (!idToken || typeof idToken !== 'string' || idToken.length < 100) return null;
+  const res = UrlFetchApp.fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=' + FIREBASE_API_KEY, {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    payload: JSON.stringify({ idToken: idToken })
+  });
+  if (res.getResponseCode() !== 200) return null;
+  const data = JSON.parse(res.getContentText());
+  const u = data && data.users && data.users[0];
+  return u ? { uid: u.localId, email: u.email || '' } : null;
+}
+
+// يقرأ وثيقة users/{uid} عبر REST بنفس رمز المستخدم (فتُطبَّق قواعد Firestore). null إن لم توجد.
+function readUserProfile(uid, idToken) {
+  const url = 'https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT_ID + '/databases/(default)/documents/users/' + encodeURIComponent(uid);
+  const res = UrlFetchApp.fetch(url, { method: 'get', headers: { Authorization: 'Bearer ' + idToken }, muteHttpExceptions: true });
+  if (res.getResponseCode() !== 200) return null;
+  const f = JSON.parse(res.getContentText()).fields || {};
+  const str = function (k) { return f[k] && f[k].stringValue ? f[k].stringValue : ''; };
+  const perms = {};
+  const pm = f.permissions && f.permissions.mapValue && f.permissions.mapValue.fields ? f.permissions.mapValue.fields : {};
+  Object.keys(pm).forEach(function (k) { perms[k] = pm[k].booleanValue === true; });
+  return { role: str('role'), accountStatus: str('accountStatus'), permissions: perms };
+}
+
+function ensureFolders(rootFolderId, announcementsFolderId, galleryFolderId, allowShare) {
+  let root = null;
+  if (rootFolderId) { try { root = DriveApp.getFolderById(rootFolderId); } catch (_) { root = null; } }
+  if (!root) {
+    const iter = DriveApp.getFoldersByName(DEFAULT_ROOT_FOLDER_NAME);
+    root = iter.hasNext() ? iter.next() : DriveApp.createFolder(DEFAULT_ROOT_FOLDER_NAME);
+  }
+  let announcements = null;
+  if (announcementsFolderId) { try { announcements = DriveApp.getFolderById(announcementsFolderId); } catch (_) { announcements = null; } }
+  if (!announcements) announcements = getOrCreateSubfolder(root, 'announcements');
+  let gallery = null;
+  if (galleryFolderId) { try { gallery = DriveApp.getFolderById(galleryFolderId); } catch (_) { gallery = null; } }
+  if (!gallery) gallery = getOrCreateSubfolder(root, 'gallery');
+  const profiles = getOrCreateSubfolder(root, 'profiles');
+  return { root: root, announcements: announcements, gallery: gallery, profiles: profiles };
+}
+
+function getOrCreateSubfolder(parentFolder, name) {
+  const iter = parentFolder.getFoldersByName(name);
+  if (iter.hasNext()) return iter.next();
+  return parentFolder.createFolder(name);
+}
+
+function jsonResponse(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+`;
+
+function openGoogleDriveScriptModal() {
+  let modal = document.getElementById('gdriveScriptGuideModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'gdriveScriptGuideModal';
+    modal.className = 'modal-overlay help-modal-overlay';
+    modal.innerHTML = `
+      <div class="scout-card-container help-modal-box hover-lift" style="max-width:640px;">
+        <button type="button" class="close-btn hover-lift" onclick="document.getElementById('gdriveScriptGuideModal').style.display='none'">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+        <div class="form-box">
+          <h2 style="color:var(--accent-gold);"><i class="fa-brands fa-google-drive"></i> ربط الموقع بحسابك على Google Drive</h2>
+          <div class="help-modal-body">
+            <ol style="padding-right:18px; line-height:1.85; font-size:0.86rem;">
+              <li>افتح <a href="https://script.google.com" target="_blank" rel="noopener" style="color:var(--accent-gold); text-decoration:underline;">script.google.com</a> بحساب Google Drive الخاص بك واضغط <strong>مشروع جديد (New project)</strong>.</li>
+              <li>اضغط زر <strong>«نسخ الكود»</strong> أدناه، وامسح الكود الافتراضي في الصفحة والصق هذا الكود مكانه ثم احفظه (<bdi dir="ltr">Ctrl+S</bdi>).</li>
+              <li>اضغط <strong>نشر (Deploy) ← نشر جديد (New deployment)</strong> واختر النوع: <strong>تطبيق ويب (Web app)</strong>.</li>
+              <li>اجعل «التنفيذ بصفتي» = <strong>أنا (Me)</strong>، و«من لديه حق الوصول» = <strong>أي شخص (Anyone)</strong>، ثم اضغط <strong>نشر (Deploy)</strong> ووافق على الصلاحيات.</li>
+              <li>انسخ <strong>رابط تطبيق الويب (Web app URL)</strong> الذي ينتهي بـ <bdi dir="ltr">/exec</bdi> والصقه في حقل الرابط في إعدادات الأدمن، ثم اضغط <strong>«اختبار الاتصال وتجهيز المجلدات»</strong>.</li>
+            </ol>
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-top:10px;">
+              <a href="guide-configuration-google-drive.pdf" target="_blank" rel="noopener noreferrer" class="glow-btn btn-gdrive-pdf hover-lift" style="padding:6px 14px; font-size:0.82rem; text-decoration:none;">
+                <i class="fa-solid fa-file-pdf"></i> تحميل دليل الإعداد (PDF)
+              </a>
+              <button type="button" class="glow-btn btn-green hover-lift" style="padding:6px 14px; font-size:0.82rem;" onclick="copyGoogleDriveBridgeCode(this)">
+                <i class="fa-solid fa-copy"></i> نسخ الكود
+              </button>
+            </div>
+            <pre class="gdrive-code-pre" id="gdriveBridgeCodePre"></pre>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    const pre = document.getElementById('gdriveBridgeCodePre');
+    if (pre) pre.textContent = GOOGLE_APPS_SCRIPT_BRIDGE_CODE;
+  }
+  modal.style.display = 'flex';
+}
+
+function copyGoogleDriveBridgeCode(btn) {
+  navigator.clipboard.writeText(GOOGLE_APPS_SCRIPT_BRIDGE_CODE).then(() => {
+    const oldHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-check"></i> تم النسخ!';
+    setTimeout(() => { btn.innerHTML = oldHtml; }, 2000);
+  });
 }

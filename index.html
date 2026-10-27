@@ -3,30 +3,35 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>فوج الوحدة الكشفي - الكشافة الإسلامية الجزائرية | المنصة الرقمية</title>
   <meta name="description" content="المنصة الرقمية لفوج الوحدة الكشفي (الكشافة الإسلامية الجزائرية): الإعلانات، المعرض الرقمي، الوحدات الكشفية، وحسابات الكشافين والأولياء والقادة.">
   <meta name="robots" content="index, follow">
-  <link rel="canonical" href="https://mohaminekhe-svg.github.io/scout-elwihda/">
+  <link rel="canonical" href="https://s4a.solution4all.dz/">
   <meta name="theme-color" content="#1b3280">
-  <link rel="icon" type="image/png" href="logo%20elwihda.png">
-  <link rel="apple-touch-icon" href="logo%20elwihda.png">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="icon" type="image/png" sizes="512x512" href="favicon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="ar_DZ">
   <meta property="og:site_name" content="فوج الوحدة الكشفي">
   <meta property="og:title" content="فوج الوحدة الكشفي - الكشافة الإسلامية الجزائرية | المنصة الرقمية">
   <meta property="og:description" content="المنصة الرقمية لفوج الوحدة الكشفي: الإعلانات، المعرض الرقمي، والوحدات الكشفية.">
-  <meta property="og:url" content="https://mohaminekhe-svg.github.io/scout-elwihda/">
-  <meta property="og:image" content="https://mohaminekhe-svg.github.io/scout-elwihda/logo%20elwihda.png">
+  <meta property="og:url" content="https://s4a.solution4all.dz/">
+  <meta property="og:image" content="https://s4a.solution4all.dz/favicon.png">
   <meta name="twitter:card" content="summary">
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"Organization","name":"فوج الوحدة الكشفي","alternateName":"Scout Elwihda","url":"https://mohaminekhe-svg.github.io/scout-elwihda/","logo":"https://mohaminekhe-svg.github.io/scout-elwihda/logo%20elwihda.png","parentOrganization":{"@type":"Organization","name":"الكشافة الإسلامية الجزائرية"}}
+  {"@context":"https://schema.org","@type":"Organization","name":"فوج الوحدة الكشفي","alternateName":"Scout Elwihda","url":"https://s4a.solution4all.dz/","logo":"https://s4a.solution4all.dz/favicon.png","parentOrganization":{"@type":"Organization","name":"الكشافة الإسلامية الجزائرية"}}
   </script>
   
   <!-- مكتبة الأيقونات Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/themes/dark.min.css">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20261024-16">
+  <link rel="stylesheet" href="site-extras.css?v=20261026-1">
 </head>
 <body>
 
@@ -130,6 +135,21 @@
             </button>
           </div>
 
+          <div class="accounts-toolbar" role="search">
+            <div class="input-box hover-lift" style="max-width: 360px; flex: 1; margin: 0;">
+              <i class="fa-solid fa-magnifying-glass field-icon"></i>
+              <input type="text" id="leadersSearchInput" placeholder=" " oninput="applyLeadersFilter()">
+              <label>بحث بالاسم أو البريد</label>
+            </div>
+            <select id="leadersStatusFilter" onchange="applyLeadersFilter()" aria-label="تصفية حسب الحالة">
+              <option value="">كل الحالات</option>
+              <option value="active">نشط</option>
+              <option value="pending">قيد المراجعة</option>
+              <option value="rejected">مرفوض</option>
+              <option value="suspended">موقوف</option>
+            </select>
+          </div>
+
           <!-- قائمة عرض كروت القادة -->
           <div id="leadersListContainer" class="leaders-cards-list">
             <!-- سيتم تحميل كروت القادة هنا ديناميكياً -->
@@ -143,10 +163,19 @@
           <h2><i class="fa-solid fa-users-gear"></i> إدارة حسابات الأولياء والكشافين</h2>
           <p>استعراض الفتية المسجلين، أرقام التواصل مع الأولياء، وتفعيل الحسابات.</p>
 
-          <div class="input-box hover-lift mt-20" style="max-width: 400px;">
-            <i class="fa-solid fa-magnifying-glass field-icon"></i>
-            <input type="text" id="scoutsSearchInput" placeholder=" " oninput="filterScoutsParentsList(this.value)">
-            <label>بحث بالاسم أو البريد الإلكتروني</label>
+          <div class="accounts-toolbar" role="search">
+            <div class="input-box hover-lift" style="max-width: 360px; flex: 1; margin: 0;">
+              <i class="fa-solid fa-magnifying-glass field-icon"></i>
+              <input type="text" id="scoutsSearchInput" placeholder=" " oninput="applyScoutsFilters()">
+              <label>بحث بالاسم أو البريد الإلكتروني</label>
+            </div>
+            <select id="scoutsRoleFilter" onchange="applyScoutsFilters()" aria-label="تصفية حسب الصفة">
+              <option value="">الكل</option>
+              <option value="scout">الكشافة</option>
+              <option value="parent">الأولياء</option>
+            </select>
+            <span id="scoutsCountLabel" style="color:#cbd5e1;font-weight:700;"></span>
+            <button type="button" class="btn-edit" onclick="loadScoutsParentsAdmin()"><i class="fa-solid fa-rotate"></i> تحديث</button>
           </div>
 
           <div id="scoutsParentsListContainer" class="leaders-cards-list mt-20"></div>
@@ -234,25 +263,53 @@
               <label>وصف الصورة (اختياري)</label>
             </div>
 
-            <div class="field-group-title mt-10"><i class="fa-solid fa-image"></i> الصورة</div>
-            <div class="image-upload-placeholder" aria-disabled="true">
-              <i class="fa-regular fa-image"></i>
-              <p>إضافة الصور من ملفات المشروع — الرفع المباشر غير متاح حاليًا.</p>
+            <div class="field-group-title mt-10"><i class="fa-brands fa-google-drive"></i> الصورة (رفع مباشر إلى Google Drive أو رابط مشاركة)</div>
+            
+            <!-- زر فتح Google Drive مباشرة لاختيار أو نسخ رابط الصورة (Option 2) -->
+            <div class="gdrive-direct-open-wrap mb-10">
+              <a href="https://drive.google.com/" target="_blank" rel="noopener noreferrer" id="galleryOpenDriveLink" class="glow-btn btn-gdrive-open hover-lift">
+                <i class="fa-brands fa-google-drive"></i> <span>فتح Google Drive (لاختيار أو نسخ رابط الصورة)</span>
+                <i class="fa-solid fa-arrow-up-right-from-square external-icon"></i>
+              </a>
+            </div>
+            <div class="gdrive-upload-box hover-lift" id="galleryDriveDropzone" onclick="triggerDriveFileInput('galleryFileUploadInput')">
+              <input type="file" id="galleryFileUploadInput" accept="image/jpeg,image/png,image/webp,image/gif" multiple style="display:none;" onchange="handleDriveFileSelect('gallery', this)">
+              <div id="galleryUploadPrompt" class="gdrive-upload-prompt">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <p class="gdrive-upload-title">اضغط هنا لاختيار صورة أو عدة صور معاً من جهازك أو اسحبها هنا</p>
+                <p class="gdrive-upload-sub">يمكنك رفع صورة واحدة أو عدة صور دفعة واحدة — تُضغط تلقائياً وتُحفظ في Google Drive</p>
+              </div>
+              <div id="galleryUploadPreviewWrap" class="gdrive-multi-preview-wrap" style="display:none;" onclick="event.stopPropagation();">
+                <div class="gdrive-multi-preview-header">
+                  <span id="galleryUploadCountBadge" class="gdrive-count-badge">
+                    <i class="fa-solid fa-images"></i> <span id="galleryUploadCountText">0 صور مختارة</span>
+                  </span>
+                  <div class="gdrive-preview-actions">
+                    <button type="button" class="glow-btn btn-gdrive-add-more hover-lift" onclick="triggerDriveFileInput('galleryFileUploadInput')">
+                      <i class="fa-solid fa-plus"></i> <span>إضافة صور أخرى</span>
+                    </button>
+                    <button type="button" class="btn-delete gdrive-clear-btn" onclick="clearSelectedDriveFile('gallery')">
+                      <i class="fa-solid fa-trash-can"></i> مسح الكل
+                    </button>
+                  </div>
+                </div>
+                <div id="galleryMultiPreviewGrid" class="gdrive-multi-grid"></div>
+              </div>
             </div>
             <div class="input-box hover-lift">
-              <i class="fa-solid fa-file-image field-icon"></i>
-              <input type="text" id="galleryImageFileInput" dir="ltr" placeholder=" " maxlength="100" autocomplete="off">
-              <label>اسم ملف الصورة (اختياري) — مثال: gallery-001.jpg</label>
+              <i class="fa-brands fa-google-drive field-icon"></i>
+              <input type="text" id="galleryImageFileInput" dir="ltr" placeholder=" " maxlength="500" autocomplete="off">
+              <label>أو الصق رابط مشاركة Google Drive (أو اسم ملف محلي مثل gallery-001.jpg)</label>
             </div>
-            <p class="input-hint">ضع الصورة في المجلد assets/images/gallery/ ثم اكتب اسمها هنا فقط.</p>
+            <p class="input-hint">يمكنك اختيار صورة من جهازك لرفعها تلقائياً إلى Google Drive، أو لصق رابط صورة من Google Drive مباشرةً.</p>
 
             <p id="galleryUploadError" class="error-msg bold-text"></p>
 
-            <div class="suspicious-actions-row">
-              <button type="submit" id="galleryUploadSubmitBtn" class="glow-btn btn-green hover-lift mt-10">
+            <div class="form-actions-row">
+              <button type="submit" id="galleryUploadSubmitBtn" class="glow-btn btn-green hover-lift">
                 <i class="fa-solid fa-floppy-disk"></i> <span id="galleryUploadSubmitText">حفظ العنصر</span>
               </button>
-              <button type="button" id="galleryCancelEditBtn" class="glow-btn hover-lift mt-10" style="display:none;" onclick="cancelGalleryEdit()">إلغاء التعديل</button>
+              <button type="button" id="galleryCancelEditBtn" class="glow-btn btn-secondary-action hover-lift" style="display:none;" onclick="cancelGalleryEdit()">إلغاء التعديل</button>
             </div>
           </form>
 
@@ -285,6 +342,79 @@
             </label>
             <p class="input-hint">عند الإيقاف: لا يستطيع أحد إنشاء حساب قائد/مسؤول إعلام جديد (يُرفض من قواعد Firestore نفسها)، وتبقى الحسابات المعتمدة تعمل. الحسابات الجديدة تبقى «بانتظار الموافقة» حتى تقبلها أنت.</p>
             <p id="mediaSignupMsg" class="error-msg bold-text"></p>
+          </div>
+
+          <div class="settings-card admin-only-nav" id="googleDriveSettingsCard">
+            <div class="settings-card-header">
+              <h3><i class="fa-brands fa-google-drive"></i> إعدادات التخزين السحابي الرئيسي (Google Drive)</h3>
+              <span id="gdriveConfigStatusBadge" class="status-badge status-pending"><i class="fa-solid fa-circle-info"></i> غير مضبوط بعد</span>
+            </div>
+            <p class="input-hint" style="margin-bottom:14px;">اربط حساب Google Drive الخاص بك ليكون مساحة التخزين الرئيسية لصور الإعلانات والمعرض الرقمي، مع إمكانية فتح مجلدك الكشفي في نافذة جديدة بنقرة واحدة.</p>
+
+            <!-- زر الوصول السريع المباشر إلى Google Drive (Option 2) -->
+            <div class="gdrive-direct-open-card hover-lift">
+              <div class="gdrive-open-info">
+                <i class="fa-brands fa-google-drive"></i>
+                <div>
+                  <h4>فتح مجلد Google Drive مباشرة</h4>
+                  <p>افتح حسابك الكشفي على Google Drive في نافذة جديدة لاختيار الصور أو نسخ روابط المشاركة.</p>
+                </div>
+              </div>
+              <a href="https://drive.google.com/" target="_blank" rel="noopener noreferrer" id="settingsOpenDriveBtn" class="glow-btn btn-gdrive-open hover-lift">
+                <i class="fa-brands fa-google-drive"></i> <span>فتح Google Drive الآن</span>
+                <i class="fa-solid fa-arrow-up-right-from-square external-icon"></i>
+              </a>
+            </div>
+
+            <div class="input-box hover-lift mt-15">
+              <i class="fa-solid fa-link field-icon"></i>
+              <input type="url" id="gdriveWebAppUrlInput" dir="ltr" placeholder=" " autocomplete="off">
+              <label>رابط تطبيق Google Apps Script (Web App URL — ينتهي بـ /exec)</label>
+            </div>
+            <p class="input-hint">مطلوب للرفع المباشر التلقائي من لوحة الإدارة إلى Google Drive. اضغط زر «كود الربط وطريقة الإعداد» أسفله للحصول عليه في دقيقة واحدة.</p>
+
+            <div class="input-box hover-lift mt-10">
+              <i class="fa-solid fa-folder-open field-icon"></i>
+              <input type="text" id="gdriveRootFolderInput" dir="ltr" placeholder=" " autocomplete="off">
+              <label>رابط أو معرّف المجلد الرئيسي في Google Drive (اختياري)</label>
+            </div>
+            <p class="input-hint">إذا تركته فارغاً، سيُنشئ السكربت تلقائياً مجلداً باسم <bdi dir="ltr">Scout_ElWihda_Media</bdi> في حسابك على Google Drive وبداخله مجلدا الإعلانات والمعرض.</p>
+
+            <div class="input-row mt-10">
+              <div class="input-box hover-lift">
+                <i class="fa-solid fa-bullhorn field-icon"></i>
+                <input type="text" id="gdriveAnnouncementsFolderInput" dir="ltr" placeholder=" " autocomplete="off">
+                <label>رابط/معرّف مجلد الإعلانات (اختياري)</label>
+              </div>
+              <div class="input-box hover-lift">
+                <i class="fa-solid fa-images field-icon"></i>
+                <input type="text" id="gdriveGalleryFolderInput" dir="ltr" placeholder=" " autocomplete="off">
+                <label>رابط/معرّف مجلد المعرض (اختياري)</label>
+              </div>
+            </div>
+
+
+            <label class="permission-check-item mt-10">
+              <input type="checkbox" id="gdriveAutoDeleteToggle" checked>
+              <span>نقل الصورة إلى سلة مهملات Google Drive تلقائياً عند حذف الإعلان أو الصورة من الموقع</span>
+            </label>
+
+            <p id="gdriveSettingsMsg" class="error-msg bold-text" style="margin-top:10px;"></p>
+
+            <div class="gdrive-actions-row mt-10">
+              <button type="button" id="gdriveSaveBtn" class="glow-btn btn-green hover-lift" onclick="saveGoogleDriveSettings()">
+                <i class="fa-solid fa-floppy-disk"></i> <span>حفظ إعدادات Google Drive</span>
+              </button>
+              <button type="button" id="gdriveTestBtn" class="glow-btn btn-gdrive-test hover-lift" onclick="testGoogleDriveConnection()">
+                <i class="fa-solid fa-plug-circle-check"></i> <span>اختبار الاتصال وتجهيز المجلدات</span>
+              </button>
+              <button type="button" class="glow-btn btn-gdrive-code hover-lift" onclick="openGoogleDriveScriptModal()">
+                <i class="fa-solid fa-code"></i> <span>كود الربط وطريقة الإعداد</span>
+              </button>
+              <a href="guide-configuration-google-drive.pdf" target="_blank" rel="noopener noreferrer" class="glow-btn btn-gdrive-pdf hover-lift">
+                <i class="fa-solid fa-file-pdf"></i> <span>دليل الإعداد خطوة بخطوة (PDF)</span>
+              </a>
+            </div>
           </div>
 
           <div class="settings-card">
@@ -501,6 +631,17 @@
         </div>
       </section>
 
+      <!-- آخر الأخبار: بارز، عام للجميع، يقرأ المنشور فقط من announcements ويتحدث تلقائياً -->
+      <section class="latest-news-section container" id="latest-news" aria-labelledby="latestNewsHeading">
+        <div class="latest-news-header">
+          <h2 id="latestNewsHeading"><i class="fa-solid fa-newspaper" aria-hidden="true"></i> آخر الأخبار</h2>
+          <button type="button" class="news-view-all-btn hover-lift" onclick="showPage('bulletin-page')">عرض جميع الأخبار <i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
+        </div>
+        <div class="news-grid" id="latestNewsGrid" aria-live="polite">
+          <div class="news-state-box"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> جاري تحميل آخر الأخبار...</div>
+        </div>
+      </section>
+
       <section class="about-overview-section container">
         <div class="about-overview-card hover-lift">
           <div class="overview-header">
@@ -689,9 +830,17 @@
   </main>
 
   <footer class="site-footer">
-    <p>فوج الوحدة الكشفي</p>
-    <p>جميع الحقوق محفوظة © 2026</p>
-    <p class="footer-credit">تم تطوير هذا الموقع بواسطة Mohamed Amine Kherfi</p>
+    <div class="footer-single-line">
+      <span class="footer-brand">فوج الوحدة الكشفي</span>
+      <span class="footer-sep">•</span>
+      <span class="footer-rights">جميع الحقوق محفوظة © 2026</span>
+      <span class="footer-sep">•</span>
+      <span class="footer-credit">تم تطوير هذا الموقع بواسطة Mohamed Amine Kherfi</span>
+      <span class="footer-sep">•</span>
+      <button type="button" class="privacy-link" onclick="openPrivacyPolicy(event)">سياسة الخصوصية</button>
+      <span class="footer-sep">•</span>
+      <button type="button" class="privacy-link" onclick="openSupportModal()">الدعم الفني</button>
+    </div>
   </footer>
 
   <!-- 1️⃣ نافذة اختيار الصفة: من أنت؟ -->
@@ -719,7 +868,6 @@
           </div>
           <div class="input-box hover-lift">
             <i class="fa-solid fa-lock field-icon"></i>
-            <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
             <input type="password" id="userLoginPassword" required placeholder=" ">
             <label>كلمة المرور</label>
           </div>
@@ -810,7 +958,6 @@
 
           <div class="input-box hover-lift">
             <i class="fa-solid fa-lock field-icon"></i>
-            <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
             <input type="password" id="leaderRegPassword" required placeholder=" ">
             <label>كلمة المرور</label>
           </div>
@@ -832,7 +979,6 @@
 
           <div class="input-box hover-lift mt-10">
             <i class="fa-solid fa-lock field-icon"></i>
-            <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
             <input type="password" id="leaderRegConfirmPassword" required placeholder=" ">
             <label>تأكيد كلمة المرور</label>
           </div>
@@ -845,6 +991,8 @@
           <p id="leaderRegError" class="error-msg bold-text"></p>
           <p id="leaderRegSuccess" class="success-msg bold-text" style="display: none; color: #22c55e; font-weight: bold; margin-bottom: 10px;"></p>
           
+          <label class="consent-row"><input type="checkbox" id="leaderRegConsent" required>
+            <span>أوافق على جمع بياناتي وفق <button type="button" class="privacy-link" onclick="openPrivacyPolicy(event)">سياسة الخصوصية</button>.</span></label>
           <button type="submit" id="leaderRegSubmitBtn" class="glow-btn hover-lift">إنشاء حساب جديد</button>
         </form>
       </div>
@@ -883,7 +1031,6 @@
 
           <div class="input-box hover-lift">
             <i class="fa-solid fa-lock field-icon"></i>
-            <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
             <input type="password" id="adminLeaderPassword" required placeholder=" ">
             <label>كلمة المرور</label>
           </div>
@@ -905,7 +1052,6 @@
 
           <div class="input-box hover-lift mt-10">
             <i class="fa-solid fa-lock field-icon"></i>
-            <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
             <input type="password" id="adminLeaderConfirmPassword" required placeholder=" ">
             <label>تأكيد كلمة المرور</label>
           </div>
@@ -1108,17 +1254,49 @@
             <label>محتوى الإعلان</label>
           </div>
 
-          <div class="field-group-title mt-10"><i class="fa-solid fa-image"></i> صورة الإعلان (اختياري)</div>
-          <div class="image-upload-placeholder" aria-disabled="true">
-            <i class="fa-regular fa-image"></i>
-            <p>إضافة الصور من ملفات المشروع — ميزة الرفع المباشر غير متاحة حاليًا.</p>
+          <div class="input-box hover-lift">
+            <label class="select-label" for="announcementCategoryInput">تصنيف المنشور</label>
+            <select id="announcementCategoryInput">
+              <option value="">أخبار (بدون تصنيف)</option>
+              <option value="official">إعلان رسمي</option>
+              <option value="trips">رحلات ومخيمات</option>
+              <option value="gathering">تجمع أسبوعي</option>
+              <option value="unit">نشاط وحدة</option>
+              <option value="report">تقرير أسبوعي</option>
+              <option value="upcoming">نشاط قادم</option>
+            </select>
+          </div>
+
+          <div class="field-group-title mt-10"><i class="fa-brands fa-google-drive"></i> صورة الإعلان (اختياري — رفع مباشر إلى Google Drive أو رابط مشاركة)</div>
+          
+          <!-- زر فتح Google Drive مباشرة لاختيار أو نسخ رابط الصورة (Option 2) -->
+          <div class="gdrive-direct-open-wrap mb-10">
+            <a href="https://drive.google.com/" target="_blank" rel="noopener noreferrer" id="announcementOpenDriveLink" class="glow-btn btn-gdrive-open hover-lift">
+              <i class="fa-brands fa-google-drive"></i> <span>فتح Google Drive (لاختيار أو نسخ رابط الصورة)</span>
+              <i class="fa-solid fa-arrow-up-right-from-square external-icon"></i>
+            </a>
+          </div>
+          <div class="gdrive-upload-box hover-lift" id="announcementDriveDropzone" onclick="triggerDriveFileInput('announcementFileUploadInput')">
+            <input type="file" id="announcementFileUploadInput" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none;" onchange="handleDriveFileSelect('announcements', this)">
+            <div id="announcementUploadPrompt" class="gdrive-upload-prompt">
+              <i class="fa-solid fa-cloud-arrow-up"></i>
+              <p class="gdrive-upload-title">اضغط هنا لاختيار صورة من جهازك أو اسحبها وأفلتها هنا</p>
+              <p class="gdrive-upload-sub">تُضغط الصورة تلقائياً وتُرفع مباشرةً إلى مجلد الإعلانات في Google Drive</p>
+            </div>
+            <div id="announcementUploadPreviewWrap" class="gdrive-upload-preview" style="display:none;" onclick="event.stopPropagation();">
+              <img id="announcementUploadPreviewImg" src="" alt="معاينة">
+              <div class="gdrive-preview-info">
+                <span id="announcementUploadPreviewName" dir="ltr"></span>
+                <button type="button" class="btn-delete gdrive-clear-btn" onclick="clearSelectedDriveFile('announcements')"><i class="fa-solid fa-trash-can"></i> إزالة الصورة المختارة</button>
+              </div>
+            </div>
           </div>
           <div class="input-box hover-lift">
-            <i class="fa-solid fa-file-image field-icon"></i>
-            <input type="text" id="announcementImageFileInput" dir="ltr" placeholder=" " maxlength="100" autocomplete="off">
-            <label>اسم ملف الصورة (اختياري) — مثال: announcement-001.jpg</label>
+            <i class="fa-brands fa-google-drive field-icon"></i>
+            <input type="text" id="announcementImageFileInput" dir="ltr" placeholder=" " maxlength="500" autocomplete="off">
+            <label>أو الصق رابط مشاركة Google Drive (أو اسم ملف محلي مثل announcement-001.jpg)</label>
           </div>
-          <p class="input-hint">ضع الصورة في المجلد assets/images/announcements/ ثم اكتب اسمها هنا فقط.</p>
+          <p class="input-hint">اختر صورة من جهازك لرفعها تلقائياً إلى Google Drive، أو الصق رابط صورة من Google Drive.</p>
 
           <div class="field-group-title mt-10"><i class="fa-solid fa-clock"></i> توقيت النشر (اختياري — بتوقيت الجزائر)</div>
           <div class="input-row">
@@ -1398,6 +1576,8 @@
           <input type="file" id="scoutParentPhotoInput" accept="image/png, image/jpeg, image/webp" class="file-input-styled">
           <p class="input-hint">الحد الأقصى 3 ميغابايت — jpg / png / webp فقط</p>
           <div id="scoutParentPhotoPreview" class="announcement-image-preview" style="display:none;"></div>
+          <label class="consent-row photo-consent-row" id="photoConsentRow" style="display:none;"><input type="checkbox" id="scoutParentPhotoConsent">
+            <span>أوافق على رفع هذه الصورة إلى Google Drive وعرضها في حسابي. تنبيه: أي شخص يملك رابط الصورة يستطيع عرضها. وإن كانت لقاصر فأقرّ بأنني وليّ أمره أو أن وليّ أمره موافق.</span></label>
 
           <div class="input-row">
             <div class="input-box hover-lift phone-box">
@@ -1422,7 +1602,6 @@
 
           <div class="input-box hover-lift">
             <i class="fa-solid fa-lock field-icon"></i>
-            <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
             <input type="password" id="scoutParentPassword" required placeholder=" ">
             <label>كلمة المرور</label>
           </div>
@@ -1444,7 +1623,6 @@
 
           <div class="input-box hover-lift mt-10">
             <i class="fa-solid fa-lock field-icon"></i>
-            <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
             <input type="password" id="scoutParentConfirmPassword" required placeholder=" ">
             <label>تأكيد كلمة المرور</label>
           </div>
@@ -1457,6 +1635,8 @@
           <p id="scoutParentError" class="error-msg bold-text"></p>
           <p id="scoutParentSuccess" class="success-msg bold-text" style="display: none; color: #22c55e; font-weight: bold; margin-bottom: 10px;">تم إنشاء حسابك بنجاح</p>
 
+          <label class="consent-row"><input type="checkbox" id="scoutParentConsent" required>
+            <span>أوافق على جمع بياناتي وفق <button type="button" class="privacy-link" onclick="openPrivacyPolicy(event)">سياسة الخصوصية</button>. وإن كان المسجَّل قاصراً فأقرّ بأنني وليّ أمره أو أن وليّ أمره موافق.</span></label>
           <button type="submit" id="scoutParentSubmitBtn" class="glow-btn hover-lift">إنشاء حساب جديد</button>
           
           <button type="button" id="scoutParentDoneReloadBtn" class="glow-btn hover-lift" style="display: none; background: #22c55e; margin-top: 10px;" onclick="reloadPageAfterRegister()">تم</button>
@@ -1489,7 +1669,6 @@
           </div>
           <div class="input-box hover-lift">
             <i class="fa-solid fa-lock field-icon"></i>
-            <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
             <input type="password" id="mediaAdminPassword" required placeholder=" ">
             <label>كلمة المرور</label>
           </div>
@@ -1584,7 +1763,6 @@
           </div>
           <div class="input-box hover-lift">
             <i class="fa-solid fa-lock field-icon"></i>
-            <i class="fa-solid fa-eye toggle-password" onclick="togglePasswordVisibility(this)"></i>
             <input type="password" id="adminPassword" required placeholder=" ">
             <label>كلمة المرور</label>
           </div>
@@ -1601,10 +1779,92 @@
     </div>
   </div>
 
+
+  <!-- نافذة تفاصيل الخبر -->
+  <div id="newsDetailModal" class="modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="newsDetailTitle">
+    <div class="news-detail-box">
+      <button type="button" class="close-btn hover-lift" onclick="closeNewsDetail()" aria-label="إغلاق"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      <div id="newsDetailBody"></div>
+      <div class="news-share-row" id="newsShareRow"></div>
+    </div>
+  </div>
+
+  <!-- نافذة الدعم الفني -->
+  <div id="supportModal" class="modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="supportModalTitle">
+    <div class="extras-modal-box">
+      <button type="button" class="close-btn hover-lift" onclick="closeModal('supportModal')" aria-label="إغلاق"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      <h2 id="supportModalTitle"><i class="fa-solid fa-headset" aria-hidden="true"></i> الدعم الفني</h2>
+      <p class="step-desc">يمكنك التواصل مع فريق التطوير للمساعدة في حل المشكلات التقنية</p>
+      <form id="supportForm" novalidate>
+        <div class="extras-field">
+          <label for="supportEmailInput">بريدك الإلكتروني</label>
+          <input type="email" id="supportEmailInput" dir="ltr" autocomplete="email" maxlength="254" required>
+        </div>
+        <div class="extras-field">
+          <label for="supportTypeInput">نوع المشكلة</label>
+          <select id="supportTypeInput" required>
+            <option value="">اختر...</option>
+            <option value="تسجيل الدخول أو الحساب">تسجيل الدخول أو الحساب</option>
+            <option value="رفع الصور">رفع الصور</option>
+            <option value="الأخبار والإعلانات">الأخبار والإعلانات</option>
+            <option value="عرض الموقع على الهاتف">عرض الموقع على الهاتف</option>
+            <option value="أخرى">أخرى</option>
+          </select>
+        </div>
+        <div class="extras-field">
+          <label for="supportDescInput">وصف المشكلة</label>
+          <textarea id="supportDescInput" rows="5" maxlength="2000" required></textarea>
+        </div>
+        <div id="supportStatus" class="extras-status" role="status" aria-live="polite"></div>
+        <button type="submit" id="supportSubmitBtn" class="extras-submit-btn"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> إرسال</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- نافذة سياسة الخصوصية (فوق نافذة التسجيل، لا تُفقد بيانات النموذج) -->
+  <div id="privacyModal" class="modal-overlay" style="display: none; z-index: 300000;" role="dialog" aria-modal="true" aria-labelledby="privacyModalTitle">
+    <div class="extras-modal-box" style="max-width: 720px;">
+      <button type="button" class="close-btn hover-lift" onclick="closeModal('privacyModal')" aria-label="إغلاق"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      <h2 id="privacyModalTitle"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> سياسة الخصوصية</h2>
+      <p class="step-desc">آخر تحديث: 26 أكتوبر 2026 — نسخة أولية بانتظار مراجعة إدارة الفوج</p>
+      <div class="privacy-body">
+        <h3>1. الجهة المسؤولة</h3>
+        <p>فوج الوحدة الكشفي، التابع للكشافة الإسلامية الجزائرية – محافظة ولاية الجزائر، وهو المسؤول عن هذا الموقع.</p>
+        <h3>2. البيانات التي نجمعها</h3>
+        <ul>
+          <li>عند تسجيل كشاف أو وليّ: الاسم الكامل، البريد الإلكتروني، هاتف الوليّ وهاتف الكشاف، الوحدة، وصفة الحساب.</li>
+          <li>عند تسجيل قائد أو مسؤول إعلام: الاسم الكامل والبريد الإلكتروني وصفة الحساب.</li>
+          <li>صورة شخصية <strong>اختيارية</strong> إن اخترت رفعها.</li>
+          <li>كلمة المرور تُدار بالكامل عبر خدمة Firebase Authentication، ولا نخزّنها نحن في قاعدة بياناتنا.</li>
+          <li>سجلّ أمني بسيط لمحاولات الدخول الفاشلة (البريد المُدخل ووقت المحاولة) لأغراض المراجعة.</li>
+        </ul>
+        <h3>3. أغراض الاستخدام</h3>
+        <p>إنشاء الحسابات وإدارتها، التواصل مع الأولياء والكشافة بخصوص الأنشطة، عرض بطاقة الحساب، وحماية الموقع من إساءة الاستخدام.</p>
+        <h3>4. أين تُخزَّن البيانات ومن يصل إليها</h3>
+        <ul>
+          <li>بيانات الحسابات: خدمتا Firebase Authentication وCloud Firestore من Google.</li>
+          <li>الصور (الشخصية وصور الأنشطة): Google Drive الخاص بالفوج عبر سكربت وسيط. <strong>أي شخص يملك رابط الصورة يستطيع عرضها</strong>، لأن الصور تُنشر بخاصية «أي شخص لديه الرابط».</li>
+          <li>الاستضافة: خادم الاستضافة الخاص بالموقع.</li>
+          <li>يصل إلى بيانات الحسابات حسابك الشخصي، ومن تمنحهم إدارة الفوج صلاحية الإدارة. لا تُعرض بيانات الكشافة الخاصة (الأسماء وأرقام الهواتف) على الصفحات العامة.</li>
+        </ul>
+        <h3>5. الأخبار والإعلانات والمعرض</h3>
+        <p>الأخبار والإعلانات المنشورة تظهر لجميع الزوار. المعرض الرقمي متاح للأعضاء المسجلين فقط.</p>
+        <h3>6. القاصرون</h3>
+        <p>قد يكون المسجَّلون قاصرين. نطلب إقرار وليّ الأمر أو موافقته عند التسجيل ورفع أي صورة لقاصر.</p>
+        <h3>7. الحذف والاحتفاظ</h3>
+        <p>يمكنك طلب حذف حسابك من إدارة الفوج. حذف بيانات الحساب من قاعدة بيانات الموقع تنفّذه الإدارة، وقد يتطلب حذف حساب الدخول من Firebase Authentication خطوة يدوية منها. لم تُحدَّد بعد مدة احتفاظ تلقائية بالبيانات، وستعلنها الإدارة عند اعتمادها.</p>
+        <div class="privacy-note">لا نَعِد بما لا نملك التحقق منه: لم نتحقق من تشفير إضافي للبيانات بخلاف ما توفره خدمات Google بشكل افتراضي.</div>
+        <h3>8. التواصل بخصوص الخصوصية</h3>
+        <p id="privacyContactLine" dir="auto"></p>
+      </div>
+    </div>
+  </div>
+
+  <button type="button" id="supportFabBtn" class="floating-btn" onclick="openSupportModal()" aria-label="الدعم الفني" title="الدعم الفني"><i class="fa-solid fa-headset" aria-hidden="true"></i></button>
+
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 
   <!-- شاشة القفل التلقائي بعد عدم النشاط (إعادة مصادقة Firebase) -->
   <div id="idleLockOverlay" class="idle-lock-overlay" style="display:none;">
@@ -1638,87 +1898,8 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/ar.min.js"></script>
-  <script src="content-config.js"></script>
-  <script src="script.js"></script>
-  <script>
-    const pdfFormUrl = "./registration-form.pdf";
-    const VALID_SITE_PAGES = ['home-page', 'units-page', 'bulletin-page', 'gallery-page'];
-
-    function showPage(pageId) {
-      const pages = document.querySelectorAll('.site-page');
-      pages.forEach(p => p.classList.remove('active-page'));
-
-      const targetPage = document.getElementById(pageId);
-      if (targetPage) {
-        targetPage.classList.add('active-page');
-      }
-
-      const buttons = document.querySelectorAll('.nav-btn');
-      buttons.forEach(btn => btn.classList.remove('active'));
-
-      const navMenu = document.getElementById('navMenu');
-      if(navMenu) navMenu.classList.remove('active');
-
-      // إن كانت قائمة الهاتف مفتوحة (والصفحة مقفلة)، نطلب العودة للأعلى عند إغلاقها بعد الانتقال
-      if (document.body.classList.contains('menu-scroll-locked')) window.__forceScrollTop = true;
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-
-      // حفظ الصفحة الحالية في الرابط حتى تبقى نفسها بعد Refresh
-      if (VALID_SITE_PAGES.includes(pageId)) {
-        history.replaceState(null, '', '#' + pageId);
-      }
-    }
-
-    // استرجاع المكان الصحيح عند تحميل/تحديث الصفحة اعتماداً على الرابط (#hash)
-    (function restoreInitialRouteFromHash() {
-      const hash = window.location.hash.replace('#', '');
-      if (!hash) return;
-
-      if (hash.indexOf('admin-') === 0) {
-        // قسم إداري: يُستعاد فقط بعد التحقق من صلاحية المستخدم الحقيقية (انظر restoreAdminRouteIfAny في script.js)
-        window.__pendingAdminRoute = hash.replace('admin-', '');
-      } else if (VALID_SITE_PAGES.includes(hash)) {
-        showPage(hash);
-      }
-    })();
-
-    function checkRegistrationForm() {
-      const statusBox = document.getElementById('formStatusBox');
-      const spinner = document.getElementById('loadingSpinner');
-      const result = document.getElementById('formResult');
-
-      statusBox.style.display = 'block';
-      spinner.style.display = 'flex';
-      result.innerHTML = '';
-
-      setTimeout(() => {
-        spinner.style.display = 'none';
-        fetch(pdfFormUrl, { method: 'HEAD' })
-          .then(response => {
-            if (response.ok) {
-              result.innerHTML = `
-                <div class="pdf-success hover-lift">
-                  <i class="fa-solid fa-circle-check"></i>
-                  <span>استمارة التسجيل متاحة للتحميل!</span>
-                  <a href="${pdfFormUrl}" download class="btn-download hover-lift"><i class="fa-solid fa-download"></i> تحميل الاستمارة (PDF)</a>
-                </div>`;
-            } else {
-              result.innerHTML = `
-                <div class="pdf-not-found hover-lift">
-                  <i class="fa-solid fa-circle-exclamation"></i>
-                  <span>لم يتم فتح التسجيلات بعد</span>
-                </div>`;
-            }
-          })
-          .catch(() => {
-            result.innerHTML = `
-              <div class="pdf-not-found hover-lift">
-                <i class="fa-solid fa-circle-exclamation"></i>
-                <span>لم يتم فتح التسجيلات بعد</span>
-              </div>`;
-          });
-      }, 2000);
-    }
-  </script>
+  <script src="content-config.js?v=20261024-14"></script>
+  <script src="script.js?v=20261026-1"></script>
+  <script src="site-extras.js?v=20261026-1"></script>
 </body>
 </html>
