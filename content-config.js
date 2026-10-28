@@ -214,3 +214,18 @@ function resolveImageInputSource(rawInput, kind) {
 
   return { type: 'invalid', path: '', driveFileId: '', imageFile: '', imageUrl: '' };
 }
+
+/* =========================================================
+   إحصائيات صفحة «التعريف بالفوج» — عدّل القيم من هنا فقط.
+   confirmed:false  => تظهر ملاحظة «قيد التأكيد» أسفل الأرقام في الصفحة.
+   بعد التحقق من الرقم غيّر confirmed إلى true وستختفي الملاحظة (إن صارت كلها true).
+   ⚠️ سنة التأسيس: نص الموقع الحالي يذكر أن النواة الأولى سنة 1993 (والتوسع 1996، والمقر 2004)،
+   بينما ذُكرت 1963 في طلب التطوير. اعتُمدت 1993 لأنها الموجودة في بيانات المشروع؛ عدّلها بعد التأكد.
+   ========================================================= */
+const ABOUT_STATS = [
+  { key: 'members', value: 150, suffix: '+', label: 'كشاف ومشارك', confirmed: false },
+  { key: 'camps', value: 300, suffix: '+', label: 'مخيم ونشاط ميداني', confirmed: false },
+  { key: 'founded', value: 1993, suffix: '', label: 'سنة التأسيس', confirmed: false, plain: true }
+];
+// بطاقة نصية رابعة (ليست رقماً)
+const ABOUT_GOALS_TEXT = 'التربية والقيادة والمغامرة والخدمة';

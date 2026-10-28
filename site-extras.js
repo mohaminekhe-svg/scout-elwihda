@@ -267,41 +267,46 @@ let latestNewsItems = [];   // العناصر الظاهرة حالياً مرت
 let newsPendingDeepLinkId = null;
 let newsLastWidthBucket = null;
 
-function newsLimitForScreen() { return window.matchMedia && window.matchMedia('(max-width: 640px)').matches ? 3 : 6; }
+function newsLimitForScreen() { return 3; } // معاينة الرئيسية: أحدث 3 أخبار؛ الواجهة المستقلة تعرض الكل
 
-function renderHomeNews(visibleItems) {
-  const grid = document.getElementById('latestNewsGrid');
+function buildNewsCard(item) {
+  const d = item.data;
+  const img = getItemImagePath('announcements', d);
+  const dateText = new Date(newsPublishMillis(d)).toLocaleDateString('ar-DZ', { year: 'numeric', month: 'long', day: 'numeric' });
+  const card = document.createElement('article');
+  card.className = 'news-card hover-lift';
+  card.innerHTML =
+    '<div class="news-card-media">' +
+      (img ? '<img src="' + escHtml(img) + '" alt="' + escHtml(unescapeSanitized(d.title || '')) + '" loading="lazy" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">' : '') +
+      '<div class="news-no-image" style="' + (img ? 'display:none;' : '') + '" aria-hidden="true"><i class="fa-solid fa-campground"></i></div>' +
+    '</div>' +
+    '<div class="news-card-body">' +
+      '<div class="news-card-meta"><span class="news-category-badge">' + escHtml(newsCategoryLabel(d.category)) + '</span>' +
+      '<span><i class="fa-solid fa-calendar" aria-hidden="true"></i> ' + escHtml(dateText) + '</span></div>' +
+      '<h3 class="news-card-title">' + escHtml(d.title) + '</h3>' +
+      '<p class="news-card-excerpt">' + escHtml(newsExcerpt(d.content, 150)) + '</p>' +
+      '<button type="button" class="news-read-more-btn" onclick="openNewsDetail(' + jsArg(item.id) + ')">اقرأ المزيد</button>' +
+    '</div>';
+  return card;
+}
+
+function fillNewsGrid(gridId, sorted, limit) {
+  const grid = document.getElementById(gridId);
   if (!grid) return;
-  const sorted = (visibleItems || []).slice().sort((a, b) => newsPublishMillis(b.data) - newsPublishMillis(a.data));
-  latestNewsItems = sorted;
-  const limit = newsLimitForScreen();
-  newsLastWidthBucket = limit;
-
   grid.innerHTML = '';
   if (sorted.length === 0) {
     grid.innerHTML = '<div class="news-state-box">لا توجد أخبار منشورة حالياً. ترقبوا جديد الفوج قريباً.</div>';
-  } else {
-    sorted.slice(0, limit).forEach((item) => {
-      const d = item.data;
-      const img = getItemImagePath('announcements', d);
-      const dateText = new Date(newsPublishMillis(d)).toLocaleDateString('ar-DZ', { year: 'numeric', month: 'long', day: 'numeric' });
-      const card = document.createElement('article');
-      card.className = 'news-card hover-lift';
-      card.innerHTML =
-        '<div class="news-card-media">' +
-          (img ? '<img src="' + escHtml(img) + '" alt="' + escHtml(unescapeSanitized(d.title || '')) + '" loading="lazy" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">' : '') +
-          '<div class="news-no-image" style="' + (img ? 'display:none;' : '') + '" aria-hidden="true"><i class="fa-solid fa-campground"></i></div>' +
-        '</div>' +
-        '<div class="news-card-body">' +
-          '<div class="news-card-meta"><span class="news-category-badge">' + escHtml(newsCategoryLabel(d.category)) + '</span>' +
-          '<span><i class="fa-solid fa-calendar" aria-hidden="true"></i> ' + escHtml(dateText) + '</span></div>' +
-          '<h3 class="news-card-title">' + escHtml(d.title) + '</h3>' +
-          '<p class="news-card-excerpt">' + escHtml(newsExcerpt(d.content, 150)) + '</p>' +
-          '<button type="button" class="news-read-more-btn" onclick="openNewsDetail(' + jsArg(item.id) + ')">اقرأ المزيد</button>' +
-        '</div>';
-      grid.appendChild(card);
-    });
+    return;
   }
+  (limit ? sorted.slice(0, limit) : sorted).forEach((item) => grid.appendChild(buildNewsCard(item)));
+}
+
+function renderHomeNews(visibleItems) {
+  const sorted = (visibleItems || []).slice().sort((a, b) => newsPublishMillis(b.data) - newsPublishMillis(a.data));
+  latestNewsItems = sorted;
+  newsLastWidthBucket = newsLimitForScreen();
+  fillNewsGrid('latestNewsGrid', sorted, newsLimitForScreen()); // الرئيسية
+  fillNewsGrid('newsPageGrid', sorted, 0);                      // واجهة آخر الأخبار (كل المنشور)
   if (newsPendingDeepLinkId) {
     const found = sorted.some((i) => i.id === newsPendingDeepLinkId);
     if (found) { const id = newsPendingDeepLinkId; newsPendingDeepLinkId = null; openNewsDetail(id); }

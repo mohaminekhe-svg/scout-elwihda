@@ -30,26 +30,153 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/themes/dark.min.css">
-  <link rel="stylesheet" href="style.css?v=20261024-16">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@500;700&display=swap">
+  <link rel="stylesheet" href="style.css?v=20261028-1">
   <link rel="stylesheet" href="site-extras.css?v=20261026-1">
-  <link rel="stylesheet" href="site-v3.css?v=20261027-1">
+  <link rel="stylesheet" href="site-v3.css?v=20261028-1">
+  <link rel="stylesheet" href="site-v4.css?v=20261028-1">
 </head>
 <body>
 
-  <script>try{if(sessionStorage.getItem('se_splash_seen')||/^#(news-|admin-|locked)/.test(location.hash))document.documentElement.classList.add('no-splash')}catch(e){}</script>
-  <!-- شاشة الترحيب: تظهر مرة واحدة لكل جلسة، ويمكن تخطيها فوراً -->
-  <div id="splashScreen" class="splash" role="dialog" aria-modal="true" aria-labelledby="splashTitle">
-    <div class="splash-inner">
-      <div class="splash-logos">
-        <img src="logo%20sma.png" alt="شعار الكشافة الإسلامية الجزائرية">
-        <img src="logo%20elwihda.png" alt="شعار فوج الوحدة الكشفي">
+  <!-- رموز زخرفية (SVG) تُستعمل في المقدمة والصفحة الرئيسية. زخارف عامة وليست شعارات رسمية. -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <linearGradient id="gKerchief" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#2f74dc"/>
+        <stop offset=".55" stop-color="#14489f"/>
+        <stop offset="1" stop-color="#082a6e"/>
+      </linearGradient>
+      <linearGradient id="gGold" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#fff0b8"/>
+        <stop offset=".5" stop-color="#f1cf79"/>
+        <stop offset="1" stop-color="#b98a2c"/>
+      </linearGradient>
+      <linearGradient id="gSweep" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+        <stop offset=".5" stop-color="#fff3c4" stop-opacity=".55"/>
+        <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="gMount1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#16327a"/><stop offset="1" stop-color="#0b1b45"/></linearGradient>
+      <linearGradient id="gMount2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0f2459"/><stop offset="1" stop-color="#081538"/></linearGradient>
+      <linearGradient id="gMount3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0a1a42"/><stop offset="1" stop-color="#060f28"/></linearGradient>
+      <radialGradient id="gFlame" cx=".5" cy=".75" r=".7"><stop offset="0" stop-color="#fff3c4"/><stop offset=".45" stop-color="#f6b93b"/><stop offset="1" stop-color="#e5532d"/></radialGradient>
+      <!-- شكل المنديل (يُستعمل للرسم وللقص) -->
+      <path id="kerchiefShape" d="M0 0 H400 L214 522 Q200 548 186 522 Z"/>
+      <clipPath id="kerchiefClip"><use href="#kerchiefShape"/></clipPath>
+
+      <!-- المنديل الكشفي مع العقدة (الحلقة) -->
+      <symbol id="symKerchief" viewBox="0 0 400 560">
+        <use href="#kerchiefShape" fill="url(#gKerchief)"/>
+        <g fill="none" stroke="#7fb0ff" stroke-opacity=".2" stroke-width="2">
+          <path d="M70 0 L192 520"/>
+          <path d="M140 0 L196 520"/>
+          <path d="M260 0 L204 520"/>
+          <path d="M330 0 L208 520"/>
+        </g>
+        <g fill="none" stroke="#04174a" stroke-opacity=".32" stroke-width="3">
+          <path d="M105 0 L194 520"/>
+          <path d="M200 0 L200 520"/>
+          <path d="M295 0 L206 520"/>
+        </g>
+        <path d="M0 0 H400" stroke="#6aa2f5" stroke-opacity=".5" stroke-width="3"/>
+        <path d="M20 0 L193 500 M380 0 L207 500" fill="none" stroke="url(#gGold)" stroke-width="4" stroke-linecap="round"/>
+        <path d="M36 0 L195 478 M364 0 L205 478" fill="none" stroke="#f1cf79" stroke-opacity=".4" stroke-width="1.5"/>
+        <g transform="translate(200 356)">
+          <path d="M-60 12 Q0 40 60 12 L52 40 Q0 62 -52 40 Z" fill="#06205f" fill-opacity=".45"/>
+          <ellipse rx="64" ry="21" fill="none" stroke="#050f33" stroke-opacity=".5" stroke-width="18"/>
+          <ellipse rx="64" ry="21" fill="none" stroke="url(#gGold)" stroke-width="13"/>
+          <path d="M-58 -8 Q0 -28 58 -8" fill="none" stroke="#fff8d8" stroke-opacity=".8" stroke-width="3" stroke-linecap="round"/>
+          <ellipse rx="64" ry="21" fill="none" stroke="#7a5a14" stroke-opacity=".5" stroke-width="1.5"/>
+        </g>
+      </symbol>
+
+      <!-- البوصلة -->
+      <symbol id="symCompass" viewBox="-200 -200 400 400">
+        <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <circle r="190" stroke-width="1.6"/>
+          <circle r="170" stroke-width=".8"/>
+          <circle r="180" stroke-width="10" stroke-dasharray="1.4 13.6" opacity=".7"/>
+          <circle r="110" stroke-width=".8" stroke-dasharray="3 7"/>
+          <path d="M0 -168 L16 -16 L168 0 L16 16 L0 168 L-16 16 L-168 0 L-16 -16 Z" stroke-width="1.6"/>
+          <path d="M0 -112 L9 -9 L112 0 L9 9 L0 112 L-9 9 L-112 0 L-9 -9 Z" stroke-width="1" transform="rotate(45)"/>
+          <circle r="5" stroke-width="1.6"/>
+        </g>
+      </symbol>
+
+      <!-- الجبال -->
+      <symbol id="symMountains" viewBox="0 0 1600 320" preserveAspectRatio="xMidYMax slice">
+        <path d="M0 320 V170 L140 90 L250 150 L420 40 L560 140 L700 80 L860 170 L1010 70 L1180 150 L1330 60 L1470 140 L1600 90 V320 Z" fill="url(#gMount1)" opacity=".55"/>
+        <path d="M0 320 V220 L180 130 L320 210 L520 110 L690 200 L880 120 L1060 215 L1250 125 L1420 205 L1600 140 V320 Z" fill="url(#gMount2)" opacity=".8"/>
+        <path d="M0 320 V262 L220 200 L400 255 L640 190 L860 258 L1100 196 L1330 256 L1600 205 V320 Z" fill="url(#gMount3)"/>
+      </symbol>
+
+      <!-- نار المخيم -->
+      <symbol id="symFire" viewBox="0 0 120 130">
+        <path d="M60 8 C74 34 98 52 92 86 C88 108 72 118 60 118 C46 118 30 108 28 88 C26 66 44 54 48 38 C56 46 54 24 60 8 Z" fill="url(#gFlame)"/>
+        <path d="M60 52 C68 68 80 76 76 94 C74 106 66 112 60 112 C52 112 44 106 44 94 C44 78 56 70 60 52 Z" fill="#fff3c4" opacity=".85"/>
+        <g stroke="#3b2412" stroke-width="9" stroke-linecap="round"><path d="M22 122 L98 108"/><path d="M22 108 L98 122"/></g>
+        <g stroke="#7a4b24" stroke-width="3" stroke-linecap="round" opacity=".7"><path d="M24 121 L96 109"/><path d="M24 109 L96 121"/></g>
+      </symbol>
+
+      <!-- زخرفة على شكل زنبقة (شكل عام زخرفي) -->
+      <symbol id="symFleur" viewBox="0 0 100 120">
+        <g fill="currentColor">
+          <path d="M50 4 C62 22 66 44 50 70 C34 44 38 22 50 4 Z"/>
+          <path d="M44 74 C22 74 8 58 12 38 C14 30 20 26 26 28 C16 40 20 54 34 58 C40 60 44 62 46 64 Z"/>
+          <path d="M56 74 C78 74 92 58 88 38 C86 30 80 26 74 28 C84 40 80 54 66 58 C60 60 56 62 54 64 Z"/>
+          <rect x="26" y="78" width="48" height="9" rx="4"/>
+          <path d="M38 92 H62 L56 112 H44 Z"/>
+        </g>
+      </symbol>
+
+      <!-- عقدة حبل بسيطة (رباط مربع) -->
+      <symbol id="symKnot" viewBox="0 0 120 60">
+        <g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round">
+          <path d="M6 30 C26 6 48 6 60 30 C72 54 94 54 114 30"/>
+          <path d="M6 34 C26 58 48 58 60 34 C72 10 94 10 114 34" opacity=".75"/>
+        </g>
+      </symbol>
+    </defs>
+  </svg>
+
+  <!-- مقدمة الفوج: تظهر عند كل تحميل كامل للصفحة (بلا تخزين وبلا أي زر) وتختفي تلقائياً -->
+  <div id="splashScreen" class="intro" role="img" aria-label="مقدمة: الكشافة الإسلامية الجزائرية، فوج الوحدة الكشفي">
+    <div class="intro-bg" aria-hidden="true"></div>
+
+    <svg class="intro-compass" aria-hidden="true" focusable="false"><use href="#symCompass"/></svg>
+
+    <svg class="intro-kerchief" viewBox="0 0 400 560" aria-hidden="true" focusable="false">
+      <use href="#symKerchief" width="400" height="560"/>
+      <g clip-path="url(#kerchiefClip)"><g transform="skewX(-16)"><rect class="intro-sweep" x="-180" y="0" width="150" height="560" fill="url(#gSweep)"/></g></g>
+    </svg>
+
+    <svg class="intro-mountains" viewBox="0 0 1600 320" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false"><use href="#symMountains" width="1600" height="320"/></svg>
+    <svg class="intro-fire" viewBox="0 0 120 130" aria-hidden="true" focusable="false"><use href="#symFire" width="120" height="130"/></svg>
+    <div class="rope rope-top" aria-hidden="true"></div>
+    <div class="rope rope-bottom" aria-hidden="true"></div>
+    <div class="intro-vignette" aria-hidden="true"></div>
+
+    <div class="intro-content">
+      <div class="intro-logos">
+        <img class="intro-logo intro-logo-1" src="logo%20sma.png" alt="">
+        <img class="intro-logo intro-logo-2" src="logo%20elwihda.png" alt="">
       </div>
-      <p class="splash-org">الكشافة الإسلامية الجزائرية — محافظة ولاية الجزائر</p>
-      <h2 id="splashTitle">أهلاً بكم في فوج الوحدة الكشفي</h2>
-      <p class="splash-sub">تربية - قيادة - مواطنة</p>
-      <div class="splash-progress" role="progressbar" aria-label="جاري تحميل الموقع" aria-valuemin="0" aria-valuemax="100"><span id="splashBar"></span></div>
-      <p class="splash-status" id="splashStatus">جاري تجهيز الموقع...</p>
-      <button type="button" class="splash-skip" id="splashSkip">دخول الموقع الآن</button>
+      <h2 class="intro-title">
+        <span class="intro-title-org">الكشافة الإسلامية الجزائرية</span>
+        <span class="intro-title-group">فوج الوحدة الكشفي</span>
+      </h2>
+      <div class="intro-divider" aria-hidden="true">
+        <span></span><svg focusable="false"><use href="#symFleur"/></svg><span></span>
+      </div>
+      <p class="intro-province">محافظة ولاية الجزائر</p>
+      <div class="intro-lines" aria-hidden="true">
+        <p class="intro-line intro-welcome">مرحبًا بكم في فوج الوحدة الكشفي</p>
+        <p class="intro-line intro-tag intro-tag-1">معًا نُعدّ أجيال الغد</p>
+        <p class="intro-line intro-tag intro-tag-2">نتعلم بالعمل، ونقود بالمبادرة</p>
+        <p class="intro-line intro-tag intro-tag-3">مغامرة، أخوة، قيادة وخدمة</p>
+      </div>
     </div>
   </div>
 
@@ -542,6 +669,11 @@
     <header class="navbar">
       <div class="nav-container">
 
+        <button type="button" class="sidebar-toggle hover-lift" id="sidebarToggle" aria-label="إظهار أو إخفاء القائمة الجانبية" aria-controls="navMenu" aria-expanded="true">
+          <span class="sidebar-toggle-bars" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="mobile-red-dot announcements-dot pulse-glow"></span>
+        </button>
+
         <a href="#" onclick="showPage('home-page')" class="brand-logo hover-lift">
           <img src="logo%20sma.png" alt="الكشافة الإسلامية الجزائرية" class="nav-logo">
           <div class="brand-text">
@@ -555,16 +687,16 @@
         <ul class="nav-menu" id="navMenu" aria-label="القائمة الرئيسية">
           <li class="mobile-only nav-menu-close-item"><button type="button" class="menu-close-btn" onclick="toggleMobileMenu()" aria-label="إغلاق القائمة"><i class="fa-solid fa-xmark"></i></button></li>
           <li class="nav-group" data-page="home-page">
-            <button type="button" class="nav-btn nav-group-btn active hover-lift" data-page="home-page" aria-expanded="false"><span><i class="fa-solid fa-house" aria-hidden="true"></i> الرئيسية</span><i class="fa-solid fa-chevron-down nav-chevron" aria-hidden="true"></i></button>
-            <ul class="nav-sub" hidden>
-              <li><button type="button" class="nav-sub-btn" data-page="home-page" data-anchor="latest-news">آخر الأخبار</button></li>
-              <li><button type="button" class="nav-sub-btn" data-page="home-page" data-anchor="next-activity">التجمع الكشفي القادم</button></li>
-              <li><button type="button" class="nav-sub-btn" data-page="home-page" data-anchor="about-group">التعريف بالفوج</button></li>
-              <li><button type="button" class="nav-sub-btn" data-page="home-page" data-anchor="recent-activities">الأنشطة الأخيرة</button></li>
-            </ul>
+            <button type="button" class="nav-btn nav-group-btn active hover-lift" data-page="home-page"><span class="nav-lbl"><i class="fa-solid fa-house" aria-hidden="true"></i> الرئيسية</span></button>
+          </li>
+          <li class="nav-group" data-page="latest-news-page">
+            <button type="button" class="nav-btn nav-group-btn hover-lift" data-page="latest-news-page"><span class="nav-lbl"><i class="fa-solid fa-newspaper" aria-hidden="true"></i> آخر الأخبار</span></button>
+          </li>
+          <li class="nav-group" data-page="next-gathering-page">
+            <button type="button" class="nav-btn nav-group-btn hover-lift" data-page="next-gathering-page"><span class="nav-lbl"><i class="fa-solid fa-calendar-day" aria-hidden="true"></i> التجمع الكشفي القادم</span></button>
           </li>
           <li class="nav-group" data-page="bulletin-page">
-            <button type="button" class="nav-btn nav-group-btn nav-link-bulletin hover-lift" data-page="bulletin-page" aria-expanded="false"><span><span class="red-dot announcements-dot pulse-glow" title="يوجد إعلانات نشطة"></span> <i class="fa-solid fa-bullhorn" aria-hidden="true"></i> الإعلانات</span><i class="fa-solid fa-chevron-down nav-chevron" aria-hidden="true"></i></button>
+            <button type="button" class="nav-btn nav-group-btn nav-link-bulletin hover-lift" data-page="bulletin-page" aria-expanded="false"><span class="nav-lbl"><span class="red-dot announcements-dot pulse-glow" title="يوجد إعلانات نشطة"></span> <i class="fa-solid fa-bullhorn" aria-hidden="true"></i> الإعلانات</span><i class="fa-solid fa-chevron-down nav-chevron" aria-hidden="true"></i></button>
             <ul class="nav-sub" hidden>
               <li><button type="button" class="nav-sub-btn" data-page="bulletin-page" data-bfilter="trips">الرحلات والمخيمات</button></li>
               <li><button type="button" class="nav-sub-btn" data-page="bulletin-page" data-bfilter="scout_gathering">التجمعات الكشفية</button></li>
@@ -574,13 +706,13 @@
             </ul>
           </li>
           <li class="nav-group" data-page="units-page">
-            <button type="button" class="nav-btn nav-group-btn hover-lift" data-page="units-page" aria-expanded="false"><span><i class="fa-solid fa-people-group" aria-hidden="true"></i> الوحدات الكشفية</span><i class="fa-solid fa-chevron-down nav-chevron" aria-hidden="true"></i></button>
+            <button type="button" class="nav-btn nav-group-btn hover-lift" data-page="units-page" aria-expanded="false"><span class="nav-lbl"><i class="fa-solid fa-people-group" aria-hidden="true"></i> الوحدات الكشفية</span><i class="fa-solid fa-chevron-down nav-chevron" aria-hidden="true"></i></button>
             <ul class="nav-sub" id="navUnitsSub" hidden>
               <li><span class="nav-sub-note">جاري تحميل الوحدات...</span></li>
             </ul>
           </li>
           <li class="nav-group" data-page="gallery-page">
-            <button type="button" class="nav-btn nav-group-btn hover-lift" data-page="gallery-page" aria-expanded="false"><span><i class="fa-solid fa-images" aria-hidden="true"></i> المعرض الكشفي</span><i class="fa-solid fa-chevron-down nav-chevron" aria-hidden="true"></i></button>
+            <button type="button" class="nav-btn nav-group-btn hover-lift" data-page="gallery-page" aria-expanded="false"><span class="nav-lbl"><i class="fa-solid fa-images" aria-hidden="true"></i> المعرض الكشفي</span><i class="fa-solid fa-chevron-down nav-chevron" aria-hidden="true"></i></button>
             <ul class="nav-sub" hidden>
               <li><button type="button" class="nav-sub-btn" data-page="gallery-page" data-gfilter="all">جميع الصور</button></li>
               <li><button type="button" class="nav-sub-btn" data-page="gallery-page" data-gfilter="camps">المخيمات</button></li>
@@ -588,6 +720,9 @@
               <li><button type="button" class="nav-sub-btn" data-page="gallery-page" data-gfilter="activities">الأنشطة</button></li>
               <li><button type="button" class="nav-sub-btn" data-page="gallery-page" data-gfilter="trips">الرحلات</button></li>
             </ul>
+          </li>
+          <li class="nav-group" data-page="about-page">
+            <button type="button" class="nav-btn nav-group-btn hover-lift" data-page="about-page"><span class="nav-lbl"><i class="fa-solid fa-flag" aria-hidden="true"></i> التعريف بالفوج</span></button>
           </li>
 
           <li class="menu-auth-divider mobile-only"></li>
@@ -653,10 +788,7 @@
           </button>
         </div>
 
-        <button class="mobile-menu-btn hover-lift" onclick="toggleMobileMenu()" aria-label="القائمة">
-          <i class="fa-solid fa-ellipsis-vertical"></i>
-          <span class="mobile-red-dot announcements-dot pulse-glow"></span>
-        </button>
+<div class="sidebar-backdrop" id="sidebarBackdrop" aria-hidden="true"></div>
 
       </div>
     </header>
@@ -672,41 +804,31 @@
         <div id="userCardContainer"></div>
       </section>
 
-      <section class="hero">
-        <div class="hero-overlay"></div>
-        <div class="hero-container-centered">
-          <div class="glass-card hero-content-full hover-lift">
-            <span class="hero-tag hover-lift">
-              <i class="fa-solid fa-campground"></i> تربية - قيادة - مواطنة
-            </span>
-            <h1 class="hero-title">مرحباً بكم في <span class="highlight">فوج الوحدة الكشفي</span></h1>
-            <p class="hero-description">
-              نحن في فوج الوحدة الكشفي نعمل على إعداد أجيال الغد وبناء الشخصية القيادية من خلال المغامرة، التعلم بالعمل، والالتزام بالقيم الكشفية والوطنية. نتيح للشباب والفتية بيئة تربوية ممتعة تزرع فيهم روح التعاون، الانضباط، والخدمة العامة.
-            </p>
-
-            <div class="hero-stats-grid">
-              <div class="stat-item hover-lift">
-                <span class="stat-number">+150</span>
-                <span class="stat-label">كشاف ومشارك</span>
-              </div>
-              <div class="stat-item hover-lift">
-                <span class="stat-number">+300</span>
-                <span class="stat-label">مخيم ونشاط ميداني</span>
-              </div>
-              <div class="stat-item hover-lift">
-                <span class="stat-number">1993</span>
-                <span class="stat-label">سنة التأسيس</span>
-              </div>
-            </div>
+      <section class="royal-hero" aria-labelledby="royalHeroTitle">
+        <div class="royal-hero-art" aria-hidden="true">
+          <svg class="rh-compass" focusable="false"><use href="#symCompass"/></svg>
+          <svg class="rh-kerchief" viewBox="0 0 400 560" focusable="false"><use href="#symKerchief" width="400" height="560"/></svg>
+          <svg class="rh-mountains" viewBox="0 0 1600 320" preserveAspectRatio="xMidYMax slice" focusable="false"><use href="#symMountains" width="1600" height="320"/></svg>
+          <svg class="rh-fire" viewBox="0 0 120 130" focusable="false"><use href="#symFire" width="120" height="130"/></svg>
+        </div>
+        <div class="royal-hero-inner container">
+          <p class="royal-hero-org">الكشافة الإسلامية الجزائرية — محافظة ولاية الجزائر</p>
+          <h1 class="royal-hero-title" id="royalHeroTitle">فوج الوحدة الكشفي</h1>
+          <div class="intro-divider rh-divider" aria-hidden="true"><span></span><svg focusable="false"><use href="#symFleur"/></svg><span></span></div>
+          <p class="royal-hero-lead">نُعدّ أجيال الغد ونبني شخصية القيادة من خلال المغامرة والتعلم بالعمل والالتزام بالقيم الكشفية والوطنية.</p>
+          <div class="royal-hero-actions">
+            <button type="button" class="rh-tile" data-goto="latest-news-page"><i class="fa-solid fa-newspaper" aria-hidden="true"></i><span><strong>آخر الأخبار</strong><small>ما نُشر عن أنشطة الفوج</small></span></button>
+            <button type="button" class="rh-tile" data-goto="next-gathering-page"><i class="fa-solid fa-calendar-day" aria-hidden="true"></i><span><strong>التجمع الكشفي القادم</strong><small>الموعد والمكان والتفاصيل</small></span></button>
+            <button type="button" class="rh-tile" data-goto="about-page"><i class="fa-solid fa-flag" aria-hidden="true"></i><span><strong>التعريف بالفوج</strong><small>من نحن ورسالتنا وأهدافنا</small></span></button>
           </div>
         </div>
       </section>
 
-      <!-- آخر الأخبار: بارز، عام للجميع، يقرأ المنشور فقط من announcements ويتحدث تلقائياً -->
+      <!-- آخر الأخبار (معاينة): يقرأ المنشور فقط من announcements ويتحدث تلقائياً -->
       <section class="latest-news-section container" id="latest-news" aria-labelledby="latestNewsHeading">
         <div class="latest-news-header">
           <h2 id="latestNewsHeading"><i class="fa-solid fa-newspaper" aria-hidden="true"></i> آخر الأخبار</h2>
-          <button type="button" class="news-view-all-btn hover-lift" onclick="showPage('bulletin-page')">عرض جميع الأخبار <i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
+          <button type="button" class="news-view-all-btn hover-lift" onclick="showPage('latest-news-page')">عرض جميع الأخبار <i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
         </div>
         <div class="news-grid" id="latestNewsGrid" aria-live="polite">
           <div class="news-state-box"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> جاري تحميل آخر الأخبار...</div>
@@ -716,55 +838,19 @@
       <section class="next-activity-section container" id="next-activity" aria-labelledby="nextActivityHeading">
         <div class="latest-news-header">
           <h2 id="nextActivityHeading"><i class="fa-solid fa-calendar-day" aria-hidden="true"></i> التجمع الكشفي القادم</h2>
+          <button type="button" class="news-view-all-btn hover-lift" onclick="showPage('next-gathering-page')">فتح صفحة التجمع <i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
         </div>
         <div id="nextActivityBox" class="v3-box" aria-live="polite"><div class="news-state-box"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> جاري تحميل النشاط القادم...</div></div>
       </section>
 
-      <section class="about-overview-section container" id="about-group">
-        <div class="about-overview-card hover-lift">
-          <div class="overview-header">
-            <span class="section-subtitle"><i class="fa-solid fa-shield-halved"></i> أصالة وتاريخ</span>
-            <h2>نبذة عن فوج الوحدة</h2>
+      <section class="home-about-teaser container" aria-labelledby="homeAboutHeading">
+        <div class="home-about-card">
+          <svg class="home-about-fleur" focusable="false" aria-hidden="true"><use href="#symFleur"/></svg>
+          <div>
+            <h2 id="homeAboutHeading">تعرّف على فوج الوحدة</h2>
+            <p>تعرّف على رسالة الفوج وتاريخه وأهدافه وأرقامه.</p>
           </div>
-          
-          <div class="overview-content">
-            <p>
-              <strong>فوج الوحدة</strong> هو فوج كشفي تابع لـ <strong>الكشافة الإسلامية الجزائرية – محافظة ولاية الجزائر</strong>، تعود نواته الأولى إلى سنة <strong>1993</strong>، حين أسسه عدد من القادة القدامى في الحركة الكشفية بوادي ميزاب المقيمين بالعاصمة، قبل أن يتوسع نشاطه التربوي سنة <strong>1996</strong> بانضمام الفتية وتشكيل الوحدات الكشفية.
-            </p>
-            <p>
-              وفي <strong>18 أفريل 2004</strong>، اتخذ الفوج مقره الرسمي بـ <strong>مركب المنار – الحميز</strong>، واعتمد اسم فوج الوحدة، مواصلًا منذ ذلك الحين رسالته التربوية والكشفية في تكوين الأجيال، وتنمية المواهب، وخدمة المجتمع، والمشاركة في مختلف المحافل الوطنية والدولية.
-            </p>
-          </div>
-
-          <div class="goals-wrapper">
-            <h3 class="goals-title">🎯 أهدافنا</h3>
-            <ul class="goals-list">
-              <li class="hover-lift">
-                <span class="goal-icon">⚜️</span>
-                <span>غرس الإيمان، الأخلاق، حب الوطن وروح المسؤولية.</span>
-              </li>
-              <li class="hover-lift">
-                <span class="goal-icon">🌱</span>
-                <span>تنمية القدرات الفكرية والبدنية والاجتماعية للفتية.</span>
-              </li>
-              <li class="hover-lift">
-                <span class="goal-icon">🧭</span>
-                <span>اكتشاف المواهب والطاقات وتنمية روح القيادة والعمل الجماعي.</span>
-              </li>
-              <li class="hover-lift">
-                <span class="goal-icon">🇩🇿</span>
-                <span>التعريف بتاريخ الأمة وتراثها وترسيخ الاعتزاز بالهوية الوطنية.</span>
-              </li>
-              <li class="hover-lift">
-                <span class="goal-icon">🤝</span>
-                <span>المساهمة في المبادرات الاجتماعية والبيئية والوطنية.</span>
-              </li>
-              <li class="hover-lift">
-                <span class="goal-icon">🌍</span>
-                <span>المشاركة في المخيمات والمحافل الوطنية والدولية وتعزيز التواصل بين الكشافين.</span>
-              </li>
-            </ul>
-          </div>
+          <button type="button" class="v3-btn" onclick="showPage('about-page')">التعريف بالفوج</button>
         </div>
       </section>
 
@@ -787,11 +873,45 @@
           </div>
         </div>
       </section>
-<section class="recent-activities-section container" id="recent-activities" aria-labelledby="recentActivitiesHeading">
-        <div class="latest-news-header">
-          <h2 id="recentActivitiesHeading"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> آخر الأنشطة</h2>
+    </div>
+
+    <!-- 2. واجهة آخر الأخبار -->
+    <div id="latest-news-page" class="site-page">
+      <section class="page-section">
+        <div class="section-banner">
+          <div class="banner-content">
+            <span class="section-subtitle"><i class="fa-solid fa-newspaper"></i> المستجدات</span>
+            <h2>آخر الأخبار</h2>
+            <p>الأخبار المنشورة حديثًا عن أنشطة فوج الوحدة الكشفي</p>
+          </div>
         </div>
-        <div id="recentActivitiesBox" class="news-grid" aria-live="polite"><div class="news-state-box"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> جاري التحميل...</div></div>
+        <div class="section-body container">
+          <div class="news-grid news-grid-page" id="newsPageGrid" aria-live="polite">
+            <div class="news-state-box"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> جاري تحميل الأخبار...</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 3. واجهة التجمع الكشفي القادم -->
+    <div id="next-gathering-page" class="site-page">
+      <section class="page-section">
+        <div class="section-banner">
+          <div class="banner-content">
+            <span class="section-subtitle"><i class="fa-solid fa-calendar-day"></i> الموعد القادم</span>
+            <h2>التجمع الكشفي القادم</h2>
+            <p>الموعد والمكان وتفاصيل أقرب نشاط معلن</p>
+          </div>
+        </div>
+        <div class="section-body container">
+          <div id="gatheringPageBox" class="v3-box" aria-live="polite"><div class="news-state-box"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> جاري تحميل التجمع القادم...</div></div>
+          <section class="recent-activities-section" id="recent-activities" aria-labelledby="recentActivitiesHeading">
+            <div class="latest-news-header">
+              <h2 id="recentActivitiesHeading"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> آخر الأنشطة</h2>
+            </div>
+            <div id="recentActivitiesBox" class="news-grid" aria-live="polite"><div class="news-state-box"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> جاري التحميل...</div></div>
+          </section>
+        </div>
       </section>
     </div>
 
@@ -895,17 +1015,94 @@
       </section>
     </div>
 
+    <!-- 7. واجهة التعريف بالفوج -->
+    <div id="about-page" class="site-page">
+      <section class="page-section">
+        <div class="section-banner">
+          <div class="banner-content">
+            <span class="section-subtitle"><i class="fa-solid fa-flag"></i> من نحن</span>
+            <h2>التعريف بالفوج</h2>
+            <p>فوج الوحدة الكشفي — الكشافة الإسلامية الجزائرية</p>
+          </div>
+        </div>
+        <div class="section-body container">
+          <div class="about-intro-card">
+            <svg class="about-intro-fleur" focusable="false" aria-hidden="true"><use href="#symFleur"/></svg>
+            <p class="about-intro-text">نحن في فوج الوحدة الكشفي نعمل على إعداد أجيال الغد وبناء شخصية القيادة من خلال المغامرة والتعلم بالعمل والالتزام بالقيم الكشفية والوطنية. نتيح للفتيان والشباب بيئة تربوية ممتعة تنمّي فيهم روح التعاون والانضباط والخدمة العامة.</p>
+          </div>
+          <div class="about-stats" id="aboutStats" role="list" aria-label="أرقام الفوج"></div>
+          <p class="about-stats-note" id="aboutStatsNote" hidden></p>
+      <section class="about-overview-section" id="about-group">
+        <div class="about-overview-card hover-lift">
+          <div class="overview-header">
+            <span class="section-subtitle"><i class="fa-solid fa-shield-halved"></i> أصالة وتاريخ</span>
+            <h2>نبذة عن فوج الوحدة</h2>
+          </div>
+          
+          <div class="overview-content">
+            <p>
+              <strong>فوج الوحدة</strong> هو فوج كشفي تابع لـ <strong>الكشافة الإسلامية الجزائرية – محافظة ولاية الجزائر</strong>، تعود نواته الأولى إلى سنة <strong>1993</strong>، حين أسسه عدد من القادة القدامى في الحركة الكشفية بوادي ميزاب المقيمين بالعاصمة، قبل أن يتوسع نشاطه التربوي سنة <strong>1996</strong> بانضمام الفتية وتشكيل الوحدات الكشفية.
+            </p>
+            <p>
+              وفي <strong>18 أفريل 2004</strong>، اتخذ الفوج مقره الرسمي بـ <strong>مركب المنار – الحميز</strong>، واعتمد اسم فوج الوحدة، مواصلًا منذ ذلك الحين رسالته التربوية والكشفية في تكوين الأجيال، وتنمية المواهب، وخدمة المجتمع، والمشاركة في مختلف المحافل الوطنية والدولية.
+            </p>
+          </div>
+
+          <div class="goals-wrapper">
+            <h3 class="goals-title">🎯 أهدافنا</h3>
+            <ul class="goals-list">
+              <li class="hover-lift">
+                <span class="goal-icon">⚜️</span>
+                <span>غرس الإيمان، الأخلاق، حب الوطن وروح المسؤولية.</span>
+              </li>
+              <li class="hover-lift">
+                <span class="goal-icon">🌱</span>
+                <span>تنمية القدرات الفكرية والبدنية والاجتماعية للفتية.</span>
+              </li>
+              <li class="hover-lift">
+                <span class="goal-icon">🧭</span>
+                <span>اكتشاف المواهب والطاقات وتنمية روح القيادة والعمل الجماعي.</span>
+              </li>
+              <li class="hover-lift">
+                <span class="goal-icon">🇩🇿</span>
+                <span>التعريف بتاريخ الأمة وتراثها وترسيخ الاعتزاز بالهوية الوطنية.</span>
+              </li>
+              <li class="hover-lift">
+                <span class="goal-icon">🤝</span>
+                <span>المساهمة في المبادرات الاجتماعية والبيئية والوطنية.</span>
+              </li>
+              <li class="hover-lift">
+                <span class="goal-icon">🌍</span>
+                <span>المشاركة في المخيمات والمحافل الوطنية والدولية وتعزيز التواصل بين الكشافين.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+        </div>
+      </section>
+    </div>
+
   </main>
 
   <footer class="site-footer">
-    <div class="footer-single-line">
-      <span class="footer-brand">فوج الوحدة الكشفي</span>
-      <span class="footer-sep">•</span>
-      <span class="footer-rights">جميع الحقوق محفوظة © 2026</span>
-      <span class="footer-sep">•</span>
-      <span class="footer-credit">تم تطوير هذا الموقع بواسطة Mohamed Amine Kherfi</span>
+    <div class="footer-inner">
+      <div class="footer-logos" aria-hidden="true">
+        <img src="logo%20sma.png" alt="">
+        <svg class="footer-fleur" focusable="false"><use href="#symFleur"/></svg>
+        <img src="logo%20elwihda.png" alt="">
       </div>
+      <p class="footer-brand">فوج الوحدة الكشفي</p>
+      <div class="footer-single-line">
+        <span class="footer-rights">جميع الحقوق محفوظة © 2026</span>
+        <span class="footer-sep">•</span>
+        <span class="footer-credit">تم تطوير هذا الموقع بواسطة Mohamed Amine Kherfi</span>
+      </div>
+    </div>
   </footer>
+
+  <!-- مؤشر تقدم التمرير: يعكس موضع التمرير الفعلي (زخرفي للقارئ الآلي، لا يعطل التمرير) -->
+  <div class="scroll-rail" id="scrollRail" aria-hidden="true"><span class="scroll-rail-fill" id="scrollRailFill"></span><span class="scroll-rail-knot" id="scrollRailKnot"></span></div>
 
   <!-- 1️⃣ نافذة اختيار الصفة: من أنت؟ -->
   <div id="roleSelectionModal" class="modal-overlay" style="display: none;">
@@ -2028,9 +2225,10 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/ar.min.js"></script>
-  <script src="content-config.js?v=20261024-14"></script>
-  <script src="script.js?v=20261026-1"></script>
-  <script src="site-extras.js?v=20261026-1"></script>
-  <script src="site-v3.js?v=20261027-1"></script>
+  <script src="content-config.js?v=20261028-1"></script>
+  <script src="script.js?v=20261028-1"></script>
+  <script src="site-extras.js?v=20261028-1"></script>
+  <script src="site-v3.js?v=20261028-1"></script>
+  <script src="site-v4.js?v=20261028-1"></script>
 </body>
 </html>

@@ -1,0 +1,219 @@
+rules_version = '2';
+
+// ============================================================================
+// Scout El Wahda — Firestore Security Rules
+// ⚠️ لم يتم اختباره على بيئة Firebase حقيقية — اختبره في Rules Playground
+// قبل النشر (خصوصاً السيناريوهات المذكورة أسفله).
+//
+// جديد في هذه النسخة: صلاحيات دقيقة (permissions) للقادة على الإعلانات
+// والمعرض، تطابق نظام الـcheckboxes المضاف في لوحة الأدمن — بدل الاعتماد
+// على isAdmin() فقط لكل شيء.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function myUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasUserDoc() {
+      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return hasUserDoc() && myUserDoc().role == 'admin';
+    }
+
+    // فتح تسجيل القادة/مسؤولي الإعلام يُتحكم به من settings/registration (الأدمن فقط يكتبه).
+    // الحماية هنا في الخادم، وليس في الواجهة فقط. إن غابت الوثيقة يُعتبر التسجيل مغلقاً.
+    function leaderSignupOpen() {
+      return exists(/databases/$(database)/documents/settings/registration)
+        && get(/databases/$(database)/documents/settings/registration).data.get('allowMediaOfficerSignup', false) == true;
+    }
+
+    function isActiveUser() {
+      return hasUserDoc() && myUserDoc().accountStatus == 'active';
+    }
+
+    // صلاحية إضافية صريحة على حساب نشط فقط (لا تُحتسب لحساب معلّق/مقفل)
+    function hasPermission(p) {
+      return isActiveUser()
+        && ('permissions' in myUserDoc())
+        && (p in myUserDoc().permissions)
+        && myUserDoc().permissions[p] == true;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    // رابط الصورة الشخصية: اختياري، نص https قصير فقط (يمنع حقن قيم غريبة في الواجهة)
+    function validPhoto(d) {
+      return !('photoURL' in d)
+        || (d.photoURL is string && d.photoURL.size() < 500 && d.photoURL.matches('https://.*'));
+    }
+
+    // وحدة موجودة ونشطة، والاسم المخزّن يطابق اسمها (يمنع تزوير الوحدة)
+    function validUnit(d) {
+      return !('unitId' in d)
+        || (d.unitId is string
+            && exists(/databases/$(database)/documents/units/$(d.unitId))
+            && get(/databases/$(database)/documents/units/$(d.unitId)).data.status == 'active'
+            && d.get('unit', '') == get(/databases/$(database)/documents/units/$(d.unitId)).data.name);
+    }
+
+    match /users/{userId} {
+
+      // المستخدم يقدر يشوف حسابه فقط، والأدمن يشوف الكل
+      allow read: if isOwner(userId) || isAdmin();
+
+      // إنشاء حساب ذاتي: فقط لنفس uid الموقّع دخوله، وفقط بدور آمن
+      // (scout/parent/leader) — أبداً admin/media_manager/group_leader من هنا.
+      // القائد يُنشئ نفسه بحالة "قيد المراجعة" إجبارياً وليس نشطاً مباشرة،
+      // ولا يستطيع إرسال permissions من نفسه إطلاقاً.
+      allow create: if isOwner(userId)
+        && request.resource.data.role in ['scout', 'parent', 'leader']
+        && (
+             (request.resource.data.role in ['scout', 'parent']
+               && request.resource.data.accountStatus == 'active')
+             ||
+             (request.resource.data.role == 'leader'
+               && request.resource.data.accountStatus == 'pending_verification'
+               && leaderSignupOpen())
+           )
+        && !('permissions' in request.resource.data)
+        && validUnit(request.resource.data)
+        && validPhoto(request.resource.data);
+
+      // الأدمن يقدر ينشئ أي حساب بأي دور وبأي صلاحيات (يشمل admin/media_manager)
+      allow create: if isAdmin();
+
+      // الأدمن فقط يستطيع تغيير role/permissions/accountStatus.
+      // المستخدم العادي يعدّل بياناته الشخصية فقط، ولا يمكنه أبداً لمس هذه
+      // الحقول الثلاثة على مستنده الخاص — لا رفع صلاحيات ولا تغيير حالة حسابه.
+      allow update: if isAdmin()
+        || (
+          isOwner(userId)
+          && validPhoto(request.resource.data)
+          && request.resource.data.get('unitId', '') == resource.data.get('unitId', '')
+          && request.resource.data.get('unit', '') == resource.data.get('unit', '')
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.accountStatus == resource.data.accountStatus
+          && (!('permissions' in request.resource.data) == !('permissions' in resource.data))
+          && (!('permissions' in request.resource.data)
+              || request.resource.data.permissions == resource.data.permissions)
+        );
+
+      // حذف: الأدمن فقط. المستخدم لا يستطيع حذف حسابه أو أي حساب آخر بنفسه.
+      // ⚠️ هذا يحذف مستند Firestore فقط، وليس حساب Firebase Authentication —
+      // ذلك يحتاج Admin SDK/Cloud Functions (غير متاح ضمن Client SDK وحده).
+      allow delete: if isAdmin();
+    }
+
+    match /leaders/{leaderId} {
+      // ⚠️ تغيير أمني: كانت القراءة عامة وتكشف البريد والصلاحيات. لا توجد صفحة عامة
+      // تقرأ هذه المجموعة، لذا أصبحت للأدمن وصاحب الحساب فقط.
+      allow read: if isAdmin() || isOwner(leaderId);
+      allow create: if isAdmin()
+        || (isOwner(leaderId) && request.resource.data.role == 'leader'
+            && request.resource.data.accountStatus == 'pending_verification'
+            && leaderSignupOpen());
+      allow update, delete: if isAdmin();
+    }
+
+    match /announcements/{announcementId} {
+      // الأخبار/الإعلانات المنشورة (published == true) عامة للجميع بقرار الإدارة.
+      // المسودات والمنشورات غير المعتمدة للأدمن ومن يملك announcements.view فقط.
+      // ملاحظة صادقة: توقيت البداية/الانتهاء يُطبَّق في الواجهة؛ من يستعلم مباشرة
+      // يستطيع قراءة منشور مجدول لم يحن موعده (لا بيانات خاصة يجب وضعها في الإعلانات).
+      // مهم: يجب أن يتضمن أي استعلام عام الشرط where('published','==',true).
+      allow read: if resource.data.published == true
+        || (signedIn() && (isAdmin() || hasPermission('announcements.view')));
+      allow create: if isAdmin() || hasPermission('announcements.create');
+      allow update: if isAdmin() || hasPermission('announcements.edit');
+      allow delete: if isAdmin() || hasPermission('announcements.delete');
+    }
+
+    // إعدادات عامة مقصودة فقط (الشريط العاجل + حالة فتح التسجيل)
+    match /settings/announcements {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+    match /settings/registration {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+    // إعدادات Google Drive: رابط Web App ومعرفات المجلدات فقط، للمسجلين فقط.
+    // ⚠️ يُمنع تخزين أي رمز سري هنا — الوثيقة قابلة للقراءة من متصفح أي عضو.
+    match /settings/googleDrive {
+      allow read: if signedIn();
+      allow create, update: if isAdmin()
+        && !('secretToken' in request.resource.data);
+      allow delete: if isAdmin();
+    }
+    // أي إعدادات أخرى: للأدمن فقط
+    match /settings/{settingId} {
+      allow read, create, update, delete: if isAdmin();
+    }
+
+    match /gallery/{imageId} {
+      // المعرض محجوب عن الزوار غير المسجلين حسب التصميم الحالي
+      allow read: if signedIn();
+      allow create: if isAdmin() || hasPermission('gallery.upload');
+      allow update, delete: if isAdmin() || hasPermission('gallery.manage');
+    }
+
+    // الوحدات الكشفية: النشطة فقط عامة. معلومات الاتصال الخاصة في unitPrivate (أدمن فقط).
+    // ⚠️ أي استعلام عام يجب أن يتضمن where('status','==','active').
+    match /units/{unitId} {
+      allow read: if resource.data.status == 'active' || isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+    match /unitPrivate/{unitId} {
+      allow read, write: if isAdmin();
+    }
+
+    // نشاطات الوحدات والتجمعات: المنشورة فقط عامة. مسودات/مؤرشفة للأدمن.
+    match /activities/{activityId} {
+      allow read: if resource.data.status == 'published' || isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // سجل تدقيق لمحاولات الدخول الفاشلة — كتابة فقط (Write-only)، حتى من زائر
+    // غير مسجّل دخول. مقيّد بشدة بشكل الحقول لمنع إساءة الاستخدام؛ لا يمكن
+    // لأحد قراءته إلا الأدمن، ولا يمكن لأي أحد التعديل أو الحذف.
+    match /securityEvents/{eventId} {
+      allow read: if isAdmin();
+      allow create: if request.resource.data.keys().hasOnly(['type', 'email', 'timestamp'])
+        && request.resource.data.type in ['failed_login', 'successful_login', 'password_reset_requested']
+        && request.resource.data.email is string
+        && request.resource.data.email.size() <= 254
+        && request.resource.data.timestamp == request.time;
+      allow update, delete: if false;
+    }
+
+    // طلبات استعادة الوصول ("نسيت الرمز؟") — الكتابة مسموحة حتى لغير المسجلين
+    // (لأن من يملأ الطلب غالباً لا يستطيع تسجيل الدخول أصلاً)، مقيّدة بصرامة
+    // بشكل الحقول. القراءة والتعديل للأدمن فقط.
+    match /securityRequests/{requestId} {
+      allow read, update: if isAdmin();
+      allow create: if request.resource.data.keys().hasOnly(['email', 'message', 'status', 'createdAt'])
+        && request.resource.data.status == 'new'
+        && request.resource.data.email is string
+        && request.resource.data.email.size() <= 254
+        && request.resource.data.message is string
+        && request.resource.data.message.size() <= 1000;
+      allow delete: if false;
+    }
+
+    // أي Collection أخرى غير مصرح بها تبقى مغلقة
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

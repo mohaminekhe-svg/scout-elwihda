@@ -1,0 +1,22 @@
+# ============================================================================
+# Scout El Wihda — Security & Cache-Control Rules for cPanel (Apache/LiteSpeed)
+# Domain: https://s4a.solution4all.dz/
+# ============================================================================
+
+<IfModule mod_headers.c>
+  # Empêcher la mise en cache des pages HTML, scripts et styles CSS pour bloquer le retour
+  # arrière (bfcache) après verrouillage et assurer l'application immédiate des styles
+  <FilesMatch "\.(html|htm|js|css)$">
+    Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+
+  # En-têtes de sécurité supplémentaires
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Désactiver le listage des répertoires (ex: assets/images/)
+Options -Indexes

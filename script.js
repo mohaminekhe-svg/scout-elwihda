@@ -469,9 +469,9 @@ function clearNavUserChip() {
    التنقل بين صفحات الموقع العامة والتحكم بالرابط (#hash)
    ========================================================= */
 const pdfFormUrl = './registration-form.pdf';
-const VALID_SITE_PAGES = ['home-page', 'units-page', 'bulletin-page', 'gallery-page'];
+const VALID_SITE_PAGES = ['home-page', 'latest-news-page', 'next-gathering-page', 'bulletin-page', 'units-page', 'gallery-page', 'about-page'];
 
-function showPage(pageId) {
+function showPage(pageId, opts) {
   const pages = document.querySelectorAll('.site-page');
   pages.forEach((p) => p.classList.remove('active-page'));
 
@@ -493,7 +493,13 @@ function showPage(pageId) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 
   if (VALID_SITE_PAGES.includes(pageId)) {
-    history.replaceState(null, '', '#' + pageId);
+    // كل واجهة تأخذ مدخلاً في سجل المتصفح ليعمل زر الرجوع بين الواجهات؛ لا نضيف مدخلاً مكرراً ولا عند الاستعادة من الرابط
+    const targetHash = '#' + pageId;
+    if (window.location.hash === targetHash || (opts && opts.noHistory)) {
+      if (window.location.hash !== targetHash && opts && opts.noHistory === 'replace') history.replaceState(null, '', targetHash);
+    } else {
+      history.pushState(null, '', targetHash);
+    }
   }
 }
 
@@ -4026,7 +4032,7 @@ function syncMenuScrollLock() {
   document.addEventListener('click', (e) => {
     const navMenu = document.getElementById('navMenu');
     if (!navMenu || !navMenu.classList.contains('active')) return;
-    if (navMenu.contains(e.target) || (e.target.closest && e.target.closest('.mobile-menu-btn'))) return;
+    if (navMenu.contains(e.target) || (e.target.closest && e.target.closest('.mobile-menu-btn, .sidebar-toggle'))) return;
     navMenu.classList.remove('active');
   });
 

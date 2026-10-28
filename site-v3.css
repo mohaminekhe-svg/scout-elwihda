@@ -1,40 +1,5 @@
 /* site-v3.css — شاشة الترحيب، القائمة الجانبية، الوحدات والنشاطات */
-.no-splash #splashScreen { display: none !important; }
-.splash { position: fixed; inset: 0; z-index: 900000; background: radial-gradient(circle at 50% 30%, #1b3280, #0b193c 70%); color: #fff; display: flex; align-items: center; justify-content: center; text-align: center; padding: 20px; overflow-y: auto; transition: opacity .5s; }
-.splash.splash-hide { opacity: 0; pointer-events: none; }
-.splash-inner { max-width: 520px; width: 100%; }
-.splash-logos { display: flex; justify-content: center; gap: 22px; margin-bottom: 14px; }
-.splash-logos img { height: 96px; max-width: 40vw; object-fit: contain; }
-.splash-org { color: #f1cf79; font-weight: 700; margin-bottom: 8px; }
-.splash h2 { font-size: 1.6rem; margin: 6px 0; }
-.splash-sub { opacity: .85; margin-bottom: 22px; }
-.splash-progress { height: 8px; background: rgba(255,255,255,.18); border-radius: 8px; overflow: hidden; }
-.splash-progress span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #f1cf79, #e63946); }
-.splash-status { margin: 12px 0 18px; font-size: .9rem; opacity: .85; }
-.splash-skip { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.5); border-radius: 10px; padding: 12px 22px; min-height: 44px; cursor: pointer; font-weight: 700; }
-.splash-skip:hover, .splash-skip:focus-visible { background: rgba(255,255,255,.15); outline: 2px solid #f1cf79; }
-body.splash-open { overflow: hidden; }
-@media (prefers-reduced-motion: reduce) { .splash { transition: none; } }
-
-/* القائمة الجانبية */
-.nav-menu .nav-group { width: 100%; }
-.nav-group-btn { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: right; min-height: 46px; }
-.nav-chevron { transition: transform .2s; font-size: .75rem; }
-.nav-group.open .nav-chevron { transform: rotate(180deg); }
-.nav-sub { list-style: none; margin: 2px 0 6px; padding: 0 14px 0 0; border-right: 2px solid rgba(241,207,121,.35); }
-.nav-sub[hidden] { display: none; }
-.nav-sub-btn { display: block; width: 100%; text-align: right; background: transparent; border: 0; color: #e2e8f0; padding: 10px 12px; min-height: 44px; border-radius: 8px; cursor: pointer; font-size: .85rem; }
-.nav-sub-btn:hover, .nav-sub-btn:focus-visible { background: rgba(255,255,255,.14); color: #f1cf79; outline: none; }
-.nav-sub-note { display: block; padding: 8px 12px; font-size: .8rem; color: #cbd5e1; }
-.nav-menu .nav-btn:focus-visible { outline: 2px solid #f1cf79; }
-@media (min-width: 901px) {
-  :root { --side-w: 250px; }
-  .nav-container .nav-menu { position: fixed; right: 0; top: var(--hdr-h, 110px); bottom: 0; width: var(--side-w); flex-direction: column; align-items: stretch; gap: 4px; padding: 14px 10px; background: #0b193c; border-left: 1px solid rgba(241,207,121,.2); overflow-y: auto; z-index: 900; }
-  .nav-menu .nav-btn { color: #fff; }
-  .main-content-viewport, .site-footer { margin-right: var(--side-w); }
-  body.admin-view-open .nav-menu { display: none; }
-}
-.nav-menu { max-width: 100%; }
+/* (أنماط المقدمة والقائمة الجانبية انتقلت إلى site-v4.css) */
 
 /* زر الدعم والعودة للأعلى: أسفل اليسار متجاورين */
 #supportFabBtn { left: 16px !important; right: auto !important; }
@@ -80,6 +45,4 @@ body.splash-open { overflow: hidden; }
 @media (max-width: 900px) {
   .v3-next-card { flex-direction: column; }
   .v3-next-img { width: 100%; max-width: 100%; }
-  .splash h2 { font-size: 1.3rem; }
-  .splash-logos img { height: 72px; }
 }
