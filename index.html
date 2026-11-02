@@ -36,7 +36,8 @@
   <link rel="stylesheet" href="style.css?v=20261028-1">
   <link rel="stylesheet" href="site-extras.css?v=20261026-1">
   <link rel="stylesheet" href="site-v3.css?v=20261028-1">
-  <link rel="stylesheet" href="site-v4.css?v=20261028-1">
+  <link rel="stylesheet" href="site-v4.css?v=20261031-1">
+  <link rel="stylesheet" href="site-v5.css?v=20261031-1">
 </head>
 <body>
 
@@ -228,6 +229,18 @@
           <i class="fa-solid fa-people-group"></i>
           <span>الوحدات الكشفية</span>
         </button>
+        <button class="admin-nav-btn hover-lift admin-only-nav" onclick="switchAdminTab('programs-tab', this)">
+          <i class="fa-solid fa-calendar-days"></i>
+          <span>البرامج الكشفية</span>
+        </button>
+        <button class="admin-nav-btn hover-lift admin-only-nav" onclick="switchAdminTab('notifications-tab', this)">
+          <i class="fa-solid fa-bell"></i>
+          <span>إدارة الإشعارات</span>
+        </button>
+        <button class="admin-nav-btn hover-lift admin-only-nav" onclick="switchAdminTab('moderation-tab', this)">
+          <i class="fa-solid fa-comments"></i>
+          <span>التعليقات والمراجعات</span>
+        </button>
         <button class="admin-nav-btn hover-lift admin-only-nav" onclick="switchAdminTab('statistics-tab', this)">
           <i class="fa-solid fa-chart-simple"></i>
           <span>الإحصائيات</span>
@@ -340,15 +353,46 @@
             <button type="button" class="glow-btn btn-green hover-lift" onclick="V3.openUnitForm()"><i class="fa-solid fa-plus"></i> إضافة وحدة</button>
             <button type="button" class="glow-btn hover-lift" onclick="V3.seedDefaultUnits()"><i class="fa-solid fa-seedling"></i> إضافة الوحدات المقترحة (إن كانت القائمة فارغة)</button>
             <button type="button" class="glow-btn hover-lift" onclick="V3.refreshScoutCounts()"><i class="fa-solid fa-rotate"></i> تحديث أعداد الكشافين</button>
+            <button type="button" class="glow-btn hover-lift" onclick="V5.runUnitsDiagnostics()"><i class="fa-solid fa-stethoscope"></i> تشخيص الاتصال والصلاحيات</button>
           </div>
           <p id="unitsAdminMsg" class="error-msg bold-text" role="status"></p>
+          <pre id="unitsDiagOut" class="v5-diag" hidden></pre>
           <div id="unitsAdminList" class="v3-admin-list"><p class="announcements-loading-text"><i class="fa-solid fa-spinner fa-spin"></i> جاري التحميل...</p></div>
 
-          <h3 class="v3-sub-title mt-20"><i class="fa-solid fa-calendar-days"></i> نشاطات الوحدات والتجمعات</h3>
+          <p class="v3-muted">البرامج والأنشطة تُدار من تبويب «البرامج الكشفية».</p>
+        </div>
+      </div>
+
+      <div id="programs-tab" class="admin-tab-content">
+        <div class="admin-section-card">
+          <h2><i class="fa-solid fa-calendar-days"></i> إدارة البرامج الكشفية (القادمة والسابقة)</h2>
+          <p>يُصنَّف البرنامج تلقائيًا «قادم» أو «سابق» حسب تاريخه، دون حذف أي بيانات. لإخفاء برنامج استعمل «إلغاء النشر» أو «أرشفة».</p>
           <div class="v3-admin-actions">
-            <button type="button" class="glow-btn btn-green hover-lift" onclick="V3.openActivityForm()"><i class="fa-solid fa-plus"></i> إضافة نشاط</button>
+            <button type="button" class="glow-btn btn-green hover-lift" onclick="V3.openActivityForm()"><i class="fa-solid fa-plus"></i> إضافة برنامج / نشاط</button>
           </div>
           <div id="activitiesAdminList" class="v3-admin-list"></div>
+        </div>
+      </div>
+
+      <div id="notifications-tab" class="admin-tab-content">
+        <div class="admin-section-card">
+          <h2><i class="fa-solid fa-bell"></i> إدارة الإشعارات</h2>
+          <p>إشعارات تظهر للزوار والمستخدمين أعلى الموقع. تُحفظ في قاعدة البيانات ويمكن تعديلها وإخفاؤها وحذفها.</p>
+          <div class="v3-admin-actions"><button type="button" class="glow-btn btn-green hover-lift" onclick="SENotice.openForm()"><i class="fa-solid fa-plus"></i> إشعار جديد</button></div>
+          <p id="noticesAdminMsg" class="v5-msg" role="status"></p>
+          <div id="noticesAdminList" class="v3-admin-list"></div>
+        </div>
+      </div>
+
+      <div id="moderation-tab" class="admin-tab-content">
+        <div class="admin-section-card">
+          <h2><i class="fa-solid fa-comments"></i> التعليقات والمراجعات</h2>
+          <h3 class="v3-sub-title">الإشراف على التعليقات</h3>
+          <div class="v5-row"><select id="modPostSelect" aria-label="اختر المنشور"><option value="">اختر منشورًا…</option></select><button type="button" class="v3-btn" id="modReloadBtn">تحديث</button></div>
+          <div id="modCommentsList" class="v3-admin-list"></div>
+          <h3 class="v3-sub-title mt-20">طلبات تغيير الوحدة</h3>
+          <div id="modUnitRequests" class="v3-admin-list"></div>
+          <p id="modMsg" class="v5-msg" role="status"></p>
         </div>
       </div>
 
@@ -687,16 +731,19 @@
         <ul class="nav-menu" id="navMenu" aria-label="القائمة الرئيسية">
           <li class="mobile-only nav-menu-close-item"><button type="button" class="menu-close-btn" onclick="toggleMobileMenu()" aria-label="إغلاق القائمة"><i class="fa-solid fa-xmark"></i></button></li>
           <li class="nav-group" data-page="home-page">
-            <button type="button" class="nav-btn nav-group-btn active hover-lift" data-page="home-page"><span class="nav-lbl"><i class="fa-solid fa-house" aria-hidden="true"></i> الرئيسية</span></button>
+            <button type="button" class="nav-btn nav-group-btn active hover-lift" data-page="home-page"><span class="nav-lbl"><i class="fa-solid fa-house" aria-hidden="true"></i> <span data-i18n="nav.home">الرئيسية</span></span></button>
           </li>
           <li class="nav-group" data-page="latest-news-page">
-            <button type="button" class="nav-btn nav-group-btn hover-lift" data-page="latest-news-page"><span class="nav-lbl"><i class="fa-solid fa-newspaper" aria-hidden="true"></i> آخر الأخبار</span></button>
+            <button type="button" class="nav-btn nav-group-btn hover-lift" data-page="latest-news-page"><span class="nav-lbl"><i class="fa-solid fa-newspaper" aria-hidden="true"></i> <span data-i18n="nav.news">آخر الأخبار</span></span></button>
           </li>
           <li class="nav-group" data-page="next-gathering-page">
-            <button type="button" class="nav-btn nav-group-btn hover-lift" data-page="next-gathering-page"><span class="nav-lbl"><i class="fa-solid fa-calendar-day" aria-hidden="true"></i> التجمع الكشفي القادم</span></button>
+            <button type="button" class="nav-btn nav-group-btn hover-lift" data-page="next-gathering-page" aria-expanded="false"><span class="nav-lbl"><i class="fa-solid fa-calendar-day" aria-hidden="true"></i> <span data-i18n="nav.next">البرنامج الكشفي القادم</span></span><i class="fa-solid fa-chevron-down nav-chevron" aria-hidden="true"></i></button>
+            <ul class="nav-sub" hidden>
+              <li><button type="button" class="nav-sub-btn" data-page="past-programs-page" data-i18n="nav.past">البرامج الكشفية السابقة</button></li>
+            </ul>
           </li>
           <li class="nav-group" data-page="bulletin-page">
-            <button type="button" class="nav-btn nav-group-btn nav-link-bulletin hover-lift" data-page="bulletin-page" aria-expanded="false"><span class="nav-lbl"><span class="red-dot announcements-dot pulse-glow" title="يوجد إعلانات نشطة"></span> <i class="fa-solid fa-bullhorn" aria-hidden="true"></i> الإعلانات</span><i class="fa-solid fa-chevron-down nav-chevron" aria-hidden="true"></i></button>
+            <button type="button" class="nav-btn nav-group-btn nav-link-bulletin hover-lift" data-page="bulletin-page" aria-expanded="false"><span class="nav-lbl"><span class="red-dot announcements-dot pulse-glow" title="يوجد إعلانات نشطة"></span> <i class="fa-solid fa-bullhorn" aria-hidden="true"></i> <span data-i18n="nav.ann">الإعلانات</span></span><i class="fa-solid fa-chevron-down nav-chevron" aria-hidden="true"></i></button>
             <ul class="nav-sub" hidden>
               <li><button type="button" class="nav-sub-btn" data-page="bulletin-page" data-bfilter="trips">الرحلات والمخيمات</button></li>
               <li><button type="button" class="nav-sub-btn" data-page="bulletin-page" data-bfilter="scout_gathering">التجمعات الكشفية</button></li>
@@ -706,13 +753,13 @@
             </ul>
           </li>
           <li class="nav-group" data-page="units-page">
-            <button type="button" class="nav-btn nav-group-btn hover-lift" data-page="units-page" aria-expanded="false"><span class="nav-lbl"><i class="fa-solid fa-people-group" aria-hidden="true"></i> الوحدات الكشفية</span><i class="fa-solid fa-chevron-down nav-chevron" aria-hidden="true"></i></button>
+            <button type="button" class="nav-btn nav-group-btn hover-lift" data-page="units-page" aria-expanded="false"><span class="nav-lbl"><i class="fa-solid fa-people-group" aria-hidden="true"></i> <span data-i18n="nav.units">الوحدات الكشفية</span></span><i class="fa-solid fa-chevron-down nav-chevron" aria-hidden="true"></i></button>
             <ul class="nav-sub" id="navUnitsSub" hidden>
               <li><span class="nav-sub-note">جاري تحميل الوحدات...</span></li>
             </ul>
           </li>
           <li class="nav-group" data-page="gallery-page">
-            <button type="button" class="nav-btn nav-group-btn hover-lift" data-page="gallery-page" aria-expanded="false"><span class="nav-lbl"><i class="fa-solid fa-images" aria-hidden="true"></i> المعرض الكشفي</span><i class="fa-solid fa-chevron-down nav-chevron" aria-hidden="true"></i></button>
+            <button type="button" class="nav-btn nav-group-btn hover-lift" data-page="gallery-page" aria-expanded="false"><span class="nav-lbl"><i class="fa-solid fa-images" aria-hidden="true"></i> <span data-i18n="nav.gallery">المعرض الكشفي</span></span><i class="fa-solid fa-chevron-down nav-chevron" aria-hidden="true"></i></button>
             <ul class="nav-sub" hidden>
               <li><button type="button" class="nav-sub-btn" data-page="gallery-page" data-gfilter="all">جميع الصور</button></li>
               <li><button type="button" class="nav-sub-btn" data-page="gallery-page" data-gfilter="camps">المخيمات</button></li>
@@ -721,8 +768,26 @@
               <li><button type="button" class="nav-sub-btn" data-page="gallery-page" data-gfilter="trips">الرحلات</button></li>
             </ul>
           </li>
+          <li class="nav-group" data-page="skills-page">
+            <button type="button" class="nav-btn nav-group-btn hover-lift" data-page="skills-page"><span class="nav-lbl"><i class="fa-solid fa-compass" aria-hidden="true"></i> <span data-i18n="nav.skills">المهارات الكشفية</span></span></button>
+          </li>
           <li class="nav-group" data-page="about-page">
-            <button type="button" class="nav-btn nav-group-btn hover-lift" data-page="about-page"><span class="nav-lbl"><i class="fa-solid fa-flag" aria-hidden="true"></i> التعريف بالفوج</span></button>
+            <button type="button" class="nav-btn nav-group-btn hover-lift" data-page="about-page"><span class="nav-lbl"><i class="fa-solid fa-flag" aria-hidden="true"></i> <span data-i18n="nav.about">التعريف بالفوج</span></span></button>
+          </li>
+
+          <!-- عناصر الحساب: تظهر لمن سجّل دخوله فقط (يتحكم بها site-v5.js حسب الصلاحيات) -->
+          <li class="nav-account-sep nav-account-item" hidden><span data-i18n="nav.account">حسابي</span></li>
+          <li class="nav-group nav-account-item" data-page="profile-page" hidden>
+            <button type="button" class="nav-btn nav-group-btn hover-lift" data-page="profile-page"><span class="nav-lbl"><i class="fa-solid fa-user" aria-hidden="true"></i> <span data-i18n="nav.profile">الملف الشخصي</span></span></button>
+          </li>
+          <li class="nav-group nav-account-item" data-page="my-card-page" hidden>
+            <button type="button" class="nav-btn nav-group-btn hover-lift" data-page="my-card-page"><span class="nav-lbl"><i class="fa-solid fa-id-card" aria-hidden="true"></i> <span data-i18n="nav.card">بطاقتي الكشفية</span></span></button>
+          </li>
+          <li class="nav-group nav-account-item" data-page="settings-page" hidden>
+            <button type="button" class="nav-btn nav-group-btn hover-lift" data-page="settings-page"><span class="nav-lbl"><i class="fa-solid fa-gear" aria-hidden="true"></i> <span data-i18n="nav.settings">الإعدادات</span></span></button>
+          </li>
+          <li class="nav-account-item nav-logout-item" hidden>
+            <button type="button" class="nav-btn nav-group-btn nav-logout-btn hover-lift" id="navLogoutBtn"><span class="nav-lbl"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> <span data-i18n="nav.logout">تسجيل الخروج</span></span></button>
           </li>
 
           <li class="menu-auth-divider mobile-only"></li>
@@ -830,17 +895,25 @@
           <h2 id="latestNewsHeading"><i class="fa-solid fa-newspaper" aria-hidden="true"></i> آخر الأخبار</h2>
           <button type="button" class="news-view-all-btn hover-lift" onclick="showPage('latest-news-page')">عرض جميع الأخبار <i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
         </div>
-        <div class="news-grid" id="latestNewsGrid" aria-live="polite">
+        <div class="news-grid news-grid-home" id="latestNewsGrid" aria-live="polite">
           <div class="news-state-box"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> جاري تحميل آخر الأخبار...</div>
         </div>
       </section>
 
-      <section class="next-activity-section container" id="next-activity" aria-labelledby="nextActivityHeading">
+      <section class="next-activity-section next-compact container" id="next-activity" aria-labelledby="nextActivityHeading">
         <div class="latest-news-header">
-          <h2 id="nextActivityHeading"><i class="fa-solid fa-calendar-day" aria-hidden="true"></i> التجمع الكشفي القادم</h2>
-          <button type="button" class="news-view-all-btn hover-lift" onclick="showPage('next-gathering-page')">فتح صفحة التجمع <i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
+          <h2 id="nextActivityHeading"><i class="fa-solid fa-calendar-day" aria-hidden="true"></i> البرنامج الكشفي القادم</h2>
+          <button type="button" class="news-view-all-btn hover-lift" onclick="showPage('next-gathering-page')">تفاصيل البرنامج <i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
         </div>
         <div id="nextActivityBox" class="v3-box" aria-live="polite"><div class="news-state-box"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> جاري تحميل النشاط القادم...</div></div>
+      </section>
+
+      <section class="past-home-section container" id="past-programs" aria-labelledby="pastHomeHeading">
+        <div class="latest-news-header">
+          <h2 id="pastHomeHeading"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> البرامج الكشفية السابقة</h2>
+          <button type="button" class="news-view-all-btn hover-lift" onclick="showPage('past-programs-page')">عرض الأرشيف <i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
+        </div>
+        <div id="homePastBox" class="news-grid news-grid-home" aria-live="polite"><div class="news-state-box"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> جاري التحميل...</div></div>
       </section>
 
       <section class="home-about-teaser container" aria-labelledby="homeAboutHeading">
@@ -899,18 +972,13 @@
         <div class="section-banner">
           <div class="banner-content">
             <span class="section-subtitle"><i class="fa-solid fa-calendar-day"></i> الموعد القادم</span>
-            <h2>التجمع الكشفي القادم</h2>
+            <h2>البرنامج الكشفي القادم</h2>
             <p>الموعد والمكان وتفاصيل أقرب نشاط معلن</p>
           </div>
         </div>
         <div class="section-body container">
           <div id="gatheringPageBox" class="v3-box" aria-live="polite"><div class="news-state-box"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> جاري تحميل التجمع القادم...</div></div>
-          <section class="recent-activities-section" id="recent-activities" aria-labelledby="recentActivitiesHeading">
-            <div class="latest-news-header">
-              <h2 id="recentActivitiesHeading"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> آخر الأنشطة</h2>
-            </div>
-            <div id="recentActivitiesBox" class="news-grid" aria-live="polite"><div class="news-state-box"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> جاري التحميل...</div></div>
-          </section>
+          <p class="v3-muted" style="margin-top:18px;"><button type="button" class="v3-btn" onclick="showPage('past-programs-page')">عرض البرامج الكشفية السابقة</button></p>
         </div>
       </section>
     </div>
@@ -1083,6 +1151,146 @@
       </section>
     </div>
 
+    <!-- ===== البرامج الكشفية السابقة ===== -->
+    <div id="past-programs-page" class="site-page">
+      <section class="page-section">
+        <div class="section-banner"><div class="banner-content">
+          <span class="section-subtitle"><i class="fa-solid fa-clock-rotate-left"></i> الأرشيف</span>
+          <h2>البرامج الكشفية السابقة</h2>
+          <p>الأنشطة والبرامج التي نفّذها الفوج</p>
+        </div></div>
+        <div class="section-body container">
+          <div id="recentActivitiesBox" class="news-grid" aria-live="polite"><div class="news-state-box"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> جاري التحميل...</div></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===== المهارات الكشفية (تأسيس فقط — لا محتوى وهمي) ===== -->
+    <div id="skills-page" class="site-page">
+      <section class="page-section">
+        <div class="section-banner"><div class="banner-content">
+          <span class="section-subtitle"><i class="fa-solid fa-compass"></i> تعلّم</span>
+          <h2 data-i18n="nav.skills">المهارات الكشفية</h2>
+          <p>قريبًا — هذا القسم قيد التطوير</p>
+        </div></div>
+        <div class="section-body container">
+          <div class="skills-soon" role="status">
+            <i class="fa-solid fa-hourglass-half" aria-hidden="true"></i>
+            <strong>قريبًا — هذا القسم قيد التطوير</strong>
+            <p>نُهيّئ منصة لتعلّم المهارات الكشفية. لن تُعرض فيها فيديوهات أو اختبارات إلا بعد إعدادها فعليًا.</p>
+          </div>
+          <div class="skills-grid" id="skillsGrid">
+            <div class="skills-card"><i class="fa-solid fa-person-hiking" aria-hidden="true"></i><h3>مهارات كشفية</h3><span class="soon-chip">قريبًا</span></div>
+            <div class="skills-card"><i class="fa-solid fa-circle-play" aria-hidden="true"></i><h3>فيديوهات تعليمية</h3><span class="soon-chip">قريبًا</span></div>
+            <div class="skills-card"><i class="fa-solid fa-list-check" aria-hidden="true"></i><h3>اختبارات قصيرة (Quiz)</h3><span class="soon-chip">قريبًا</span></div>
+            <div class="skills-card"><i class="fa-solid fa-chart-line" aria-hidden="true"></i><h3>متابعة تقدّم الكشاف</h3><span class="soon-chip">قريبًا</span></div>
+          </div>
+          <h3 class="v3-sub-title">مواضيع مخطَّط لها لاحقًا</h3>
+          <ul class="skills-topics">
+            <li>إشعال النار الكشفية</li><li>أنواع النيران الكشفية</li><li>النار الهرمية</li><li>العقد والحبال</li>
+            <li>نصب الخيام</li><li>الإسعافات الأولية</li><li>التوجيه بالبوصلة</li><li>مهارات التخييم</li>
+          </ul>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===== الملف الشخصي ===== -->
+    <div id="profile-page" class="site-page">
+      <section class="page-section">
+        <div class="section-banner"><div class="banner-content">
+          <span class="section-subtitle"><i class="fa-solid fa-user"></i> حسابي</span>
+          <h2 data-i18n="nav.profile">الملف الشخصي</h2>
+        </div></div>
+        <div class="section-body container">
+          <div id="profileGuest" class="v5-empty" hidden>سجّل الدخول لعرض ملفك الشخصي.</div>
+          <div id="profileBody" hidden>
+            <div class="profile-head">
+              <div class="avatar-circle avatar-xl" id="profileAvatar"></div>
+              <div><h3 id="profileName"></h3><p class="profile-role" id="profileRole"></p><p class="profile-email" id="profileEmail" dir="ltr"></p></div>
+            </div>
+            <form id="profileForm" class="v5-card v3-form" novalidate>
+              <h3 class="v3-sub-title"><i class="fa-solid fa-pen" aria-hidden="true"></i> معلومات قابلة للتعديل</h3>
+              <label>الاسم الكامل<input type="text" id="pfFullName" maxlength="80" required></label>
+              <label>اللقب<input type="text" id="pfNickname" maxlength="60"></label>
+              <label>تاريخ الميلاد<input type="date" id="pfBirthDate" dir="ltr"></label>
+              <label>مكان الميلاد<input type="text" id="pfBirthPlace" maxlength="80"></label>
+              <label>الهاتف<input type="tel" id="pfPhone" maxlength="15" dir="ltr"></label>
+              <p id="profileFormMsg" class="v5-msg" role="status"></p>
+              <button type="submit" class="glow-btn btn-green hover-lift" id="profileSaveBtn">حفظ التعديلات</button>
+            </form>
+            <div class="v5-card">
+              <h3 class="v3-sub-title"><i class="fa-solid fa-people-group" aria-hidden="true"></i> الوحدة الكشفية</h3>
+              <p>وحدتك الحالية: <strong id="pfUnitName">—</strong></p>
+              <p class="v3-muted">تغيير الوحدة يتطلب موافقة الإدارة.</p>
+              <div class="v5-row"><select id="pfUnitSelect" aria-label="الوحدة المطلوبة"></select><button type="button" class="v3-btn" id="pfUnitRequestBtn">إرسال طلب تغيير الوحدة</button></div>
+              <p id="pfUnitMsg" class="v5-msg" role="status"></p>
+            </div>
+            <div class="v5-card">
+              <h3 class="v3-sub-title"><i class="fa-solid fa-bookmark" aria-hidden="true"></i> المنشورات المحفوظة</h3>
+              <div id="savedPostsList" class="news-grid"><div class="news-state-box">لا توجد منشورات محفوظة.</div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===== بطاقتي الكشفية ===== -->
+    <div id="my-card-page" class="site-page">
+      <section class="page-section">
+        <div class="section-banner"><div class="banner-content">
+          <span class="section-subtitle"><i class="fa-solid fa-id-card"></i> هويتي</span>
+          <h2 data-i18n="nav.card">بطاقتي الكشفية</h2>
+        </div></div>
+        <div class="section-body container">
+          <div id="myCardGuest" class="v5-empty" hidden>سجّل الدخول لعرض بطاقتك الكشفية.</div>
+          <div id="myCardHost" class="id-card-wrap" hidden></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===== الإعدادات ===== -->
+    <div id="settings-page" class="site-page">
+      <section class="page-section">
+        <div class="section-banner"><div class="banner-content">
+          <span class="section-subtitle"><i class="fa-solid fa-gear"></i> حسابي</span>
+          <h2 data-i18n="nav.settings">الإعدادات</h2>
+        </div></div>
+        <div class="section-body container">
+          <div id="settingsGuest" class="v5-empty" hidden>سجّل الدخول لإدارة إعدادات حسابك.</div>
+          <div id="settingsBody" hidden>
+            <div class="v5-card">
+              <h3 class="v3-sub-title"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> <span data-i18n="set.account">معلومات الحساب</span></h3>
+              <dl class="profile-grid" id="settingsInfo"></dl>
+            </div>
+            <div class="v5-card">
+              <h3 class="v3-sub-title"><i class="fa-solid fa-image" aria-hidden="true"></i> <span data-i18n="set.photo">صورة الملف الشخصي</span></h3>
+              <div id="settingsPhotoUploader"></div>
+              <button type="button" class="glow-btn btn-green hover-lift" id="settingsPhotoSave">حفظ الصورة</button>
+              <p id="settingsPhotoMsg" class="v5-msg" role="status"></p>
+            </div>
+            <form id="settingsNameForm" class="v5-card v3-form" novalidate>
+              <h3 class="v3-sub-title"><i class="fa-solid fa-signature" aria-hidden="true"></i> <span data-i18n="set.name">الاسم واللقب</span></h3>
+              <label>الاسم الكامل<input type="text" id="stFullName" maxlength="80" required></label>
+              <label>اللقب<input type="text" id="stNickname" maxlength="60"></label>
+              <p id="settingsNameMsg" class="v5-msg" role="status"></p>
+              <button type="submit" class="glow-btn btn-green hover-lift">حفظ</button>
+            </form>
+            <div class="v5-card">
+              <h3 class="v3-sub-title"><i class="fa-solid fa-language" aria-hidden="true"></i> <span data-i18n="set.language">اللغة</span></h3>
+              <div id="langOptions" class="lang-options" role="radiogroup" aria-label="اللغة"></div>
+              <p class="v3-muted" id="langNote"></p>
+            </div>
+            <div class="v5-card">
+              <h3 class="v3-sub-title"><i class="fa-solid fa-key" aria-hidden="true"></i> <span data-i18n="set.password">كلمة المرور</span></h3>
+              <p class="v3-muted">سنرسل رابط إعادة تعيين كلمة المرور إلى بريدك المسجّل.</p>
+              <button type="button" class="v3-btn" id="settingsPwdBtn">إرسال رابط تغيير كلمة المرور</button>
+              <p id="settingsPwdMsg" class="v5-msg" role="status"></p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
   </main>
 
   <footer class="site-footer">
@@ -1209,6 +1417,10 @@
             <i class="fa-solid fa-user field-icon"></i>
             <input type="text" id="leaderFullName" required placeholder=" " oninput="validateAlphaOnly(this)">
             <label>الاسم واللقب كاملين</label>
+          </div>
+          <div class="form-group-modern">
+            <label for="leaderRegUnit" style="position:static;transform:none;display:block;margin-bottom:4px;">الوحدة الكشفية (اختياري)</label>
+            <select id="leaderRegUnit"><option value="">بدون وحدة محددة</option></select>
           </div>
 
           <div class="input-box hover-lift">
@@ -1572,7 +1784,8 @@
               <input type="datetime-local" id="announcementEndAtInput" dir="ltr" placeholder="اختر تاريخ ووقت الانتهاء">
             </div>
           </div>
-          <p class="input-hint">بتوقيت الجزائر (Africa/Algiers). اتركهما فارغين لإعلان عادي يُنشر فوراً وبلا انتهاء.</p>
+          <p class="input-hint">بتوقيت الجزائر (Africa/Algiers، UTC+1). اتركهما فارغين لإعلان عادي يُنشر فوراً وبلا انتهاء.</p>
+          <div id="annTimeTools" class="ann-time-tools"></div>
 
           <label class="permission-check-item mt-10">
             <input type="checkbox" id="announcementDraftCheckbox">
@@ -2044,6 +2257,7 @@
       <button type="button" class="close-btn hover-lift" onclick="closeNewsDetail()" aria-label="إغلاق"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
       <div id="newsDetailBody"></div>
       <div class="news-share-row" id="newsShareRow"></div>
+      <div id="postEngagementHost" class="post-engage"></div>
     </div>
   </div>
 
@@ -2054,6 +2268,10 @@
       <h2 id="supportModalTitle"><i class="fa-solid fa-headset" aria-hidden="true"></i> الدعم الفني</h2>
       <p class="step-desc">يمكنك التواصل مع فريق التطوير للمساعدة في حل المشكلات التقنية</p>
       <form id="supportForm" novalidate>
+        <div class="extras-field">
+          <label for="supportNameInput">اسمك</label>
+          <input type="text" id="supportNameInput" autocomplete="name" maxlength="80">
+        </div>
         <div class="extras-field">
           <label for="supportEmailInput">بريدك الإلكتروني</label>
           <input type="email" id="supportEmailInput" dir="ltr" autocomplete="email" maxlength="254" required>
@@ -2166,16 +2384,22 @@
       <form id="unitForm" class="v3-form" autocomplete="off" novalidate>
         <label>اسم الوحدة *<input type="text" id="unitName" maxlength="80" required></label>
         <label>وصف مختصر<textarea id="unitDesc" rows="3" maxlength="600"></textarea></label>
-        <label>اسم ملف الصورة/الشعار (داخل assets/images/units/)<input type="text" id="unitImageName" maxlength="120" dir="ltr" placeholder="unit-1.jpg"></label>
+        <div class="v5-field"><span class="v5-label">صورة / شعار الوحدة (يُرفع إلى Google Drive)</span><div id="unitImageUploader"></div></div>
         <label>الحالة<select id="unitStatus"><option value="active">نشطة (تظهر للعامة)</option><option value="archived">مؤرشفة (مخفية)</option></select></label>
-        <fieldset class="v3-fieldset"><legend>المسؤولون</legend>
-          <label>قائد الوحدة<input type="text" id="unitLeaderName" maxlength="80"></label>
-          <label>بريد القائد<input type="email" id="unitLeaderEmail" maxlength="120" dir="ltr"></label>
-          <label>هاتف القائد<input type="tel" id="unitLeaderPhone" maxlength="20" dir="ltr"></label>
-          <label>نائب العريف / المسؤول الثاني<input type="text" id="unitSecondName" maxlength="80"></label>
-          <label>هاتف المسؤول الثاني<input type="tel" id="unitSecondPhone" maxlength="20" dir="ltr"></label>
-          <label>العريف الأول<input type="text" id="unitFirstName" maxlength="80"></label>
-          <label>معلومات اتصال العريف الأول<input type="text" id="unitFirstContact" maxlength="120"></label>
+        <label>عدد الكشافين (اختياري — يدوي)<input type="number" id="unitScoutCount" min="0" max="999" dir="ltr"></label>
+        <fieldset class="v3-fieldset"><legend>القادة (بيانات الاتصال خاصة — لا تُنشر إلا بخيار النشر)</legend>
+          <div class="leader-block"><strong>القائد الأول</strong>
+            <input type="text" id="ul1Name" maxlength="80" placeholder="الاسم">
+            <input type="tel" id="ul1Phone" maxlength="20" dir="ltr" placeholder="الهاتف">
+            <input type="email" id="ul1Email" maxlength="120" dir="ltr" placeholder="البريد الإلكتروني"></div>
+          <div class="leader-block"><strong>القائد الثاني</strong>
+            <input type="text" id="ul2Name" maxlength="80" placeholder="الاسم">
+            <input type="tel" id="ul2Phone" maxlength="20" dir="ltr" placeholder="الهاتف">
+            <input type="email" id="ul2Email" maxlength="120" dir="ltr" placeholder="البريد الإلكتروني"></div>
+          <div class="leader-block"><strong>القائد الثالث</strong>
+            <input type="text" id="ul3Name" maxlength="80" placeholder="الاسم">
+            <input type="tel" id="ul3Phone" maxlength="20" dir="ltr" placeholder="الهاتف">
+            <input type="email" id="ul3Email" maxlength="120" dir="ltr" placeholder="البريد الإلكتروني"></div>
         </fieldset>
         <label class="v3-check"><input type="checkbox" id="unitPublishNames"> نشر أسماء المسؤولين في الصفحة العامة (بموافقتهم)</label>
         <label class="v3-check"><input type="checkbox" id="unitPublishContacts"> نشر الهاتف/البريد في الصفحة العامة (بموافقتهم الصريحة)</label>
@@ -2198,9 +2422,9 @@
         <label>الوصف<textarea id="actDesc" rows="3" maxlength="1500"></textarea></label>
         <label>النوع<select id="actKind"><option value="gathering">تجمع كشفي</option><option value="camp">مخيم</option><option value="trip">رحلة</option><option value="weekly">نشاط أسبوعي</option><option value="other">نشاط آخر</option></select></label>
         <label>الوحدة (اختياري)<select id="actUnit"><option value="">نشاط عام للفوج</option></select></label>
-        <label>التاريخ والساعة *<input type="datetime-local" id="actStart" required></label>
+        <label>التاريخ والساعة * <small>(توقيت الجزائر)</small><input type="datetime-local" id="actStart" required></label>
         <label>المكان<input type="text" id="actLocation" maxlength="150"></label>
-        <label>اسم ملف الصورة (داخل assets/images/activities/)<input type="text" id="actImageName" maxlength="120" dir="ltr" placeholder="activity-1.jpg"></label>
+        <div class="v5-field"><span class="v5-label">صورة البرنامج (تُرفع إلى Google Drive)</span><div id="actImageUploader"></div></div>
         <label>الحالة<select id="actStatus"><option value="draft">مسودة (غير منشور)</option><option value="published">منشور</option><option value="archived">مؤرشف</option></select></label>
         <p id="activityFormError" class="error-msg bold-text" role="alert"></p>
         <div class="v3-form-actions">
@@ -2223,12 +2447,47 @@
     </div>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/ar.min.js"></script>
-  <script src="content-config.js?v=20261028-1"></script>
-  <script src="script.js?v=20261028-1"></script>
-  <script src="site-extras.js?v=20261028-1"></script>
-  <script src="site-v3.js?v=20261028-1"></script>
-  <script src="site-v4.js?v=20261028-1"></script>
+  <!-- إشعارات الإدارة (تُملأ من قاعدة البيانات) -->
+  <div id="seNoticeHost" class="se-notice-host" aria-live="polite"></div>
+
+  <!-- عارض الصور الموحد (contain + تنقل) -->
+  <div id="seViewer" class="se-viewer" hidden role="dialog" aria-modal="true" aria-label="عارض الصور">
+    <button type="button" class="se-viewer-close" id="seViewerClose" aria-label="إغلاق"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+    <button type="button" class="se-viewer-nav se-viewer-prev" id="seViewerPrev" aria-label="الصورة السابقة"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+    <figure class="se-viewer-stage"><img id="seViewerImg" alt=""><figcaption id="seViewerCap"></figcaption></figure>
+    <button type="button" class="se-viewer-nav se-viewer-next" id="seViewerNext" aria-label="الصورة التالية"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+    <div class="se-viewer-count" id="seViewerCount" aria-live="polite"></div>
+  </div>
+
+  <!-- نموذج إشعار (أدمن) -->
+  <div id="noticeFormModal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="noticeFormTitle">
+    <div class="v3-modal">
+      <button type="button" class="v3-modal-close" onclick="closeModal('noticeFormModal')" aria-label="إغلاق"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      <h2 id="noticeFormTitle">إشعار جديد</h2>
+      <form id="noticeForm" class="v3-form" autocomplete="off" novalidate>
+        <label>عنوان الإشعار *<input type="text" id="ntTitle" maxlength="120" required></label>
+        <label>نص الإشعار *<textarea id="ntBody" rows="4" maxlength="1200" required></textarea></label>
+        <label>الجهة المصدرة<select id="ntIssuer"><option value="قائد الفوج">قائد الفوج</option><option value="مسؤول الإعلام">مسؤول الإعلام</option><option value="مسؤول آخر">مسؤول آخر</option><option value="جهة إدارية">جهة إدارية أخرى (تحدَّد)</option></select></label>
+        <label>اسم أو صفة المُصدِر *<input type="text" id="ntIssuerName" maxlength="80" required></label>
+        <label>بداية العرض * <small>(توقيت الجزائر)</small><input type="datetime-local" id="ntStart" dir="ltr" required></label>
+        <label>نهاية العرض (اختياري)<input type="datetime-local" id="ntEnd" dir="ltr"></label>
+        <label>مدة تعطيل زر الإغلاق (ثوانٍ، 0–60)<input type="number" id="ntDelay" min="0" max="60" value="5" dir="ltr"></label>
+        <label>الجمهور<select id="ntAudience"><option value="all">الجميع (زوار ومسجلون)</option><option value="members">المسجّلون فقط</option><option value="guests">الزوار غير المسجلين فقط</option></select></label>
+        <label class="v3-check"><input type="checkbox" id="ntPublished" checked> منشور (ظاهر)</label>
+        <p id="noticeFormError" class="error-msg bold-text" role="alert"></p>
+        <div class="v3-form-actions">
+          <button type="submit" id="noticeFormSubmit" class="glow-btn btn-green hover-lift">حفظ</button>
+          <button type="button" class="glow-btn hover-lift" onclick="closeModal('noticeFormModal')">إلغاء</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="content-config.js?v=20261031-1"></script>
+  <script src="script.js?v=20261031-1"></script>
+  <script src="site-extras.js?v=20261031-1"></script>
+  <script src="site-v3.js?v=20261031-1"></script>
+  <script src="site-v4.js?v=20261031-1"></script>
+  <script src="site-v5.js?v=20261031-1"></script>
 </body>
 </html>

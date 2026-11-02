@@ -48,6 +48,17 @@ service cloud.firestore {
         && myUserDoc().permissions[p] == true;
     }
 
+    // قائد/مسؤول إعلام بحساب نشط (قراءة بيانات اتصال الوحدات فقط)
+    function isActiveLeader() {
+      return isActiveUser() && (myUserDoc().role in ['leader', 'media_manager']);
+    }
+
+    // المنشور موجود ومنشور (شرط لأي تفاعل: إعجاب/تعليق)
+    function postPublished(aid) {
+      return exists(/databases/$(database)/documents/announcements/$(aid))
+        && get(/databases/$(database)/documents/announcements/$(aid)).data.published == true;
+    }
+
     function isOwner(userId) {
       return signedIn() && request.auth.uid == userId;
     }
@@ -104,6 +115,13 @@ service cloud.firestore {
           && request.resource.data.get('unit', '') == resource.data.get('unit', '')
           && request.resource.data.role == resource.data.role
           && request.resource.data.accountStatus == resource.data.accountStatus
+          && request.resource.data.get('email', '') == resource.data.get('email', '')
+          && request.resource.data.get('uid', userId) == resource.data.get('uid', userId)
+          && request.resource.data.get('fullName', '').size() <= 80
+          && request.resource.data.get('nickname', '').size() <= 60
+          && request.resource.data.get('birthPlace', '').size() <= 80
+          && request.resource.data.get('birthDate', '').size() <= 10
+          && request.resource.data.get('language', 'ar') in ['ar', 'fr', 'en', 'mzb']
           && (!('permissions' in request.resource.data) == !('permissions' in resource.data))
           && (!('permissions' in request.resource.data)
               || request.resource.data.permissions == resource.data.permissions)
@@ -113,6 +131,16 @@ service cloud.firestore {
       // ⚠️ هذا يحذف مستند Firestore فقط، وليس حساب Firebase Authentication —
       // ذلك يحتاج Admin SDK/Cloud Functions (غير متاح ضمن Client SDK وحده).
       allow delete: if isAdmin();
+
+      // المنشورات المحفوظة: خاصة بصاحبها فقط
+      match /saved/{postId} {
+        allow read, delete: if isOwner(userId);
+        allow create: if isOwner(userId) && isActiveUser()
+          && request.resource.data.keys().hasOnly(['postId', 'savedAt'])
+          && request.resource.data.postId == postId
+          && request.resource.data.savedAt == request.time;
+        allow update: if false;
+      }
     }
 
     match /leaders/{leaderId} {
@@ -137,6 +165,71 @@ service cloud.firestore {
       allow create: if isAdmin() || hasPermission('announcements.create');
       allow update: if isAdmin() || hasPermission('announcements.edit');
       allow delete: if isAdmin() || hasPermission('announcements.delete');
+
+      // ---- التفاعلات: وثيقة واحدة لكل مستخدم (معرّفها = uid) ⇒ لا إعجابات مكررة، ولا عدّاد مخزَّن يمكن التلاعب به.
+      // الأعداد تُحسب من عدد الوثائق نفسها. التفاعل يُسجَّل فقط لحساب نشط ولمنشور منشور.
+      match /reactions/{uid} {
+        allow read: if postPublished(announcementId) || isAdmin();
+        allow create, update: if isOwner(uid) && isActiveUser() && postPublished(announcementId)
+          && request.resource.data.keys().hasOnly(['uid', 'type', 'createdAt'])
+          && request.resource.data.uid == uid
+          && request.resource.data.type in ['like', 'heart', 'clap', 'wow', 'support', 'salute']
+          && request.resource.data.createdAt == request.time;
+        allow delete: if isOwner(uid) || isAdmin();
+      }
+
+      // ---- الحفظ: وثيقة لكل مستخدم (uid + وقت) لحساب عدد الحفظ؛ لا بيانات شخصية فيها.
+      match /saves/{uid} {
+        allow read: if signedIn();
+        allow create: if isOwner(uid) && isActiveUser() && postPublished(announcementId)
+          && request.resource.data.keys().hasOnly(['uid', 'savedAt'])
+          && request.resource.data.uid == uid
+          && request.resource.data.savedAt == request.time;
+        allow update: if false;
+        allow delete: if isOwner(uid) || isAdmin();
+      }
+
+      // ---- التعليقات: المؤلف يكتب باسمه فقط؛ الأدمن يشرف (إخفاء/حذف).
+      match /comments/{commentId} {
+        allow read: if signedIn() && (isAdmin()
+          || (resource.data.hidden == false && postPublished(announcementId))
+          || (resource.data.uid == request.auth.uid));
+        allow create: if isActiveUser() && postPublished(announcementId)
+          && request.resource.data.keys().hasOnly(['uid', 'authorName', 'text', 'createdAt', 'hidden'])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.authorName is string && request.resource.data.authorName.size() <= 80
+          && request.resource.data.text is string
+          && request.resource.data.text.size() >= 1 && request.resource.data.text.size() <= 500
+          && request.resource.data.hidden == false
+          && request.resource.data.createdAt == request.time;
+        allow update: if isAdmin()
+          || (isActiveUser() && resource.data.uid == request.auth.uid
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt'])
+              && request.resource.data.text is string
+              && request.resource.data.text.size() >= 1 && request.resource.data.text.size() <= 500);
+        allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      }
+    }
+
+    // ---- إشعارات الإدارة (تظهر للزوار والمستخدمين). المنشورة فقط عامة؛ الكتابة للأدمن فقط.
+    // ملاحظة صادقة: توقيت البداية/الانتهاء يُطبَّق في الواجهة (كالإعلانات).
+    match /siteNotifications/{notificationId} {
+      allow read: if resource.data.published == true || isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ---- طلبات تغيير الوحدة: المستخدم لا يغيّر وحدته مباشرة؛ يرسل طلباً يراجعه الأدمن.
+    match /unitChangeRequests/{requestId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if isActiveUser() && requestId == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'requestedUnitId', 'requestedUnitName', 'status', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.requestedUnitId is string
+        && exists(/databases/$(database)/documents/units/$(request.resource.data.requestedUnitId))
+        && get(/databases/$(database)/documents/units/$(request.resource.data.requestedUnitId)).data.status == 'active'
+        && request.resource.data.requestedUnitName == get(/databases/$(database)/documents/units/$(request.resource.data.requestedUnitId)).data.name;
+      allow update, delete: if isAdmin();
     }
 
     // إعدادات عامة مقصودة فقط (الشريط العاجل + حالة فتح التسجيل)
@@ -168,14 +261,15 @@ service cloud.firestore {
       allow update, delete: if isAdmin() || hasPermission('gallery.manage');
     }
 
-    // الوحدات الكشفية: النشطة فقط عامة. معلومات الاتصال الخاصة في unitPrivate (أدمن فقط).
+    // الوحدات الكشفية: النشطة فقط عامة. معلومات الاتصال الخاصة في unitPrivate (أدمن + قادة نشطون للقراءة فقط).
     // ⚠️ أي استعلام عام يجب أن يتضمن where('status','==','active').
     match /units/{unitId} {
       allow read: if resource.data.status == 'active' || isAdmin();
       allow create, update, delete: if isAdmin();
     }
     match /unitPrivate/{unitId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin() || isActiveLeader();
+      allow write: if isAdmin();
     }
 
     // نشاطات الوحدات والتجمعات: المنشورة فقط عامة. مسودات/مؤرشفة للأدمن.

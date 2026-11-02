@@ -8,7 +8,7 @@
 /* ---------- إعدادات يملؤها مالك الموقع (لا قيم مخترعة) ---------- */
 const SITE_EXTRAS_CONFIG = {
   // عنوان بريد الدعم الفني — اتركه فارغاً إلى أن تحدده الإدارة. عند تركه فارغاً لا يُرسل شيء ولا تُعرض رسالة نجاح.
-  supportEmail: '',
+  supportEmail: 'kherfi_mohamed@solution4all.dz',
   // بريد طلبات الخصوصية (يظهر في سياسة الخصوصية). فارغ = تُعرض عبارة «تحدده إدارة الفوج».
   privacyContactEmail: '',
   // الروابط الرسمية (https فقط). فارغ = لا يظهر أي رابط.
@@ -112,6 +112,7 @@ function initSupportForm() {
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const email = document.getElementById('supportEmailInput').value.trim();
+    const sname = ((document.getElementById('supportNameInput') || {}).value || '').trim();
     const type = document.getElementById('supportTypeInput').value;
     const desc = document.getElementById('supportDescInput').value.trim();
     const status = document.getElementById('supportStatus');
@@ -133,7 +134,7 @@ function initSupportForm() {
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> جاري التحضير...';
     // آلية حقيقية ومجانية: فتح تطبيق البريد لدى المستخدم برسالة جاهزة (لا خادم ولا مفاتيح).
     const subject = 'دعم تقني — ' + type;
-    const body = 'بريد المرسل: ' + email + '\nنوع المشكلة: ' + type + '\n\n' + desc;
+    const body = 'الاسم: ' + (sname || '—') + '\nبريد المرسل: ' + email + '\nنوع المشكلة: ' + type + '\n\n' + desc;
     window.location.href = 'mailto:' + encodeURIComponent(to).replace(/%40/g, '@') + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
     setTimeout(() => {
       btn.disabled = false;
@@ -275,14 +276,15 @@ function buildNewsCard(item) {
   const dateText = new Date(newsPublishMillis(d)).toLocaleDateString('ar-DZ', { year: 'numeric', month: 'long', day: 'numeric' });
   const card = document.createElement('article');
   card.className = 'news-card hover-lift';
+  card.setAttribute('data-post-id', item.id);
   card.innerHTML =
-    '<div class="news-card-media">' +
+    '<div class="news-card-media"' + (img ? ' data-viewer="' + escHtml(img) + '" data-caption="' + escHtml(unescapeSanitized(d.title || '')) + '" role="button" tabindex="0" aria-label="عرض الصورة كاملة"' : '') + '>' +
       (img ? '<img src="' + escHtml(img) + '" alt="' + escHtml(unescapeSanitized(d.title || '')) + '" loading="lazy" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">' : '') +
       '<div class="news-no-image" style="' + (img ? 'display:none;' : '') + '" aria-hidden="true"><i class="fa-solid fa-campground"></i></div>' +
+      '<span class="news-date-chip"><i class="fa-regular fa-calendar" aria-hidden="true"></i> ' + escHtml(dateText) + '</span>' +
     '</div>' +
     '<div class="news-card-body">' +
-      '<div class="news-card-meta"><span class="news-category-badge">' + escHtml(newsCategoryLabel(d.category)) + '</span>' +
-      '<span><i class="fa-solid fa-calendar" aria-hidden="true"></i> ' + escHtml(dateText) + '</span></div>' +
+      '<div class="news-card-meta"><span class="news-category-badge">' + escHtml(newsCategoryLabel(d.category)) + '</span></div>' +
       '<h3 class="news-card-title">' + escHtml(d.title) + '</h3>' +
       '<p class="news-card-excerpt">' + escHtml(newsExcerpt(d.content, 150)) + '</p>' +
       '<button type="button" class="news-read-more-btn" onclick="openNewsDetail(' + jsArg(item.id) + ')">اقرأ المزيد</button>' +

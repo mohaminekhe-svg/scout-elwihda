@@ -25,6 +25,29 @@
     if (!name || typeof resolveLocalImagePath !== 'function') return '';
     return safeImgUrl(resolveLocalImagePath(kind, name));
   }
+  // صورة العنصر: رابط Google Drive المحفوظ (imageUrl) أولاً، ثم اسم ملف محلي قديم (توافق مع البيانات السابقة)
+  function mediaUrl(kind, o) {
+    if (!o) return '';
+    if (o.imageUrl && typeof safeImgUrl === 'function') { var u = safeImgUrl(o.imageUrl); if (u) return u; }
+    return imgPath(kind, o.imageName);
+  }
+  // قادة الوحدة (3): من الحقول الجديدة أو الحقول القديمة (توافق)
+  function legacyLeaders(src) {
+    src = src || {};
+    return [
+      { name: src.leaderName || '', phone: src.leaderPhone || '', email: src.leaderEmail || '' },
+      { name: src.secondName || '', phone: src.secondPhone || '', email: '' },
+      { name: src.firstName || '', phone: src.firstContact || '', email: '' }
+    ];
+  }
+  function leadersOf(src) {
+    if (src && Array.isArray(src.leaders) && src.leaders.length) {
+      var out = [0, 1, 2].map(function (i) { var l = src.leaders[i] || {}; return { name: l.name || '', phone: l.phone || '', email: l.email || '' }; });
+      return out;
+    }
+    return legacyLeaders(src);
+  }
+  V3.leadersOf = leadersOf;
   function millis(ts) { return ts && ts.toMillis ? ts.toMillis() : (ts && ts.toDate ? ts.toDate().getTime() : null); }
   function fmtDate(ms) {
     if (ms == null) return '';
@@ -114,14 +137,14 @@
     if (!unitsCache.length) { grid.innerHTML = stateBox('لا توجد وحدات منشورة حالياً — قيد التطوير.', 'fa-hourglass-half'); return; }
     var colors = ['amber', 'green', 'red', 'blue'];
     grid.innerHTML = unitsCache.map(function (u, i) {
-      var img = imgPath('units', u.imageName);
+      var img = mediaUrl('units', u);
       var pub = u.pub || {};
       return '<div class="unit-card v3-unit-card hover-lift">' +
         (img ? '<img class="v3-unit-img" src="' + escHtml(img) + '" alt="' + escHtml(u.name) + '" loading="lazy" onerror="this.style.display=\'none\'">' : '') +
         '<div class="unit-badge ' + colors[i % 4] + '">' + escHtml(u.name) + '</div>' +
         '<p>' + (u.description ? escHtml(u.description) : 'سيتم توفير وصف الوحدة قريباً.') + '</p>' +
         (typeof u.scoutCount === 'number' ? '<p class="v3-meta"><i class="fa-solid fa-user-group" aria-hidden="true"></i> عدد الكشافين: ' + u.scoutCount + '</p>' : '') +
-        (pub.leaderName ? '<p class="v3-meta"><i class="fa-solid fa-user-tie" aria-hidden="true"></i> القائد: ' + escHtml(pub.leaderName) + '</p>' : '') +
+        (leadersOf(pub)[0].name ? '<p class="v3-meta"><i class="fa-solid fa-user-tie" aria-hidden="true"></i> القائد: ' + escHtml(leadersOf(pub)[0].name) + '</p>' : '') +
         '<button type="button" class="v3-btn" data-unit="' + escHtml(u.id) + '">عرض التفاصيل</button></div>';
     }).join('');
     grid.querySelectorAll('[data-unit]').forEach(function (b) { b.addEventListener('click', function () { V3.openUnitDetail(b.getAttribute('data-unit')); }); });
@@ -129,9 +152,9 @@
 
   function activityCardHtml(a, withUnit) {
     var ms = millis(a.startAt);
-    var img = imgPath('activities', a.imageName);
+    var img = mediaUrl('activities', a);
     return '<article class="news-card v3-act-card">' +
-      (img ? '<img class="news-card-img" src="' + escHtml(img) + '" alt="' + escHtml(a.title) + '" loading="lazy" onerror="this.style.display=\'none\'">' : '') +
+      '<div class="se-thumb"' + (img ? ' data-viewer="' + escHtml(img) + '" data-caption="' + escHtml(a.title) + '"' : '') + '>' + (img ? '<img src="' + escHtml(img) + '" alt="' + escHtml(a.title) + '" loading="lazy" onerror="handleThumbImageError(this)">' : '<span class="se-thumb-ph" aria-hidden="true"><i class="fa-solid fa-campground"></i></span>') + '</div>' +
       '<div class="news-card-body"><div class="news-card-meta"><span class="news-category-badge">' + escHtml(KIND_LABELS[a.kind] || 'نشاط') + '</span> <span class="news-date">' + escHtml(fmtDate(ms)) + '</span></div>' +
       '<h3>' + escHtml(a.title) + '</h3>' +
       (a.location ? '<p class="v3-meta"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> ' + escHtml(a.location) + '</p>' : '') +
@@ -141,17 +164,37 @@
     root.querySelectorAll('[data-act]').forEach(function (b) { b.addEventListener('click', function () { V3.openActivityDetail(b.getAttribute('data-act')); }); });
   }
 
+  function leadersBlock(list, labels) {
+    var cards = list.map(function (l, i) {
+      if (!l.name && !l.phone && !l.email) return '';
+      return '<li class="leader-card"><strong>' + escHtml(labels[i]) + (l.name ? ': ' + escHtml(l.name) : '') + '</strong>' +
+        (l.phone ? '<span><i class="fa-solid fa-phone" aria-hidden="true"></i> <a dir="ltr" href="tel:' + escHtml(String(l.phone).replace(/[^0-9+]/g, '')) + '">' + escHtml(l.phone) + '</a></span>' : '') +
+        (l.email ? '<span><i class="fa-solid fa-envelope" aria-hidden="true"></i> <a dir="ltr" href="mailto:' + escHtml(l.email) + '">' + escHtml(l.email) + '</a></span>' : '') + '</li>';
+    }).join('');
+    return cards ? '<ul class="v3-list leader-list">' + cards + '</ul>' : '';
+  }
+  // بيانات الاتصال الخاصة: للأدمن والقادة النشطين فقط (القواعد تفرض ذلك في الخادم أيضاً)
+  function loadPrivateLeaders(id) {
+    var box = $('unitPrivateBox');
+    if (!box || typeof currentUserRole === 'undefined') return;
+    var ok = (currentUserRole === 'admin' || currentUserRole === 'leader' || currentUserRole === 'media_manager') && currentUserAccountStatus !== 'suspended' && currentUserAccountStatus !== 'locked';
+    if (!ok) return;
+    db.collection('unitPrivate').doc(id).get().then(function (d) {
+      var p = d.exists ? d.data() : null;
+      if (!p) return;
+      var html = leadersBlock(leadersOf(p), ['القائد الأول', 'القائد الثاني', 'القائد الثالث']);
+      if (html && $('unitPrivateBox')) $('unitPrivateBox').innerHTML = '<h4 class="v3-sub-title v5-private-title"><i class="fa-solid fa-lock" aria-hidden="true"></i> بيانات الاتصال (خاصة بالقادة والإدارة)</h4>' + html;
+    }).catch(function () { /* لا صلاحية: لا نعرض شيئاً */ });
+  }
+
   V3.openUnitDetail = function (id) {
     var u = unitsCache.filter(function (x) { return x.id === id; })[0];
     if (!u) { notify('تعذّر العثور على هذه الوحدة.', 'error'); return; }
     var pub = u.pub || {};
-    var img = imgPath('units', u.imageName);
-    var rows = [];
-    function row(label, val) { if (val) rows.push('<li><strong>' + escHtml(label) + ':</strong> ' + escHtml(val) + '</li>'); }
-    row('قائد الوحدة', pub.leaderName); row('هاتف القائد', pub.leaderPhone); row('بريد القائد', pub.leaderEmail);
-    row('نائب العريف / المسؤول الثاني', pub.secondName); row('هاتف المسؤول الثاني', pub.secondPhone);
-    row('العريف الأول', pub.firstName); row('الاتصال بالعريف الأول', pub.firstContact);
-    var staffHtml = rows.length ? '<ul class="v3-list">' + rows.join('') + '</ul>' : '<p class="v3-muted">سيتم توفير معلومات المسؤولين قريباً.</p>';
+    var img = mediaUrl('units', u);
+    var ORD = ['القائد الأول', 'القائد الثاني', 'القائد الثالث'];
+    var staffHtml = leadersBlock(leadersOf(pub), ORD);
+    if (!staffHtml) staffHtml = '<p class="v3-muted">سيتم توفير معلومات المسؤولين قريباً.</p>';
     var acts = activitiesCache.filter(function (a) { return a.unitId === id; });
     var now = Date.now();
     var up = acts.filter(function (a) { return (millis(a.startAt) || 0) >= now; });
@@ -163,13 +206,14 @@
       '<h2 id="unitDetailTitle">' + escHtml(u.name) + '</h2>' +
       '<p>' + (u.description ? escHtml(u.description) : 'سيتم توفير وصف الوحدة قريباً.') + '</p>' +
       (typeof u.scoutCount === 'number' ? '<p class="v3-meta"><i class="fa-solid fa-user-group" aria-hidden="true"></i> عدد الكشافين: ' + u.scoutCount + '</p>' : '') +
-      '<h3 class="v3-sub-title">المسؤولون</h3>' + staffHtml +
+      '<h3 class="v3-sub-title">المسؤولون</h3>' + staffHtml + '<div id="unitPrivateBox"></div>' +
       '<div class="v3-sort-row"><h3 class="v3-sub-title">النشاطات القادمة</h3><button type="button" class="v3-btn v3-btn-small" id="unitSortBtn">' + (detailSortDesc ? 'الأحدث أولاً' : 'الأقرب أولاً') + ' ⇅</button></div>' +
       (up.length ? '<div class="news-grid">' + up.map(function (a) { return activityCardHtml(a); }).join('') + '</div>' : '<p class="v3-muted">لا توجد نشاطات قادمة معلنة حالياً.</p>') +
       '<h3 class="v3-sub-title">النشاطات السابقة</h3>' +
       (past.length ? '<div class="news-grid">' + past.map(function (a) { return activityCardHtml(a); }).join('') + '</div>' : '<p class="v3-muted">لا توجد نشاطات سابقة منشورة.</p>') +
       '<p class="v3-muted">صور النشاطات وتقاريرها المرتبطة: قيد التطوير.</p>';
     bindActButtons(body);
+    loadPrivateLeaders(id);
     var sb = $('unitSortBtn'); if (sb) sb.addEventListener('click', function () { detailSortDesc = !detailSortDesc; V3.openUnitDetail(id); });
     openModal('unitDetailModal');
   };
@@ -177,7 +221,7 @@
   V3.openActivityDetail = function (id) {
     var a = activitiesCache.filter(function (x) { return x.id === id; })[0];
     if (!a) { notify('تعذّر العثور على هذا النشاط.', 'error'); return; }
-    var ms = millis(a.startAt), img = imgPath('activities', a.imageName);
+    var ms = millis(a.startAt), img = mediaUrl('activities', a);
     var unit = a.unitId ? unitsCache.filter(function (u) { return u.id === a.unitId; })[0] : null;
     $('activityDetailBody').innerHTML = (img ? '<img class="v3-detail-img" src="' + escHtml(img) + '" alt="' + escHtml(a.title) + '" onerror="this.style.display=\'none\'">' : '') +
       '<span class="news-category-badge">' + escHtml(KIND_LABELS[a.kind] || 'نشاط') + '</span>' +
@@ -200,7 +244,7 @@
     var up = activitiesCache.filter(function (a) { return (millis(a.startAt) || 0) >= now; })
       .sort(function (a, b) { return millis(a.startAt) - millis(b.startAt); });
     if (!up.length) { box.innerHTML = '<div class="news-state-box">لا يوجد تجمع كشفي قادم معلن حاليًا. تابعوا الإعلانات لمعرفة المواعيد الجديدة.</div>'; return; }
-    var a = up[0], ms = millis(a.startAt), img = imgPath('activities', a.imageName);
+    var a = up[0], ms = millis(a.startAt), img = mediaUrl('activities', a);
     var desc = a.description ? (full || a.description.length <= 160 ? a.description : a.description.slice(0, 160) + '…') : '';
     box.innerHTML = '<div class="v3-next-card">' +
       (img ? '<img class="v3-next-img" src="' + escHtml(img) + '" alt="' + escHtml(a.title) + '" loading="lazy" onerror="this.style.display=\'none\'">' : '') +
@@ -213,19 +257,31 @@
     bindActButtons(box);
   }
   function renderRecentActivities() {
-    var box = $('recentActivitiesBox');
-    if (!box) return;
-    if (V3.activitiesError) { box.innerHTML = stateBox('تعذّر تحميل الأنشطة حالياً.', 'fa-triangle-exclamation'); return; }
+    // الرئيسية: أحدث 4 برامج سابقة؛ صفحة «البرامج السابقة»: كلها (بلا حذف أو نقل للبيانات: التصنيف بالتاريخ فقط)
     var now = Date.now();
-    var past = activitiesCache.filter(function (a) { return (millis(a.startAt) || 0) < now; })
-      .sort(function (a, b) { return millis(b.startAt) - millis(a.startAt); }).slice(0, 3);
-    if (!past.length) { box.innerHTML = stateBox('لا توجد أنشطة سابقة منشورة بعد.'); return; }
-    box.innerHTML = past.map(function (a) { return activityCardHtml(a); }).join('');
-    bindActButtons(box);
+    [['homePastBox', 4], ['recentActivitiesBox', 0]].forEach(function (pair) {
+      var box = $(pair[0]);
+      if (!box) return;
+      if (V3.activitiesError) { box.innerHTML = stateBox('تعذّر تحميل الأنشطة حالياً.', 'fa-triangle-exclamation'); return; }
+      var past = activitiesCache.filter(function (a) { return (millis(a.startAt) || 0) < now; })
+        .sort(function (a, b) { return millis(b.startAt) - millis(a.startAt); });
+      if (pair[1]) past = past.slice(0, pair[1]);
+      if (!past.length) { box.innerHTML = stateBox('لا توجد برامج سابقة منشورة بعد.'); return; }
+      box.innerHTML = past.map(function (a) { return activityCardHtml(a); }).join('');
+      bindActButtons(box);
+    });
   }
 
   /* ---------------- نموذج التسجيل ---------------- */
   function fillRegistrationUnits() {
+    // قائمة الوحدة الاختيارية في تسجيل القادة/مسؤولي الإعلام
+    var ls = $('leaderRegUnit');
+    if (ls) {
+      var lp = ls.value;
+      ls.innerHTML = '<option value="">بدون وحدة محددة</option>';
+      unitsCache.forEach(function (u) { var o = document.createElement('option'); o.value = u.id; o.textContent = u.name; ls.appendChild(o); });
+      ls.value = lp;
+    }
     var sel = $('scoutParentUnit'), hint = $('scoutParentUnitHint');
     if (!sel) return;
     var prev = sel.value;
@@ -336,64 +392,96 @@
     }
   }
 
+  var unitImgCtl = null, actImgCtl = null;
   V3.openUnitForm = function (id) {
     editingUnitId = id || null;
     $('unitFormError').textContent = '';
     $('unitFormTitle').textContent = id ? 'تعديل وحدة' : 'إضافة وحدة';
     var u = id ? adminUnits.filter(function (x) { return x.id === id; })[0] : null;
     function set(i, v) { $(i).value = v || ''; }
-    set('unitName', u && u.name); set('unitDesc', u && u.description); set('unitImageName', u && u.imageName);
+    set('unitName', u && u.name); set('unitDesc', u && u.description);
     $('unitStatus').value = (u && u.status) || 'active';
+    $('unitScoutCount').value = (u && typeof u.manualScoutCount === 'number') ? u.manualScoutCount : '';
     $('unitPublishNames').checked = !!(u && u.publishNames);
     $('unitPublishContacts').checked = !!(u && u.publishContacts);
-    ['unitLeaderName', 'unitLeaderEmail', 'unitLeaderPhone', 'unitSecondName', 'unitSecondPhone', 'unitFirstName', 'unitFirstContact'].forEach(function (k) { set(k, ''); });
+    [1, 2, 3].forEach(function (n) { set('ul' + n + 'Name', ''); set('ul' + n + 'Phone', ''); set('ul' + n + 'Email', ''); });
+    if (window.SEImage) {
+      if (!unitImgCtl) unitImgCtl = SEImage.mount($('unitImageUploader'), { kind: 'announcements', shape: 'rect', label: 'اختيار صورة' });
+      unitImgCtl.reset(u && (u.imageUrl || mediaUrl('units', u)) ? { url: mediaUrl('units', u), fileId: u.driveFileId || '' } : null);
+    }
     openModal('unitFormModal');
     if (id) {
       db.collection('unitPrivate').doc(id).get().then(function (d) {
         var p = d.exists ? d.data() : {};
-        set('unitLeaderName', p.leaderName); set('unitLeaderEmail', p.leaderEmail); set('unitLeaderPhone', p.leaderPhone);
-        set('unitSecondName', p.secondName); set('unitSecondPhone', p.secondPhone);
-        set('unitFirstName', p.firstName); set('unitFirstContact', p.firstContact);
+        leadersOf(p).forEach(function (l, i) { set('ul' + (i + 1) + 'Name', l.name); set('ul' + (i + 1) + 'Phone', l.phone); set('ul' + (i + 1) + 'Email', l.email); });
       }).catch(function () { $('unitFormError').textContent = 'تعذّر تحميل بيانات المسؤولين الخاصة.'; });
     }
   };
+
+  var emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  function dbErrorText(er, what) {
+    var c = er && er.code || '';
+    if (c === 'permission-denied') return 'رفضت قواعد Firestore ' + what + ' (permission-denied). تأكد أنك مسجّل بحساب أدمن (role=admin)، وأن ملف firestore.rules الأحدث منشور في Firebase. استعمل زر «تشخيص الاتصال والصلاحيات» لمعرفة السبب بدقة.';
+    if (c === 'unavailable' || c === 'deadline-exceeded') return 'تعذّر الاتصال بقاعدة البيانات. تحقق من الإنترنت وأعد المحاولة.';
+    if (c === 'invalid-argument') return 'بيانات غير صالحة أُرسلت إلى قاعدة البيانات (invalid-argument): ' + ((er && er.message) || '');
+    return 'تعذّر ' + what + ' (' + (c || 'خطأ') + '): ' + ((er && er.message) || '');
+  }
+  V3.dbErrorText = dbErrorText;
 
   function initUnitForm() {
     var f = $('unitForm');
     if (!f) return;
     f.addEventListener('submit', function (e) {
       e.preventDefault();
-      if (!isAdminNow()) return;
+      if (!isAdminNow()) { $('unitFormError').textContent = 'الحفظ للأدمن فقط.'; return; }
       var err = $('unitFormError'); err.textContent = '';
       var name = $('unitName').value.trim();
       if (!name || name.length > 80) { err.textContent = 'اسم الوحدة مطلوب (80 حرفاً كحد أقصى).'; return; }
-      var imageName = $('unitImageName').value.trim();
-      if (imageName && !imgPath('units', imageName)) { err.textContent = 'اسم ملف الصورة غير صالح (حروف لاتينية/أرقام وامتداد jpg/png/webp).'; return; }
-      var emailV = $('unitLeaderEmail').value.trim();
-      if (emailV && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emailV)) { err.textContent = 'بريد القائد غير صحيح.'; return; }
-      var priv = {
-        leaderName: $('unitLeaderName').value.trim(), leaderEmail: emailV, leaderPhone: $('unitLeaderPhone').value.trim(),
-        secondName: $('unitSecondName').value.trim(), secondPhone: $('unitSecondPhone').value.trim(),
-        firstName: $('unitFirstName').value.trim(), firstContact: $('unitFirstContact').value.trim()
-      };
+      var leaders = [1, 2, 3].map(function (n) {
+        return { name: $('ul' + n + 'Name').value.trim(), phone: $('ul' + n + 'Phone').value.trim(), email: $('ul' + n + 'Email').value.trim() };
+      });
+      for (var i = 0; i < 3; i++) {
+        if (leaders[i].email && !emailRe.test(leaders[i].email)) { err.textContent = 'بريد القائد ' + ['الأول', 'الثاني', 'الثالث'][i] + ' غير صحيح.'; return; }
+        if (leaders[i].phone && !/^[0-9+\s().-]{6,20}$/.test(leaders[i].phone)) { err.textContent = 'هاتف القائد ' + ['الأول', 'الثاني', 'الثالث'][i] + ' غير صحيح.'; return; }
+      }
       var pn = $('unitPublishNames').checked, pc = $('unitPublishContacts').checked;
-      var pub = {};
-      if (pn) { pub.leaderName = priv.leaderName; pub.secondName = priv.secondName; pub.firstName = priv.firstName; }
-      if (pc) { pub.leaderPhone = priv.leaderPhone; pub.leaderEmail = priv.leaderEmail; pub.secondPhone = priv.secondPhone; pub.firstContact = priv.firstContact; }
-      Object.keys(pub).forEach(function (k) { if (!pub[k]) delete pub[k]; });
-      var ts = firebase.firestore.FieldValue.serverTimestamp();
-      var data = { name: name, description: $('unitDesc').value.trim(), imageName: imageName, status: $('unitStatus').value,
-        publishNames: pn, publishContacts: pc, pub: pub, updatedAt: ts };
+      var pubLeaders = leaders.map(function (l) {
+        var o = {};
+        if (pn && l.name) o.name = l.name;
+        if (pc && l.phone) o.phone = l.phone;
+        if (pc && l.email) o.email = l.email;
+        return o;
+      });
+      var manual = $('unitScoutCount').value;
       var btn = $('unitFormSubmit'); btn.disabled = true;
-      var ref = editingUnitId ? db.collection('units').doc(editingUnitId) : db.collection('units').doc();
-      if (!editingUnitId) { data.order = adminUnits.length + 1; data.createdAt = ts; }
-      var b = db.batch();
-      if (editingUnitId) b.update(ref, data); else b.set(ref, data);
-      b.set(db.collection('unitPrivate').doc(ref.id), priv);
-      b.commit().then(function () {
-        closeModal('unitFormModal'); notify('تم حفظ الوحدة.', 'success'); V3.loadAdminUnits(); loadUnits();
-      }).catch(function (er) { err.textContent = 'تعذّر الحفظ (' + (er && er.code || 'خطأ') + ').'; })
-        .then(function () { btn.disabled = false; });
+      var oldBtn = btn.textContent; btn.textContent = 'جاري الحفظ...';
+      var prev = editingUnitId ? adminUnits.filter(function (x) { return x.id === editingUnitId; })[0] : null;
+      // 1) الصورة: نرفعها أولاً؛ لا نكتب في Firestore قبل نجاح الرفع (ولا نعيد رفع الملف نفسه عند إعادة المحاولة)
+      var imgStep = unitImgCtl ? unitImgCtl.commit() : Promise.resolve({ unchanged: true });
+      imgStep.then(function (img) {
+        var ts = firebase.firestore.FieldValue.serverTimestamp();
+        var data = { name: name, description: $('unitDesc').value.trim(), status: $('unitStatus').value,
+          publishNames: pn, publishContacts: pc, pub: { leaders: pubLeaders }, updatedAt: ts };
+        if (manual !== '') data.manualScoutCount = Math.max(0, Math.min(999, parseInt(manual, 10) || 0));
+        if (!img.unchanged) { data.imageUrl = img.imageUrl || ''; data.driveFileId = img.driveFileId || ''; if (!img.imageUrl) data.imageName = ''; }
+        var ref = editingUnitId ? db.collection('units').doc(editingUnitId) : db.collection('units').doc();
+        if (!editingUnitId) { data.order = adminUnits.length + 1; data.createdAt = ts; }
+        var priv = { leaders: leaders, updatedAt: ts };
+        // حقول قديمة تبقى متزامنة لأي كود/تقرير يقرأ الشكل السابق
+        priv.leaderName = leaders[0].name; priv.leaderPhone = leaders[0].phone; priv.leaderEmail = leaders[0].email;
+        priv.secondName = leaders[1].name; priv.secondPhone = leaders[1].phone; priv.firstName = leaders[2].name; priv.firstContact = leaders[2].phone;
+        var b = db.batch();
+        if (editingUnitId) b.update(ref, data); else b.set(ref, data);
+        b.set(db.collection('unitPrivate').doc(ref.id), priv);
+        return b.commit().then(function () {
+          // حذف الصورة القديمة من Drive فقط بعد نجاح الحفظ
+          if (!img.unchanged && prev && prev.driveFileId && prev.driveFileId !== img.driveFileId && typeof deleteFileFromGoogleDriveIfEnabled === 'function') deleteFileFromGoogleDriveIfEnabled(prev.driveFileId);
+          closeModal('unitFormModal'); notify('تم حفظ الوحدة.', 'success'); V3.loadAdminUnits(); loadUnits();
+        });
+      }).catch(function (er) {
+        console.error('[Scout Elwihda] unit save failed:', er && er.code, er && er.message);
+        err.textContent = er && er.isUploadError ? ('تعذّر رفع الصورة: ' + er.message) : dbErrorText(er, 'حفظ الوحدة');
+      }).then(function () { btn.disabled = false; btn.textContent = oldBtn; });
     });
   }
 
@@ -438,6 +526,7 @@
       var u = adminUnits.filter(function (x) { return x.id === a.unitId; })[0];
       return '<div class="v3-admin-row" data-id="' + escHtml(a.id) + '"><div class="v3-admin-info"><strong>' + escHtml(a.title) + '</strong> ' +
         '<span class="v3-chip ' + (a.status === 'published' ? 'on' : 'off') + '">' + escHtml(st[a.status] || a.status) + '</span> ' +
+        '<span class="v3-chip ' + ((millis(a.startAt) || 0) >= Date.now() ? 'on' : 'off') + '">' + ((millis(a.startAt) || 0) >= Date.now() ? 'قادم' : 'سابق') + '</span> ' +
         '<span class="v3-muted">' + escHtml(fmtDate(millis(a.startAt))) + (u ? ' — ' + escHtml(u.name) : '') + '</span></div>' +
         '<div class="v3-admin-btns"><button type="button" data-a="edit">تعديل</button>' +
         '<button type="button" data-a="pub">' + (a.status === 'published' ? 'إلغاء النشر' : 'نشر') + '</button>' +
@@ -468,7 +557,11 @@
     $('actTitle').value = (a && a.title) || ''; $('actDesc').value = (a && a.description) || '';
     $('actKind').value = (a && a.kind) || 'gathering'; $('actUnit').value = (a && a.unitId) || '';
     $('actStart').value = a ? toLocalInput(millis(a.startAt)) : ''; $('actLocation').value = (a && a.location) || '';
-    $('actImageName').value = (a && a.imageName) || ''; $('actStatus').value = (a && a.status) || 'draft';
+    $('actStatus').value = (a && a.status) || 'draft';
+    if (window.SEImage) {
+      if (!actImgCtl) actImgCtl = SEImage.mount($('actImageUploader'), { kind: 'announcements', shape: 'rect', label: 'اختيار صورة' });
+      actImgCtl.reset(a && mediaUrl('activities', a) ? { url: mediaUrl('activities', a), fileId: a.driveFileId || '' } : null);
+    }
     openModal('activityFormModal');
   };
   function initActivityForm() {
@@ -483,18 +576,23 @@
       var startVal = $('actStart').value;
       var startMs = startVal ? new Date(startVal).getTime() : NaN;
       if (isNaN(startMs)) { err.textContent = 'يرجى تحديد تاريخ وساعة صحيحين.'; return; }
-      var imageName = $('actImageName').value.trim();
-      if (imageName && !imgPath('activities', imageName)) { err.textContent = 'اسم ملف الصورة غير صالح.'; return; }
       var ts = firebase.firestore.FieldValue.serverTimestamp();
       var data = { title: title, description: $('actDesc').value.trim(), kind: $('actKind').value, unitId: $('actUnit').value || '',
-        startAt: firebase.firestore.Timestamp.fromMillis(startMs), location: $('actLocation').value.trim(), imageName: imageName,
+        startAt: firebase.firestore.Timestamp.fromMillis(startMs), location: $('actLocation').value.trim(),
         status: $('actStatus').value, updatedAt: ts };
       var btn = $('activityFormSubmit'); btn.disabled = true;
-      var p;
-      if (editingActId) p = db.collection('activities').doc(editingActId).update(data);
-      else { data.createdAt = ts; p = db.collection('activities').add(data); }
-      p.then(function () { closeModal('activityFormModal'); notify('تم حفظ النشاط.', 'success'); V3.loadAdminUnits(); loadActivities(); })
-        .catch(function (er) { err.textContent = 'تعذّر الحفظ (' + (er && er.code || 'خطأ') + ').'; })
+      var prevAct = editingActId ? adminActs.filter(function (x) { return x.id === editingActId; })[0] : null;
+      var step = actImgCtl ? actImgCtl.commit() : Promise.resolve({ unchanged: true });
+      step.then(function (img) {
+        if (!img.unchanged) { data.imageUrl = img.imageUrl || ''; data.driveFileId = img.driveFileId || ''; if (!img.imageUrl) data.imageName = ''; }
+        var p;
+        if (editingActId) p = db.collection('activities').doc(editingActId).update(data);
+        else { data.createdAt = ts; p = db.collection('activities').add(data); }
+        return p.then(function () {
+          if (!img.unchanged && prevAct && prevAct.driveFileId && prevAct.driveFileId !== img.driveFileId && typeof deleteFileFromGoogleDriveIfEnabled === 'function') deleteFileFromGoogleDriveIfEnabled(prevAct.driveFileId);
+          closeModal('activityFormModal'); notify('تم حفظ البرنامج.', 'success'); V3.loadAdminUnits(); loadActivities();
+        });
+      }).catch(function (er) { err.textContent = er && er.isUploadError ? ('تعذّر رفع الصورة: ' + er.message) : dbErrorText(er, 'حفظ البرنامج'); })
         .then(function () { btn.disabled = false; });
     });
   }

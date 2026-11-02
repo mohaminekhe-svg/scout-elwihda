@@ -13,7 +13,8 @@
   var DESKTOP_MIN = 901;
   function $(id) { return document.getElementById(id); }
   function reduceMotion() { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
-  function isDesktop() { return window.innerWidth >= DESKTOP_MIN; }
+  // الشريط الجانبي درج يطفو فوق المحتوى في كل المقاسات (لا يدفع المحتوى ولا يحجز مساحة)
+  function isDesktop() { return false; }
 
   /* ---------------- 1) المقدمة ---------------- */
   // التوقيتات (مللي ثانية): تبدأ الخروج السينمائي عند EXIT_AT ثم تُزال بعد EXIT_MS.

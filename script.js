@@ -127,7 +127,9 @@ function switchAdminTab(tabId, btnElement) {
     if (overlay) overlay.classList.remove('active');
   }
 
-  if (tabId === 'units-tab' && window.V3) { V3.loadAdminUnits(); }
+  if ((tabId === 'units-tab' || tabId === 'programs-tab') && window.V3) { V3.loadAdminUnits(); }
+  if (tabId === 'notifications-tab' && window.SENotice) { SENotice.loadAdmin(); }
+  if (tabId === 'moderation-tab' && window.SEMod) { SEMod.load(); }
 
   // تحميل بيانات الإعلانات عند فتح تبويب الإعلانات
   if (tabId === 'announcements-tab') {
@@ -469,7 +471,7 @@ function clearNavUserChip() {
    التنقل بين صفحات الموقع العامة والتحكم بالرابط (#hash)
    ========================================================= */
 const pdfFormUrl = './registration-form.pdf';
-const VALID_SITE_PAGES = ['home-page', 'latest-news-page', 'next-gathering-page', 'bulletin-page', 'units-page', 'gallery-page', 'about-page'];
+const VALID_SITE_PAGES = ['home-page', 'latest-news-page', 'next-gathering-page', 'past-programs-page', 'bulletin-page', 'units-page', 'gallery-page', 'skills-page', 'about-page', 'profile-page', 'my-card-page', 'settings-page'];
 
 function showPage(pageId, opts) {
   const pages = document.querySelectorAll('.site-page');
@@ -531,7 +533,7 @@ function scrollToUserCard() {
 }
 
 // استعادة قسم لوحة الأدمن من الرابط (#admin-xxx) بعد Refresh — فقط إذا كان المستخدم يملك صلاحية فعلية
-const VALID_ADMIN_TABS = ['welcome-tab', 'leaders-tab', 'scouts-tab', 'announcements-tab', 'gallery-tab', 'units-tab', 'statistics-tab', 'settings-tab'];
+const VALID_ADMIN_TABS = ['welcome-tab', 'leaders-tab', 'scouts-tab', 'announcements-tab', 'gallery-tab', 'units-tab', 'programs-tab', 'notifications-tab', 'moderation-tab', 'statistics-tab', 'settings-tab'];
 
 function setAdminViewActive(active) {
   const fullBlueScreen = document.getElementById('fullAdminBlueScreen');
@@ -782,6 +784,9 @@ if (leaderRegisterForm) {
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
         if (signupType === 'media_officer') leaderData.leaderRoleTitle = 'مسؤول إعلام';
+        // الوحدة اختيارية؛ قواعد Firestore تتحقق أنها موجودة ونشطة وأن اسمها يطابق المخزَّن. لا تمنح أي صلاحية.
+        const _lu = document.getElementById('leaderRegUnit');
+        if (_lu && _lu.value) { leaderData.unitId = _lu.value; leaderData.unit = _lu.options[_lu.selectedIndex].textContent; }
         return Promise.all([
           db.collection('users').doc(uid).set(leaderData),
           db.collection('leaders').doc(uid).set(leaderData)
@@ -2474,7 +2479,7 @@ function dateToAlgiersLocalInputValue(date) {
   if (!date) return '';
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Africa/Algiers', year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hour12: false
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
   }).formatToParts(date);
   const get = (t) => parts.find(p => p.type === t).value;
   return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
@@ -4204,6 +4209,8 @@ function saveMediaSignupSetting(checked) {
    - إن لم تُحمَّل المكتبة (انقطاع CDN) يبقى حقل datetime-local الأصلي يعمل.
    ========================================================= */
 function initDateTimePickers() {
+  // مُعطَّل عمداً: كان flatpickr (CDN + حقل بديل مخفي) يمنع تعديل وقت الانتهاء أحياناً. الحقول الأصلية datetime-local أكثر ثباتاً.
+  return;
   if (typeof flatpickr === 'undefined') return;
   const locale = (flatpickr.l10ns && flatpickr.l10ns.ar) ? flatpickr.l10ns.ar : 'default';
   ['announcementStartAtInput', 'announcementEndAtInput'].forEach((id) => {
