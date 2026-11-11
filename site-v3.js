@@ -109,7 +109,7 @@
       unitsLoaded = true; unitsCache = [];
       console.warn('[Scout Elwihda] units load failed:', e && e.code);
       V3.unitsError = true;
-    }).then(function () { renderUnitsGrid(); renderNavUnits(); fillRegistrationUnits(); });
+    }).then(function () { V3.unitsLoadedOnce = true; renderUnitsGrid(); renderNavUnits(); fillRegistrationUnits(); });
   }
   function loadActivities() {
     return db.collection('activities').where('status', '==', 'published').get().then(function (snap) {
@@ -119,7 +119,7 @@
     }).catch(function (e) {
       activitiesLoaded = true; activitiesCache = []; V3.activitiesError = true;
       console.warn('[Scout Elwihda] activities load failed:', e && e.code);
-    }).then(function () { renderNextActivity(); renderRecentActivities(); });
+    }).then(function () { V3.activitiesLoadedOnce = true; renderNextActivity(); renderRecentActivities(); });
   }
 
   V3.unitLabel = function (u) {
@@ -135,17 +135,17 @@
     if (!grid) return;
     if (V3.unitsError) { grid.innerHTML = stateBox('تعذّر تحميل الوحدات حالياً. حاول تحديث الصفحة بعد قليل.', 'fa-triangle-exclamation'); return; }
     if (!unitsCache.length) { grid.innerHTML = stateBox('لا توجد وحدات منشورة حالياً — قيد التطوير.', 'fa-hourglass-half'); return; }
-    var colors = ['amber', 'green', 'red', 'blue'];
+    // لون مميز لكل وحدة ضمن ألوان الهوية (أزرق/ذهبي/أخضر/عنابي/بنفسجي هادئ)
     grid.innerHTML = unitsCache.map(function (u, i) {
-      var img = mediaUrl('units', u);
-      var pub = u.pub || {};
-      return '<div class="unit-card v3-unit-card hover-lift">' +
-        (img ? '<img class="v3-unit-img" src="' + escHtml(img) + '" alt="' + escHtml(u.name) + '" loading="lazy" onerror="this.style.display=\'none\'">' : '') +
-        '<div class="unit-badge ' + colors[i % 4] + '">' + escHtml(u.name) + '</div>' +
-        '<p>' + (u.description ? escHtml(u.description) : 'سيتم توفير وصف الوحدة قريباً.') + '</p>' +
-        (typeof u.scoutCount === 'number' ? '<p class="v3-meta"><i class="fa-solid fa-user-group" aria-hidden="true"></i> عدد الكشافين: ' + u.scoutCount + '</p>' : '') +
-        (leadersOf(pub)[0].name ? '<p class="v3-meta"><i class="fa-solid fa-user-tie" aria-hidden="true"></i> القائد: ' + escHtml(leadersOf(pub)[0].name) + '</p>' : '') +
-        '<button type="button" class="v3-btn" data-unit="' + escHtml(u.id) + '">عرض التفاصيل</button></div>';
+      var img = mediaUrl('units', u), lead = leadersOf(u.pub || {})[0].name;
+      var initial = (u.name || '؟').replace(/^(وحدة|عشيرة)\s+/, '').charAt(0) || '؟';
+      return '<article class="uc uc-c' + (i % 6) + '">' +
+        '<div class="uc-top"><span class="uc-mark" aria-hidden="true">' + (img ? '<img src="' + escHtml(img) + '" alt="" loading="lazy" onerror="this.remove()">' : escHtml(initial)) + '</span>' +
+        '<h3 class="uc-name">' + escHtml(u.name) + '</h3></div>' +
+        '<p class="uc-desc">' + (u.description ? escHtml(u.description) : 'سيتم توفير وصف الوحدة قريباً.') + '</p>' +
+        '<p class="uc-meta">' + (typeof u.scoutCount === 'number' ? '<span><i class="fa-solid fa-user-group" aria-hidden="true"></i> ' + u.scoutCount + ' كشاف</span>' : '') +
+        (lead ? '<span><i class="fa-solid fa-user-tie" aria-hidden="true"></i> ' + escHtml(lead) + '</span>' : '') + '</p>' +
+        '<button type="button" class="uc-btn" data-unit="' + escHtml(u.id) + '" aria-label="عرض تفاصيل ' + escHtml(u.name) + '">اضغط هنا للتعرف على الوحدة <i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button></article>';
     }).join('');
     grid.querySelectorAll('[data-unit]').forEach(function (b) { b.addEventListener('click', function () { V3.openUnitDetail(b.getAttribute('data-unit')); }); });
   }
@@ -187,35 +187,41 @@
     }).catch(function () { /* لا صلاحية: لا نعرض شيئاً */ });
   }
 
-  V3.openUnitDetail = function (id) {
-    var u = unitsCache.filter(function (x) { return x.id === id; })[0];
+  V3.getUnit = function (id) { return unitsCache.filter(function (x) { return x.id === id; })[0] || null; };
+  V3.unitsReady = function () { return !!(V3.unitsLoadedOnce && V3.activitiesLoadedOnce); };
+  V3.openUnitDetail = function (id, noPush) {
+    var u = V3.getUnit(id);
     if (!u) { notify('تعذّر العثور على هذه الوحدة.', 'error'); return; }
     var pub = u.pub || {};
     var img = mediaUrl('units', u);
     var ORD = ['القائد الأول', 'القائد الثاني', 'القائد الثالث'];
     var staffHtml = leadersBlock(leadersOf(pub), ORD);
-    if (!staffHtml) staffHtml = '<p class="v3-muted">سيتم توفير معلومات المسؤولين قريباً.</p>';
+    if (!staffHtml) staffHtml = '<p class="v3-muted">لم تُنشر معلومات المسؤولين بعد.</p>';
     var acts = activitiesCache.filter(function (a) { return a.unitId === id; });
     var now = Date.now();
-    var up = acts.filter(function (a) { return (millis(a.startAt) || 0) >= now; });
-    var past = acts.filter(function (a) { return (millis(a.startAt) || 0) < now; });
-    function sorter(a, b) { var d = (millis(a.startAt) || 0) - (millis(b.startAt) || 0); return detailSortDesc ? -d : d; }
-    up.sort(sorter); past.sort(function (a, b) { var d = (millis(a.startAt) || 0) - (millis(b.startAt) || 0); return detailSortDesc ? d : -d; });
+    var up = acts.filter(function (a) { return (millis(a.startAt) || 0) >= now; }).sort(function (a, b) { return millis(a.startAt) - millis(b.startAt); });
+    var past = acts.filter(function (a) { return (millis(a.startAt) || 0) < now; }).sort(function (a, b) { return millis(b.startAt) - millis(a.startAt); });
+    // صور مرتبطة بالوحدة: صورتها + صور أنشطتها (حقيقية فقط)
+    var pics = [];
+    if (img) pics.push({ url: img, cap: u.name });
+    acts.forEach(function (a) { var m = mediaUrl('activities', a); if (m) pics.push({ url: m, cap: a.title }); });
+    var idx = Math.max(0, unitsCache.indexOf(u));
     var body = $('unitDetailBody');
-    body.innerHTML = (img ? '<img class="v3-detail-img" src="' + escHtml(img) + '" alt="' + escHtml(u.name) + '" onerror="this.style.display=\'none\'">' : '') +
-      '<h2 id="unitDetailTitle">' + escHtml(u.name) + '</h2>' +
-      '<p>' + (u.description ? escHtml(u.description) : 'سيتم توفير وصف الوحدة قريباً.') + '</p>' +
-      (typeof u.scoutCount === 'number' ? '<p class="v3-meta"><i class="fa-solid fa-user-group" aria-hidden="true"></i> عدد الكشافين: ' + u.scoutCount + '</p>' : '') +
-      '<h3 class="v3-sub-title">المسؤولون</h3>' + staffHtml + '<div id="unitPrivateBox"></div>' +
-      '<div class="v3-sort-row"><h3 class="v3-sub-title">النشاطات القادمة</h3><button type="button" class="v3-btn v3-btn-small" id="unitSortBtn">' + (detailSortDesc ? 'الأحدث أولاً' : 'الأقرب أولاً') + ' ⇅</button></div>' +
-      (up.length ? '<div class="news-grid">' + up.map(function (a) { return activityCardHtml(a); }).join('') + '</div>' : '<p class="v3-muted">لا توجد نشاطات قادمة معلنة حالياً.</p>') +
-      '<h3 class="v3-sub-title">النشاطات السابقة</h3>' +
-      (past.length ? '<div class="news-grid">' + past.map(function (a) { return activityCardHtml(a); }).join('') + '</div>' : '<p class="v3-muted">لا توجد نشاطات سابقة منشورة.</p>') +
-      '<p class="v3-muted">صور النشاطات وتقاريرها المرتبطة: قيد التطوير.</p>';
+    body.innerHTML = '<header class="ud-hero uc-c' + (idx % 6) + '">' +
+        '<span class="uc-mark ud-mark" aria-hidden="true">' + (img ? '<img src="' + escHtml(img) + '" alt="" onerror="this.remove()">' : escHtml((u.name || '؟').replace(/^(وحدة|عشيرة)\s+/, '').charAt(0))) + '</span>' +
+        '<div><h2 id="unitDetailTitle">' + escHtml(u.name) + '</h2>' +
+        '<p class="ud-desc">' + (u.description ? escHtml(u.description) : 'سيتم توفير وصف الوحدة قريباً.') + '</p>' +
+        (typeof u.scoutCount === 'number' ? '<p class="uc-meta"><span><i class="fa-solid fa-user-group" aria-hidden="true"></i> عدد الكشافين: ' + u.scoutCount + '</span></p>' : '') + '</div></header>' +
+      '<section class="ud-sec"><h3 class="v3-sub-title">القادة</h3>' + staffHtml + '<div id="unitPrivateBox"></div></section>' +
+      '<section class="ud-sec"><h3 class="v3-sub-title">البرامج القادمة</h3>' +
+      (up.length ? '<div class="news-grid" data-viewer-group>' + up.map(function (a) { return activityCardHtml(a); }).join('') + '</div>' : '<p class="v3-muted">لا توجد برامج قادمة معلنة لهذه الوحدة حالياً.</p>') + '</section>' +
+      '<section class="ud-sec"><h3 class="v3-sub-title">آخر الأنشطة</h3>' +
+      (past.length ? '<div class="news-grid" data-viewer-group>' + past.slice(0, 12).map(function (a) { return activityCardHtml(a); }).join('') + '</div>' : '<p class="v3-muted">لا توجد أنشطة سابقة منشورة لهذه الوحدة بعد.</p>') + '</section>' +
+      '<section class="ud-sec"><h3 class="v3-sub-title">صور الوحدة</h3>' +
+      (pics.length ? '<div class="ud-pics" data-viewer-group>' + pics.map(function (p) { return '<button type="button" class="ud-pic" data-viewer="' + escHtml(p.url) + '" data-caption="' + escHtml(p.cap) + '" aria-label="عرض الصورة"><img src="' + escHtml(p.url) + '" alt="' + escHtml(p.cap) + '" loading="lazy" onerror="this.parentNode.remove()"></button>'; }).join('') + '</div>' : '<p class="v3-muted">لا توجد صور مرتبطة بهذه الوحدة بعد.</p>') + '</section>';
     bindActButtons(body);
     loadPrivateLeaders(id);
-    var sb = $('unitSortBtn'); if (sb) sb.addEventListener('click', function () { detailSortDesc = !detailSortDesc; V3.openUnitDetail(id); });
-    openModal('unitDetailModal');
+    if (!noPush) { window.showPage('unit-detail-page'); try { history.replaceState(null, '', '#unit-' + id); } catch (e) {} }
   };
 
   V3.openActivityDetail = function (id) {

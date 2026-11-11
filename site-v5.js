@@ -241,6 +241,7 @@
             if (prob) { msg.textContent = prob; msg.classList.add('bad'); return; }
             var btn = form.querySelector('button[type=submit]'); btn.disabled = true; msg.textContent = '';
             var name = (me.data && (me.data.fullName || ((me.data.firstName || '') + ' ' + (me.data.lastName || '')).trim())) || 'عضو';
+            if (me.data && me.data.prefs && me.data.prefs.commentName === 'first') name = String(name).trim().split(/\s+/)[0] || 'عضو';
             postRef(id).collection('comments').add({ uid: me.uid, authorName: String(name).slice(0, 80), text: t, createdAt: serverTs(), hidden: false })
               .then(refresh).catch(function (er) { msg.textContent = 'تعذّر نشر التعليق (' + (er && er.code || 'خطأ') + ').'; msg.classList.add('bad'); btn.disabled = false; });
           });
@@ -290,7 +291,8 @@
     function load() {
       return db.collection('siteNotifications').where('published', '==', true).get().then(function (snap) {
         var now = Date.now(), list = [];
-        snap.forEach(function (d) { var x = d.data(); x.id = d.id; if (timeOk(x, now) && audienceOk(x) && !dismissed[x.id]) list.push(x); });
+        snap.forEach(function (d) { var x = d.data(); x.id = d.id; if (timeOk(x, now) && audienceOk(x) && !dismissed[x.id] && !(window.SEBell && SEBell.isRead(x.id))) list.push(x); });
+        if (me.data && me.data.prefs && me.data.prefs.noticePopup === false) list = [];
         list.sort(function (a, b) { return (msOf(b.startAt) || 0) - (msOf(a.startAt) || 0); });
         queue = list; if (!shown) next();
       }).catch(function (e) { console.warn('[Scout Elwihda] notifications load failed:', e && e.code); });
@@ -361,6 +363,7 @@
       $('ntStart').value = n ? toLocal(msOf(n.startAt)) : toLocal(Date.now()); $('ntEnd').value = n ? toLocal(msOf(n.endAt)) : '';
       $('ntDelay').value = n && n.closeDelaySec != null ? n.closeDelaySec : 5; $('ntAudience').value = (n && n.audience) || 'all';
       $('ntPublished').checked = n ? n.published !== false : true;
+      var lk = (n && n.link) || ''; $('ntLinkPage').value = (lk && lk.indexOf('https://') !== 0) ? lk : ''; $('ntLinkUrl').value = (lk.indexOf('https://') === 0) ? lk : '';
       openModal('noticeFormModal');
     }
     function initForm() {
@@ -374,8 +377,11 @@
         if (!s) { err.textContent = 'حدّد تاريخ ووقت بداية العرض.'; return; }
         if (en && en <= s) { err.textContent = 'يجب أن تكون نهاية العرض بعد بدايته.'; return; }
         var delay = Math.max(0, Math.min(60, parseInt($('ntDelay').value, 10) || 0));
+        var lurl = $('ntLinkUrl').value.trim(), lpage = $('ntLinkPage').value;
+        if (lurl && !/^https:\/\/[^\s]+$/.test(lurl)) { err.textContent = 'الرابط الخارجي يجب أن يبدأ بـ https://'; return; }
+        var link = lurl || lpage || '';
         var data = { title: title, body: body, issuer: $('ntIssuer').value, issuerName: who, startAt: firebase.firestore.Timestamp.fromDate(s),
-          endAt: en ? firebase.firestore.Timestamp.fromDate(en) : null, closeDelaySec: delay, audience: $('ntAudience').value, published: $('ntPublished').checked, updatedAt: serverTs() };
+          endAt: en ? firebase.firestore.Timestamp.fromDate(en) : null, closeDelaySec: delay, link: link, audience: $('ntAudience').value, published: $('ntPublished').checked, updatedAt: serverTs() };
         var btn = $('noticeFormSubmit'); btn.disabled = true;
         var p; if (editingId) p = db.collection('siteNotifications').doc(editingId).update(data); else { data.createdAt = serverTs(); data.createdBy = me.uid; p = db.collection('siteNotifications').add(data); }
         p.then(function () { closeModal('noticeFormModal'); msgA('تم حفظ الإشعار.', true); loadAdmin(); load(); })
@@ -515,14 +521,12 @@
   function renderAccount() {
     var guest = !me.uid || !me.data;
     document.querySelectorAll('.nav-account-item').forEach(function (n) { n.hidden = guest; });
-    ['profile', 'myCard', 'settings'].forEach(function (k) {
-      var g = $(k + 'Guest'), b = $(k === 'myCard' ? 'myCardHost' : k + 'Body'); if (g) g.hidden = !guest; if (b) b.hidden = guest;
-    });
+    var sg = $('settingsGuest'), sb = $('settingsBody'); if (sg) sg.hidden = !guest; if (sb) sb.hidden = guest;
     if (guest) return;
     var d = me.data;
     // الملف الشخصي
     $('profileAvatar').innerHTML = avatarHtml(d); $('profileName').textContent = nameOf(d) + (d.nickname ? ' ' + d.nickname : '');
-    $('profileRole').textContent = ROLE_LABELS[d.role] || d.role || ''; $('profileEmail').textContent = d.email || '';
+    $('profileRole').textContent = ROLE_LABELS[d.role] || d.role || ''; if ($('pfEmail')) $('pfEmail').value = d.email || '';
     $('pfFullName').value = d.fullName || ''; $('pfNickname').value = d.nickname || ''; $('pfBirthDate').value = d.birthDate || ''; $('pfBirthPlace').value = d.birthPlace || ''; $('pfPhone').value = d[phoneKey(d)] || '';
     $('pfUnitName').textContent = unitOf(d);
     loadUnitRequestState(); loadSaved();
@@ -531,20 +535,20 @@
     // الإعدادات
     $('settingsInfo').innerHTML = [['الاسم', nameOf(d)], ['البريد الإلكتروني', d.email || ''], ['نوع الحساب', ROLE_LABELS[d.role] || d.role || ''], ['حالة الحساب', d.accountStatus === 'active' ? 'نشط' : (d.accountStatus === 'pending_verification' ? 'قيد المراجعة' : (d.accountStatus || ''))], ['الوحدة', unitOf(d)]]
       .map(function (r) { return '<div><dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd></div>'; }).join('');
-    $('stFullName').value = d.fullName || ''; $('stNickname').value = d.nickname || '';
     if (!settingsImg && $('settingsPhotoUploader')) settingsImg = SEImage.mount($('settingsPhotoUploader'), { kind: 'profiles', shape: 'circle', label: 'اختيار صورة شخصية' });
     if (settingsImg) settingsImg.reset(d.photoURL ? { url: safeImgUrl(d.photoURL), fileId: d.photoFileId || '' } : null);
     if (d.language && d.language !== SEI18n.current()) SEI18n.apply(d.language);
   }
   function renderCard(d) {
     var host = $('myCardHost'); if (!host) return;
-    function f(label, v) { return '<div><dt>' + esc(label) + '</dt><dd>' + (v ? esc(v) : '<span class="idc-missing">غير مسجّل</span>') + '</dd></div>'; }
-    host.innerHTML = '<article class="id-card" aria-label="بطاقة كشفية">' +
-      '<header class="id-card-top"><img src="logo%20sma.png" alt=""><div><b>الكشافة الإسلامية الجزائرية</b><span>فوج الوحدة الكشفي</span></div><img src="logo%20elwihda.png" alt=""></header>' +
-      '<div class="id-card-body"><div class="avatar-circle avatar-card">' + avatarHtml(d) + '</div>' +
-      '<dl class="id-card-fields">' + f('الاسم', d.fullName || nameOf(d)) + f('اللقب', d.nickname) + f('تاريخ الميلاد', d.birthDate ? fmtD(new Date(d.birthDate + 'T12:00:00+01:00').getTime()) : '') + f('مكان الميلاد', d.birthPlace) + f('الوحدة', unitOf(d)) + '</dl></div>' +
-      '<footer class="id-card-foot"><span>' + esc(ROLE_LABELS[d.role] || '') + '</span><span class="id-card-ornament" aria-hidden="true"></span></footer></article>' +
-      '<p class="v3-muted idc-hint">لإكمال بياناتك (اللقب، تاريخ ومكان الميلاد) افتح «الملف الشخصي». هذه البطاقة خاصة بك ولا تظهر لغيرك.</p>';
+    function f(label, v, ltr) { return '<div class="idc-row"><dt>' + esc(label) + '</dt><dd' + (ltr ? ' dir="ltr"' : '') + '>' + (v ? esc(v) : '<span class="idc-missing">غير مسجّل</span>') + '</dd></div>'; }
+    var phone = d[phoneKey(d)] || '';
+    host.innerHTML = '<article class="id-card id-card-h" aria-label="البطاقة الكشفية">' +
+      '<div class="idc-band"><img src="logo%20sma.png" alt=""><div class="idc-title"><b>الكشافة الإسلامية الجزائرية</b><span>فوج الوحدة</span></div><img src="logo%20elwihda.png" alt=""></div>' +
+      '<div class="idc-main"><div class="avatar-circle avatar-card">' + avatarHtml(d) + '</div>' +
+      '<dl class="idc-fields">' + f('الاسم', d.fullName || nameOf(d)) + f('اللقب', d.nickname) + f('الوحدة', unitOf(d)) + f('الهاتف', phone, true) + f('البريد', d.email, true) + '</dl></div>' +
+      '<div class="idc-foot"><span>' + esc(ROLE_LABELS[d.role] || '') + '</span><span class="id-card-ornament" aria-hidden="true"></span></div></article>' +
+      '<p class="v3-muted idc-hint">هذه البطاقة خاصة بك ولا تظهر لغيرك. لتعديل بياناتها استعمل «الملف الشخصي».</p>';
   }
   function setMsg(id, t, ok) { var m = $(id); if (m) { m.textContent = t || ''; m.classList.toggle('bad', !ok && !!t); } }
   function updateOwn(fields) {
@@ -557,7 +561,7 @@
   function nameProblem(n) { if (!n || n.trim().length < 3) return 'الاسم قصير جداً.'; if (n.length > 80) return 'الاسم طويل جداً.'; if (/[<>@\d]/.test(n)) return 'الاسم يحتوي رموزاً غير مسموحة.'; return ''; }
 
   function initAccountForms() {
-    var lo = $('navLogoutBtn'); if (lo) lo.addEventListener('click', function () { if (typeof handleUserLogout === 'function') handleUserLogout(); });
+    ['navLogoutBtn', 'settingsLogoutBtn'].forEach(function (id) { var lo = $(id); if (lo) lo.addEventListener('click', function () { if (typeof handleUserLogout === 'function') handleUserLogout(); }); });
     var pf = $('profileForm');
     if (pf) pf.addEventListener('submit', function (e) {
       e.preventDefault(); if (!active()) { setMsg('profileFormMsg', 'حسابك غير نشط بعد.'); return; }
@@ -568,12 +572,6 @@
       if (ph || me.data[phoneKey(me.data)]) fields[phoneKey(me.data)] = ph;
       var b = $('profileSaveBtn'); b.disabled = true;
       updateOwn(fields).then(function () { setMsg('profileFormMsg', 'تم حفظ التعديلات.', true); }).catch(function (er) { setMsg('profileFormMsg', 'تعذّر الحفظ (' + (er && er.code || 'خطأ') + ').'); }).then(function () { b.disabled = false; });
-    });
-    var nf = $('settingsNameForm');
-    if (nf) nf.addEventListener('submit', function (e) {
-      e.preventDefault(); if (!active()) { setMsg('settingsNameMsg', 'حسابك غير نشط بعد.'); return; }
-      var name = $('stFullName').value.trim(), np = nameProblem(name); if (np) { setMsg('settingsNameMsg', np); return; }
-      updateOwn({ fullName: name, nickname: $('stNickname').value.trim().slice(0, 60) }).then(function () { setMsg('settingsNameMsg', 'تم الحفظ.', true); }).catch(function (er) { setMsg('settingsNameMsg', 'تعذّر الحفظ (' + (er && er.code || 'خطأ') + ').'); });
     });
     var pb = $('settingsPhotoSave');
     if (pb) pb.addEventListener('click', function () {

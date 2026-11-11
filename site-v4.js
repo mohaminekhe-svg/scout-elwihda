@@ -9,7 +9,7 @@
 (function () {
   'use strict';
 
-  var PAGES = ['home-page', 'latest-news-page', 'next-gathering-page', 'bulletin-page', 'units-page', 'gallery-page', 'about-page'];
+  var PAGES = ['home-page', 'latest-news-page', 'next-gathering-page', 'past-programs-page', 'bulletin-page', 'units-page', 'gallery-page', 'skills-page', 'about-page', 'settings-page', 'unit-detail-page'];
   var DESKTOP_MIN = 901;
   function $(id) { return document.getElementById(id); }
   function reduceMotion() { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
@@ -73,7 +73,9 @@
     sub.hidden = !open;
     group.classList.toggle('open', open);
   }
+  var ALIAS = { 'unit-detail-page': 'units-page', 'past-programs-page': 'next-gathering-page' };
   function markActive(pageId) {
+    pageId = ALIAS[pageId] || pageId;
     menu.querySelectorAll('.nav-group').forEach(function (g) {
       var on = g.getAttribute('data-page') === pageId;
       var b = g.querySelector('.nav-group-btn');

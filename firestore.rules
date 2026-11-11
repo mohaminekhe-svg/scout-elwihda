@@ -132,6 +132,16 @@ service cloud.firestore {
       // ذلك يحتاج Admin SDK/Cloud Functions (غير متاح ضمن Client SDK وحده).
       allow delete: if isAdmin();
 
+      // حالة قراءة الإشعارات: خاصة بكل مستخدم (قراءتك لإشعار لا تغيّر حالته عند غيرك)
+      match /notificationStates/{notificationId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isActiveUser()
+          && request.resource.data.keys().hasOnly(['status', 'updatedAt'])
+          && request.resource.data.status in ['read', 'later']
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if isOwner(userId);
+      }
+
       // المنشورات المحفوظة: خاصة بصاحبها فقط
       match /saved/{postId} {
         allow read, delete: if isOwner(userId);

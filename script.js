@@ -1,5 +1,5 @@
 /* =========================================================
-   فوج الوحدة الكشفي - script.js
+   فوج الوحدة - script.js
    نظام تسجيل الدخول وبوابة الإعلام والنشر وإدارة القادة والحسابات
    ========================================================= */
 
@@ -471,7 +471,7 @@ function clearNavUserChip() {
    التنقل بين صفحات الموقع العامة والتحكم بالرابط (#hash)
    ========================================================= */
 const pdfFormUrl = './registration-form.pdf';
-const VALID_SITE_PAGES = ['home-page', 'latest-news-page', 'next-gathering-page', 'past-programs-page', 'bulletin-page', 'units-page', 'gallery-page', 'skills-page', 'about-page', 'profile-page', 'my-card-page', 'settings-page'];
+const VALID_SITE_PAGES = ['home-page', 'latest-news-page', 'next-gathering-page', 'past-programs-page', 'bulletin-page', 'units-page', 'gallery-page', 'skills-page', 'about-page', 'settings-page', 'unit-detail-page'];
 
 function showPage(pageId, opts) {
   const pages = document.querySelectorAll('.site-page');
@@ -998,7 +998,7 @@ function renderScoutOrLeaderCard(data) {
             ${data.parentPhone ? `<div><i class="fa-solid fa-phone"></i> <strong>هاتف الولي:</strong> ${escHtml(data.parentPhone)}</div>` : ''}
             ${data.scoutPhone ? `<div><i class="fa-solid fa-mobile-screen"></i> <strong>هاتف الابن:</strong> ${escHtml(data.scoutPhone)}</div>` : ''}
             ${data.unit ? `<div><i class="fa-solid fa-shield-halved"></i> <strong>الوحدة:</strong> ${escHtml(window.V3 ? V3.unitLabel(data) : data.unit)}</div>` : ''}
-            <div><i class="fa-solid fa-flag"></i> <strong>الفوج:</strong> فوج الوحدة الكشفي</div>
+            <div><i class="fa-solid fa-flag"></i> <strong>الفوج:</strong> فوج الوحدة</div>
             ${statusLabel ? `<div><i class="fa-solid fa-circle-check"></i> <strong>الحالة:</strong> ${statusLabel}</div>` : ''}
           </div>
         </div>
@@ -3461,7 +3461,7 @@ function printLeaderProfileCard() {
     <body>
       <div class="print-header">
         <h1>الكشافة الإسلامية الجزائرية - محافظة ولاية الجزائر</h1>
-        <h2>فوج الوحدة الكشفي (مركب المنار - الحميز)</h2>
+        <h2>فوج الوحدة (مركب المنار - الحميز)</h2>
         <p>بطاقة اعتماد قائد كشفي رسمي</p>
       </div>
       <div class="info-card">
@@ -4760,7 +4760,8 @@ function uploadImageToGoogleDrive(file, kind, onProgress) {
     notify('جاري رفع الصورة إلى Google Drive...');
     return Promise.all([blobToBase64(compressedBlob), user.getIdToken()]);
   }).then((parts) => {
-    const cleanBase = (file.name || (kind + '-photo')).replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 60) || kind;
+    // الصور الشخصية: اسم الملف p_<uid>- ليتمكن صاحبها من حذف القديمة (يتحقق Apps Script من ذلك)
+    const cleanBase = (kind === 'profiles') ? ('p_' + user.uid) : ((file.name || (kind + '-photo')).replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 60) || kind);
     const finalName = cleanBase + '-' + Date.now() + '.jpg';
     return fetch(cfg.webAppUrl.trim(), {
       method: 'POST',
@@ -4899,11 +4900,13 @@ function doPost(e) {
     }
 
     if (action === 'delete') {
-      const mayDelete = isAdmin || perms['gallery.manage'] === true || perms['announcements.delete'] === true || perms['announcements.edit'] === true;
-      if (!mayDelete) return jsonResponse({ ok: false, error: 'ليست لديك صلاحية حذف الصور.' });
       const fileId = String(body.fileId || '');
       if (!/^[a-zA-Z0-9_-]{15,80}$/.test(fileId)) return jsonResponse({ ok: false, error: 'معرّف الملف غير صالح.' });
       const file = DriveApp.getFileById(fileId);
+      // يحق لصاحب الحساب حذف صورته الشخصية القديمة فقط (اسم الملف يبدأ بـ p_<uid>-)
+      const ownProfilePhoto = String(file.getName()).indexOf('p_' + caller.uid + '-') === 0;
+      const mayDelete = isAdmin || ownProfilePhoto || perms['gallery.manage'] === true || perms['announcements.delete'] === true || perms['announcements.edit'] === true;
+      if (!mayDelete) return jsonResponse({ ok: false, error: 'ليست لديك صلاحية حذف الصور.' });
       // لا نحذف إلا ملفات داخل مجلدات الوسائط الخاصة بالموقع
       const f = ensureFolders('', '', '', false);
       const okParents = [f.announcements.getId(), f.gallery.getId(), f.profiles.getId()];

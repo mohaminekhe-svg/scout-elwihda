@@ -85,11 +85,13 @@ function doPost(e) {
     }
 
     if (action === 'delete') {
-      const mayDelete = isAdmin || perms['gallery.manage'] === true || perms['announcements.delete'] === true || perms['announcements.edit'] === true;
-      if (!mayDelete) return jsonResponse({ ok: false, error: 'ليست لديك صلاحية حذف الصور.' });
       const fileId = String(body.fileId || '');
       if (!/^[a-zA-Z0-9_-]{15,80}$/.test(fileId)) return jsonResponse({ ok: false, error: 'معرّف الملف غير صالح.' });
       const file = DriveApp.getFileById(fileId);
+      // يحق لصاحب الحساب حذف صورته الشخصية القديمة فقط (اسم الملف يبدأ بـ p_<uid>-)
+      const ownProfilePhoto = String(file.getName()).indexOf('p_' + caller.uid + '-') === 0;
+      const mayDelete = isAdmin || ownProfilePhoto || perms['gallery.manage'] === true || perms['announcements.delete'] === true || perms['announcements.edit'] === true;
+      if (!mayDelete) return jsonResponse({ ok: false, error: 'ليست لديك صلاحية حذف الصور.' });
       // لا نحذف إلا ملفات داخل مجلدات الوسائط الخاصة بالموقع
       const f = ensureFolders('', '', '', false);
       const okParents = [f.announcements.getId(), f.gallery.getId(), f.profiles.getId()];
